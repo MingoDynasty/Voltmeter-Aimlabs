@@ -4,15 +4,24 @@ Pull Voltaic VALORANT x Aimlabs benchmark PB scores.
 
 By default, the CLI fetches every configured scenario across Novice,
 Intermediate, and Advanced. Use --difficulty to narrow the run.
+
+When --scenario is used with the default --difficulty all, the matching scenario
+key is fetched for each difficulty where it appears.
 """
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, tzinfo
+from functools import lru_cache
 import json
+import os
 from pathlib import Path
+import re
 import sys
+from tempfile import NamedTemporaryFile
+import time
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from aimlabs_client import fetch_all_scores, fetch_one
 from benchmark_constants import (
@@ -21,15 +30,16 @@ from benchmark_constants import (
     DIFFICULTIES,
     get_scenarios,
 )
-from config import DEFAULT_CONFIG_PATH, ConfigError, load_config
+from config import DEFAULT_CONFIG_PATH, AppConfig, ConfigError, load_config
 from stopwatch import Stopwatch
 from voltaic_benchmarks import (
+    BenchmarkResourceError,
     add_voltaic_metrics,
     calculate_difficulty_overall_rank,
     calculate_subcategory_energy,
 )
 
-PDT_TIMEZONE = timezone(timedelta(hours=-7), "PDT")
+USER_ID_PATTERN = re.compile(r"^[0-9A-F]{16}$")
 
 __all__ = [
     "BENCHMARKS",
@@ -47,6 +57,19 @@ def _code(task_id: Optional[str]) -> str:
     return task_id.rsplit(".", 1)[-1] if task_id else ""
 
 
+@lru_cache(maxsize=1)
+def _local_timezone() -> tzinfo:
+    try:
+        return ZoneInfo("America/Los_Angeles")
+    except ZoneInfoNotFoundError:
+        print(
+            "Warning: America/Los_Angeles timezone data is unavailable; "
+            "timestamps will be shown in UTC.",
+            file=sys.stderr,
+        )
+        return timezone.utc
+
+
 def _format_timestamp(timestamp_text: Optional[str]) -> str:
     if not timestamp_text:
         return "-"
@@ -54,7 +77,7 @@ def _format_timestamp(timestamp_text: Optional[str]) -> str:
         utc_timestamp = datetime.fromisoformat(timestamp_text.replace("Z", "+00:00"))
     except ValueError:
         return timestamp_text
-    local_timestamp = utc_timestamp.astimezone(PDT_TIMEZONE)
+    local_timestamp = utc_timestamp.astimezone(_local_timezone())
     return local_timestamp.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
@@ -64,7 +87,7 @@ def format_table(rows: list[dict]) -> str:
         "Category/Subcategory",
         "Code",
         "PB",
-        "Rank",
+        "Score Rank",
         "Next Rank",
         "Energy",
         "Acc%",
@@ -190,7 +213,7 @@ def format_subcategory_energy_table(rows: list[dict]) -> str:
         return "No subcategory energy available."
 
     headers = ["Category/Subcategory", "Energy", "Source Scenario", "Rank"]
-    lines = []
+    lines: list[str] = []
     summaries_by_difficulty: dict[str, list[dict]] = {}
     for summary in summaries:
         summaries_by_difficulty.setdefault(summary["difficulty"], []).append(summary)
@@ -235,6 +258,22 @@ def _parse_extra_headers(header_texts: list[str]) -> dict:
     return extra_headers
 
 
+def _auth_headers_from_config(app_config: AppConfig) -> dict:
+    session_cookie = os.environ.get("AIMLABS_COOKIE") or app_config.aimlabs_session_cookie
+    if session_cookie:
+        return {"Cookie": session_cookie}
+    return {}
+
+
+def _warn_if_user_id_looks_unusual(user_id: str) -> None:
+    if not USER_ID_PATTERN.fullmatch(user_id):
+        print(
+            "Warning: Aimlabs user id does not match the expected 16-character "
+            "uppercase hex shape. Continuing anyway in case the format changed.",
+            file=sys.stderr,
+        )
+
+
 def _select_scenarios(difficulty: str, scenario_key: Optional[str]) -> list[dict]:
     scenarios = get_scenarios(difficulty)
     if not scenario_key:
@@ -247,7 +286,7 @@ def _select_scenarios(difficulty: str, scenario_key: Optional[str]) -> list[dict
 
 
 def _group_scenarios_by_difficulty(scenarios: list[dict]) -> dict[str, list[dict]]:
-    grouped_scenarios = {difficulty: [] for difficulty in DIFFICULTIES}
+    grouped_scenarios: dict[str, list[dict]] = {difficulty: [] for difficulty in DIFFICULTIES}
     for scenario in scenarios:
         difficulty = scenario["difficulty"]
         grouped_scenarios[difficulty].append(scenario)
@@ -265,6 +304,8 @@ def _fetch_scores_with_timing(
     source: str,
     timeout: float,
     extra_headers: Optional[dict],
+    request_delay: float,
+    deadline_at: Optional[float],
 ) -> list[dict]:
     rows = []
     grouped_scenarios = _group_scenarios_by_difficulty(scenarios)
@@ -277,6 +318,8 @@ def _fetch_scores_with_timing(
             source=source,
             timeout=timeout,
             extra_headers=extra_headers,
+            request_delay=request_delay,
+            deadline_at=deadline_at,
         )
         stopwatch.stop()
 
@@ -288,6 +331,31 @@ def _fetch_scores_with_timing(
         )
         rows.extend(difficulty_rows)
     return rows
+
+
+def _exit_code_for_rows(rows: list[dict]) -> int:
+    if rows and not any(row["ok"] for row in rows):
+        return 1
+    return 0
+
+
+def _write_text_atomic(output_path_text: str, text: str) -> None:
+    output_path = Path(output_path_text)
+    temp_path = None
+    try:
+        with NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=output_path.parent,
+            delete=False,
+        ) as output_file:
+            temp_path = Path(output_file.name)
+            output_file.write(text)
+        os.replace(temp_path, output_path)
+    except Exception:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
+        raise
 
 
 def _print_tables(rows: list[dict]) -> None:
@@ -316,13 +384,38 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="path to config.toml")
     parser.add_argument("--user-id", help="Aimlabs user id; overrides config.toml")
     parser.add_argument("--difficulty", default=DEFAULT_DIFFICULTY, choices=[*DIFFICULTIES, "all"])
-    parser.add_argument("--scenario", help="only this scenario key")
+    parser.add_argument(
+        "--scenario",
+        help=(
+            "only this scenario key; with --difficulty all, fetches every "
+            "difficulty where the key appears"
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
     parser.add_argument("--raw", action="store_true", help="include full entry data blobs in JSON")
     parser.add_argument("--out", help="write JSON to this file")
     parser.add_argument("--source", default="cache")
     parser.add_argument("--timeout", type=float, default=20.0)
-    parser.add_argument("--header", action="append", default=[], help='extra header "Key: Value"')
+    parser.add_argument(
+        "--request-delay",
+        type=float,
+        default=0.25,
+        help="seconds to wait between scenario requests",
+    )
+    parser.add_argument(
+        "--run-deadline",
+        type=float,
+        help="optional max run duration in seconds before remaining requests are skipped",
+    )
+    parser.add_argument(
+        "--header",
+        action="append",
+        default=[],
+        help=(
+            'extra header "Key: Value"; avoid passing secrets here because '
+            "command-line values can be exposed in shell history/process lists"
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -339,34 +432,45 @@ def main(argv: Optional[list[str]] = None) -> int:
             file=sys.stderr,
         )
         return 2
+    _warn_if_user_id_looks_unusual(user_id)
 
     try:
         scenarios = _select_scenarios(args.difficulty, args.scenario)
-    except ValueError as error:
+    except (BenchmarkResourceError, ValueError) as error:
         print(error, file=sys.stderr)
         return 2
+
+    extra_headers = _parse_extra_headers(args.header)
+    for header_key, header_value in _auth_headers_from_config(app_config).items():
+        extra_headers.setdefault(header_key, header_value)
+    deadline_at = time.monotonic() + args.run_deadline if args.run_deadline is not None else None
 
     rows = _fetch_scores_with_timing(
         scenarios,
         user_id=user_id,
         source=args.source,
         timeout=args.timeout,
-        extra_headers=_parse_extra_headers(args.header) or None,
+        extra_headers=extra_headers or None,
+        request_delay=args.request_delay,
+        deadline_at=deadline_at,
     )
-    rows = add_voltaic_metrics(rows)
+    try:
+        rows = add_voltaic_metrics(rows)
+    except BenchmarkResourceError as error:
+        print(error, file=sys.stderr)
+        return 2
 
     if args.json or args.out:
         output = json.dumps(_records_for_json(rows, args.raw), indent=2)
         if args.out:
-            with open(args.out, "w", encoding="utf-8") as output_file:
-                output_file.write(output)
+            _write_text_atomic(args.out, output)
             print(f"wrote {args.out}", file=sys.stderr)
         else:
             print(output)
     else:
         _print_tables(rows)
 
-    return 0
+    return _exit_code_for_rows(rows)
 
 
 if __name__ == "__main__":
