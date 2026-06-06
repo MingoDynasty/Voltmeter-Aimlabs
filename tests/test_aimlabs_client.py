@@ -6,17 +6,19 @@ from aimlabs_client import _parse_entry
 
 class AimlabsClientTests(unittest.TestCase):
     def test_parse_entry_valid_data_dict(self) -> None:
-        body_text = json.dumps({
-            "data": {
-                "aimlab": {
-                    "leaderboard": {
-                        "leaderboardEntries": [
-                            {"data": {"score": 123, "accuracy": 99.5}},
-                        ],
+        body_text = json.dumps(
+            {
+                "data": {
+                    "aimlab": {
+                        "leaderboard": {
+                            "leaderboardEntries": [
+                                {"data": {"score": 123, "accuracy": 99.5}},
+                            ],
+                        },
                     },
                 },
-            },
-        })
+            }
+        )
 
         data, error = _parse_entry(body_text)
 
@@ -24,17 +26,19 @@ class AimlabsClientTests(unittest.TestCase):
         self.assertIsNone(error)
 
     def test_parse_entry_valid_stringified_data_blob(self) -> None:
-        body_text = json.dumps({
-            "data": {
-                "aimlab": {
-                    "leaderboard": {
-                        "leaderboardEntries": [
-                            {"data": json.dumps({"score": 456})},
-                        ],
+        body_text = json.dumps(
+            {
+                "data": {
+                    "aimlab": {
+                        "leaderboard": {
+                            "leaderboardEntries": [
+                                {"data": json.dumps({"score": 456})},
+                            ],
+                        },
                     },
                 },
-            },
-        })
+            }
+        )
 
         data, error = _parse_entry(body_text)
 
@@ -54,15 +58,17 @@ class AimlabsClientTests(unittest.TestCase):
         self.assertIn("non-JSON response", error or "")
 
     def test_parse_entry_empty_leaderboard_entries(self) -> None:
-        body_text = json.dumps({
-            "data": {
-                "aimlab": {
-                    "leaderboard": {
-                        "leaderboardEntries": [],
+        body_text = json.dumps(
+            {
+                "data": {
+                    "aimlab": {
+                        "leaderboard": {
+                            "leaderboardEntries": [],
+                        },
                     },
                 },
-            },
-        })
+            }
+        )
 
         data, error = _parse_entry(body_text)
 
@@ -70,17 +76,19 @@ class AimlabsClientTests(unittest.TestCase):
         self.assertIn("no leaderboard entry", error or "")
 
     def test_parse_entry_bad_stringified_data_blob(self) -> None:
-        body_text = json.dumps({
-            "data": {
-                "aimlab": {
-                    "leaderboard": {
-                        "leaderboardEntries": [
-                            {"data": "{not json"},
-                        ],
+        body_text = json.dumps(
+            {
+                "data": {
+                    "aimlab": {
+                        "leaderboard": {
+                            "leaderboardEntries": [
+                                {"data": "{not json"},
+                            ],
+                        },
                     },
                 },
-            },
-        })
+            }
+        )
 
         data, error = _parse_entry(body_text)
 

@@ -1,4 +1,5 @@
 """Voltaic VALORANT x Aimlabs benchmark scenario metadata."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
@@ -67,8 +68,7 @@ def _lookup_label(labels_by_id: dict[int, str], label_type: str, resource_scenar
     label = labels_by_id.get(label_id)
     if label is None:
         raise ValueError(
-            f"Unknown {label_type}_id {label_id!r} for scenario "
-            f"{resource_scenario.get('name', '<unnamed>')!r}."
+            f"Unknown {label_type}_id {label_id!r} for scenario " f"{resource_scenario.get('name', '<unnamed>')!r}."
         )
     return label
 
@@ -112,8 +112,7 @@ def get_benchmarks() -> dict[str, list[dict]]:
             difficulty = difficulties_by_tier_id.get(tier_id)
             if difficulty is None:
                 raise ValueError(
-                    f"Unknown tier_id {tier_id!r} for scenario "
-                    f"{resource_scenario.get('name', '<unnamed>')!r}."
+                    f"Unknown tier_id {tier_id!r} for scenario " f"{resource_scenario.get('name', '<unnamed>')!r}."
                 )
             benchmarks[difficulty].append(
                 _scenario_record(

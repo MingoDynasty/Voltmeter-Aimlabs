@@ -35,42 +35,44 @@ class AimlabScoresTests(unittest.TestCase):
             aimlab_scores._local_timezone.cache_clear()
 
     def test_format_table_handles_ok_and_error_rows(self) -> None:
-        output = aimlab_scores.format_table([
-            {
-                "ok": True,
-                "name": "Floatshot",
-                "category": "Flick-tech",
-                "sub": "Dynamic",
-                "task_id": "CsLevel.Lowgravity56.VT Float.RSM6A6",
-                "score": 450,
-                "voltaic_rank": "Iron",
-                "next_rank": "Bronze",
-                "next_rank_target_score": 500,
-                "next_rank_progress_percent": 50.0,
-                "voltaic_energy": 150,
-                "accuracy": 99.0,
-                "rank": 123,
-                "ended_at": None,
-                "error": None,
-            },
-            {
-                "ok": False,
-                "name": "Angleshot",
-                "category": "Flick-tech",
-                "sub": "Dynamic",
-                "task_id": "CsLevel.Lowgravity56.VT Angle.ROAHX3",
-                "score": None,
-                "voltaic_rank": None,
-                "next_rank": None,
-                "next_rank_target_score": None,
-                "next_rank_progress_percent": None,
-                "voltaic_energy": None,
-                "accuracy": None,
-                "rank": None,
-                "ended_at": None,
-                "error": "request failed",
-            },
-        ])
+        output = aimlab_scores.format_table(
+            [
+                {
+                    "ok": True,
+                    "name": "Floatshot",
+                    "category": "Flick-tech",
+                    "sub": "Dynamic",
+                    "task_id": "CsLevel.Lowgravity56.VT Float.RSM6A6",
+                    "score": 450,
+                    "voltaic_rank": "Iron",
+                    "next_rank": "Bronze",
+                    "next_rank_target_score": 500,
+                    "next_rank_progress_percent": 50.0,
+                    "voltaic_energy": 150,
+                    "accuracy": 99.0,
+                    "rank": 123,
+                    "ended_at": None,
+                    "error": None,
+                },
+                {
+                    "ok": False,
+                    "name": "Angleshot",
+                    "category": "Flick-tech",
+                    "sub": "Dynamic",
+                    "task_id": "CsLevel.Lowgravity56.VT Angle.ROAHX3",
+                    "score": None,
+                    "voltaic_rank": None,
+                    "next_rank": None,
+                    "next_rank_target_score": None,
+                    "next_rank_progress_percent": None,
+                    "voltaic_energy": None,
+                    "accuracy": None,
+                    "rank": None,
+                    "ended_at": None,
+                    "error": "request failed",
+                },
+            ]
+        )
 
         self.assertIn("50.0% to Bronze (target 500)", output)
         self.assertIn("Score Rank", output)
@@ -91,14 +93,16 @@ class AimlabScoresTests(unittest.TestCase):
         with patch("aimlab_scores._fetch_scores_with_timing", return_value=[failed_row]):
             with patch("sys.stdout", new=io.StringIO()):
                 with patch("sys.stderr", new=io.StringIO()):
-                    exit_code = aimlab_scores.main([
-                        "--user-id",
-                        "ABCDEF1234567890",
-                        "--difficulty",
-                        "novice",
-                        "--scenario",
-                        "floatshot",
-                    ])
+                    exit_code = aimlab_scores.main(
+                        [
+                            "--user-id",
+                            "ABCDEF1234567890",
+                            "--difficulty",
+                            "novice",
+                            "--scenario",
+                            "floatshot",
+                        ]
+                    )
 
         self.assertEqual(exit_code, 1)
 
