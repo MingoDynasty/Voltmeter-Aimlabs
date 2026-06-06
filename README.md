@@ -25,6 +25,39 @@ For now this is source-checkout tooling. Run the CLI from the repository root
 with `python aimlab_scores.py`; packaged/installed distribution is intentionally
 not supported until the bundled benchmark resources are moved into package data.
 
+## Example Output
+
+The CLI prints one table per difficulty, then overall rank and subcategory
+energy summaries. Exact values depend on the configured Aimlabs account and PBs.
+See the [full example output](docs/example_output.log) for a complete run.
+
+```text
+python main.py
+Fetched novice scores in 10.46s (21/21 returned).
+Fetched intermediate scores in 10.50s (21/21 returned).
+Fetched advanced scores in 10.56s (21/21 returned).
+
+=== OVERALL RANK ===
+Difficulty    Overall Rank  Energy  Next Rank                      Subcats
+------------  ------------  ------  -----------------------------  -------
+NOVICE        Gold          488     Max                            8
+INTERMEDIATE  Immortal      843     Max                            8
+ADVANCED      Unranked      853     94.8% to Radiant (energy 900)  8
+
+=== SUBCATEGORY ENERGY BY DIFFICULTY ===
+--- INTERMEDIATE ---
+Category/Subcategory  Energy  Source Scenario    Rank
+--------------------  ------  -----------------  --------
+Flick-tech/Dynamic    826     Angleshot          Immortal
+Flick-tech/Core       825     Fourshot Adaptive  Immortal
+Flick-tech/Reflex     888     Widereflex         Immortal
+Micros/Evasive        829     Angleshot Micro    Immortal
+Micros/Core           802     Micro 2 Sphere     Immortal
+Micros/Reflex         872     Micropace          Immortal
+Stability/Strafe      819     Controlstrafes     Immortal
+Stability/Precise     899     Angle Track        Immortal
+```
+
 ## Ranking Methodology
 
 The tracker follows Voltaic's official benchmark energy model: scenario energy
