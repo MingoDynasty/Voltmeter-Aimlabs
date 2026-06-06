@@ -81,7 +81,7 @@ def _format_timestamp(timestamp_text: Optional[str]) -> str:
     return local_timestamp.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def format_table(rows: list[dict]) -> str:
+def format_table(rows: list[dict]) -> str:  # pylint: disable=too-many-locals
     headers = [
         "Scenario",
         "Category/Subcategory",
@@ -300,7 +300,7 @@ def _group_scenarios_by_difficulty(scenarios: list[dict]) -> dict[str, list[dict
     }
 
 
-def _fetch_scores_with_timing(
+def _fetch_scores_with_timing(  # pylint: disable=too-many-arguments
     scenarios: list[dict],
     *,
     user_id: str,
@@ -355,7 +355,7 @@ def _write_text_atomic(output_path_text: str, text: str) -> None:
             temp_path = Path(output_file.name)
             output_file.write(text)
         os.replace(temp_path, output_path)
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         if temp_path is not None and temp_path.exists():
             temp_path.unlink()
         raise
@@ -388,7 +388,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--difficulty", default=DEFAULT_DIFFICULTY, choices=[*DIFFICULTIES, "all"])
     parser.add_argument(
         "--scenario",
-        help=("only this scenario key; with --difficulty all, fetches every " "difficulty where the key appears"),
+        help="only this scenario key; with --difficulty all, fetches every difficulty where the key appears",
     )
     parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
     parser.add_argument("--raw", action="store_true", help="include full entry data blobs in JSON")

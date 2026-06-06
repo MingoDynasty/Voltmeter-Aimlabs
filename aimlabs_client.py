@@ -38,7 +38,9 @@ BASE_HEADERS = {
 }
 
 
-def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
+def _post_json(  # pylint: disable=import-outside-toplevel
+    url: str, payload: dict, headers: dict, timeout: float
+) -> tuple[int, str]:
     body = json.dumps(payload).encode("utf-8")
     try:
         import requests  # type: ignore
@@ -75,7 +77,7 @@ def _build_payload(user_id: str, scenario: dict, source: str) -> dict:
     }
 
 
-def _parse_entry(body_text: str) -> tuple[Optional[dict], Optional[str]]:
+def _parse_entry(body_text: str) -> tuple[Optional[dict], Optional[str]]:  # pylint: disable=too-many-return-statements
     try:
         payload = json.loads(body_text)
     except json.JSONDecodeError:
@@ -119,7 +121,7 @@ def _result_skeleton(scenario: dict) -> dict:
     }
 
 
-def fetch_one(
+def fetch_one(  # pylint: disable=too-many-arguments,too-many-locals
     scenario: dict,
     user_id: str,
     *,
@@ -143,7 +145,7 @@ def fetch_one(
     for attempt in range(retries + 1):
         try:
             status, text = _post_json(ENDPOINT, payload, headers, timeout)
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             last_error = f"request failed: {error}"
         else:
             if status == 200:
