@@ -23,7 +23,11 @@ from benchmark_constants import (
 )
 from config import DEFAULT_CONFIG_PATH, ConfigError, load_config
 from stopwatch import Stopwatch
-from voltaic_benchmarks import add_voltaic_metrics, calculate_subcategory_energy
+from voltaic_benchmarks import (
+    add_voltaic_metrics,
+    calculate_difficulty_overall_rank,
+    calculate_subcategory_energy,
+)
 
 PDT_TIMEZONE = timezone(timedelta(hours=-7), "PDT")
 
@@ -61,7 +65,7 @@ def format_table(rows: list[dict]) -> str:
         "Code",
         "PB",
         "Rank",
-        "Next Rank %",
+        "Next Rank",
         "Energy",
         "Acc%",
         "LB Rank",
@@ -125,28 +129,30 @@ def _format_energy(energy: Optional[float]) -> str:
 def _format_next_rank_progress(row: dict) -> str:
     progress = row.get("next_rank_progress_percent")
     next_rank = row.get("next_rank")
+    target_score = row.get("next_rank_target_score")
     if not isinstance(progress, (int, float)):
         return "Max" if row.get("voltaic_rank") else "-"
     if next_rank:
+        if isinstance(target_score, (int, float)):
+            return f"{progress:.1f}% to {next_rank} (target {target_score:g})"
         return f"{progress:.1f}% to {next_rank}"
     return f"{progress:.1f}%"
 
 
-def format_subcategory_energy_table(rows: list[dict]) -> str:
-    summaries = calculate_subcategory_energy(rows)
-    if not summaries:
-        return "No subcategory energy available."
+def _format_overall_next_rank(summary: dict) -> str:
+    progress = summary.get("next_rank_progress_percent")
+    next_rank = summary.get("next_rank")
+    next_rank_energy = summary.get("next_rank_energy")
+    if not isinstance(progress, (int, float)):
+        return "Max" if summary.get("rank") and summary["rank"] != "Unranked" else "-"
+    if next_rank:
+        if isinstance(next_rank_energy, (int, float)):
+            return f"{progress:.1f}% to {next_rank} (energy {next_rank_energy:g})"
+        return f"{progress:.1f}% to {next_rank}"
+    return f"{progress:.1f}%"
 
-    headers = ["Category/Subcategory", "Energy", "Source Scenario", "Rank"]
-    table = []
-    for summary in summaries:
-        table.append([
-            f"{summary['category']}/{summary['subcategory']}",
-            _format_energy(summary["energy"]),
-            summary["source_scenario"],
-            summary["rank"] or "-",
-        ])
 
+def _format_grid(headers: list[str], table: list[list[str]]) -> str:
     widths = [len(header) for header in headers]
     for table_row in table:
         for idx, cell in enumerate(table_row):
@@ -157,6 +163,55 @@ def format_subcategory_energy_table(rows: list[dict]) -> str:
 
     lines = [fmt(headers), "  ".join("-" * width for width in widths)]
     lines += [fmt(table_row) for table_row in table]
+    return "\n".join(lines)
+
+
+def _format_overall_rank_table(rows: list[dict]) -> str:
+    summaries = calculate_difficulty_overall_rank(rows)
+    if not summaries:
+        return "No overall rank available."
+
+    headers = ["Difficulty", "Overall Rank", "Energy", "Next Rank", "Subcats"]
+    table = []
+    for summary in summaries:
+        table.append([
+            summary["difficulty"].upper(),
+            summary["rank"] or "-",
+            _format_energy(summary["energy"]),
+            _format_overall_next_rank(summary),
+            str(summary["subcategory_count"]),
+        ])
+    return _format_grid(headers, table)
+
+
+def format_subcategory_energy_table(rows: list[dict]) -> str:
+    summaries = calculate_subcategory_energy(rows)
+    if not summaries:
+        return "No subcategory energy available."
+
+    headers = ["Category/Subcategory", "Energy", "Source Scenario", "Rank"]
+    lines = []
+    summaries_by_difficulty: dict[str, list[dict]] = {}
+    for summary in summaries:
+        summaries_by_difficulty.setdefault(summary["difficulty"], []).append(summary)
+
+    for idx, difficulty in enumerate(DIFFICULTIES):
+        difficulty_summaries = summaries_by_difficulty.get(difficulty)
+        if not difficulty_summaries:
+            continue
+        if idx and lines:
+            lines.append("")
+        lines.append(f"--- {difficulty.upper()} ---")
+        table = []
+        for summary in difficulty_summaries:
+            source_scenario = summary["source_scenario"] or "-"
+            table.append([
+                f"{summary['category']}/{summary['subcategory']}",
+                _format_energy(summary["energy"]),
+                source_scenario,
+                summary["rank"] or "-",
+            ])
+        lines.append(_format_grid(headers, table))
     return "\n".join(lines)
 
 
@@ -248,7 +303,11 @@ def _print_tables(rows: list[dict]) -> None:
         print(format_table(difficulty_rows))
 
     print()
-    print("=== SUBCATEGORY ENERGY ===")
+    print("=== OVERALL RANK ===")
+    print(_format_overall_rank_table(rows))
+
+    print()
+    print("=== SUBCATEGORY ENERGY BY DIFFICULTY ===")
     print(format_subcategory_energy_table(rows))
 
 
