@@ -65,14 +65,14 @@ class VoltaicBenchmarkTests(unittest.TestCase):
 
         summaries = calculate_subcategory_energy(rows)
 
-        summary_keys = {
-            (summary["difficulty"], summary["category"], summary["subcategory"])
-            for summary in summaries
-        }
-        self.assertEqual(summary_keys, {
-            ("novice", "Micros", "Core"),
-            ("advanced", "Micros", "Core"),
-        })
+        summary_keys = {(summary["difficulty"], summary["category"], summary["subcategory"]) for summary in summaries}
+        self.assertEqual(
+            summary_keys,
+            {
+                ("novice", "Micros", "Core"),
+                ("advanced", "Micros", "Core"),
+            },
+        )
 
     def test_overall_rank_uses_harmonic_mean_of_subcategory_energy(self) -> None:
         rows = [

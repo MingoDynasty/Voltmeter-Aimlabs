@@ -8,6 +8,7 @@ Intermediate, and Advanced. Use --difficulty to narrow the run.
 When --scenario is used with the default --difficulty all, the matching scenario
 key is fetched for each difficulty where it appears.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -63,8 +64,7 @@ def _local_timezone() -> tzinfo:
         return ZoneInfo("America/Los_Angeles")
     except ZoneInfoNotFoundError:
         print(
-            "Warning: America/Los_Angeles timezone data is unavailable; "
-            "timestamps will be shown in UTC.",
+            "Warning: America/Los_Angeles timezone data is unavailable; timestamps will be shown in UTC.",
             file=sys.stderr,
         )
         return timezone.utc
@@ -111,19 +111,21 @@ def format_table(rows: list[dict]) -> str:
             voltaic_rank = next_rank_progress = energy = ""
             pb_score = "-"
             error = (row["error"] or "")[:55]
-        table.append([
-            row["name"],
-            f"{row['category']}/{row['sub']}" if row["category"] else "",
-            _code(row["task_id"]),
-            pb_score,
-            voltaic_rank,
-            next_rank_progress,
-            energy,
-            accuracy,
-            rank,
-            timestamp,
-            error,
-        ])
+        table.append(
+            [
+                row["name"],
+                f"{row['category']}/{row['sub']}" if row["category"] else "",
+                _code(row["task_id"]),
+                pb_score,
+                voltaic_rank,
+                next_rank_progress,
+                energy,
+                accuracy,
+                rank,
+                timestamp,
+                error,
+            ]
+        )
 
     widths = [len(header) for header in headers]
     for table_row in table:
@@ -197,13 +199,15 @@ def _format_overall_rank_table(rows: list[dict]) -> str:
     headers = ["Difficulty", "Overall Rank", "Energy", "Next Rank", "Subcats"]
     table = []
     for summary in summaries:
-        table.append([
-            summary["difficulty"].upper(),
-            summary["rank"] or "-",
-            _format_energy(summary["energy"]),
-            _format_overall_next_rank(summary),
-            str(summary["subcategory_count"]),
-        ])
+        table.append(
+            [
+                summary["difficulty"].upper(),
+                summary["rank"] or "-",
+                _format_energy(summary["energy"]),
+                _format_overall_next_rank(summary),
+                str(summary["subcategory_count"]),
+            ]
+        )
     return _format_grid(headers, table)
 
 
@@ -228,12 +232,14 @@ def format_subcategory_energy_table(rows: list[dict]) -> str:
         table = []
         for summary in difficulty_summaries:
             source_scenario = summary["source_scenario"] or "-"
-            table.append([
-                f"{summary['category']}/{summary['subcategory']}",
-                _format_energy(summary["energy"]),
-                source_scenario,
-                summary["rank"] or "-",
-            ])
+            table.append(
+                [
+                    f"{summary['category']}/{summary['subcategory']}",
+                    _format_energy(summary["energy"]),
+                    source_scenario,
+                    summary["rank"] or "-",
+                ]
+            )
         lines.append(_format_grid(headers, table))
     return "\n".join(lines)
 
@@ -241,10 +247,7 @@ def format_subcategory_energy_table(rows: list[dict]) -> str:
 def _records_for_json(rows: list[dict], include_raw: bool) -> list[dict]:
     if include_raw:
         return rows
-    return [
-        {field_name: field_value for field_name, field_value in row.items() if field_name != "raw"}
-        for row in rows
-    ]
+    return [{field_name: field_value for field_name, field_value in row.items() if field_name != "raw"} for row in rows]
 
 
 def _parse_extra_headers(header_texts: list[str]) -> dict:
@@ -360,8 +363,7 @@ def _write_text_atomic(output_path_text: str, text: str) -> None:
 
 def _print_tables(rows: list[dict]) -> None:
     present_difficulties = [
-        difficulty for difficulty in DIFFICULTIES
-        if any(row["difficulty"] == difficulty for row in rows)
+        difficulty for difficulty in DIFFICULTIES if any(row["difficulty"] == difficulty for row in rows)
     ]
     for idx, difficulty in enumerate(present_difficulties):
         difficulty_rows = [row for row in rows if row["difficulty"] == difficulty]
@@ -386,10 +388,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--difficulty", default=DEFAULT_DIFFICULTY, choices=[*DIFFICULTIES, "all"])
     parser.add_argument(
         "--scenario",
-        help=(
-            "only this scenario key; with --difficulty all, fetches every "
-            "difficulty where the key appears"
-        ),
+        help=("only this scenario key; with --difficulty all, fetches every " "difficulty where the key appears"),
     )
     parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
     parser.add_argument("--raw", action="store_true", help="include full entry data blobs in JSON")
@@ -427,8 +426,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     user_id = args.user_id or app_config.aimlabs_user_id
     if not user_id:
         print(
-            "Aimlabs user id is required. Set [aimlabs].user_id in config.toml "
-            "or pass --user-id.",
+            "Aimlabs user id is required. Set [aimlabs].user_id in config.toml or pass --user-id.",
             file=sys.stderr,
         )
         return 2

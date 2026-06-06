@@ -1,4 +1,5 @@
 """Voltaic benchmark resource loading and score evaluation."""
+
 from __future__ import annotations
 
 import json
@@ -47,25 +48,18 @@ def _tier_order() -> tuple[dict, ...]:
 
 @lru_cache(maxsize=1)
 def _tiers_by_difficulty() -> dict[str, dict]:
-    return {
-        tier["name"].lower(): tier
-        for tier in _tier_order()
-    }
+    return {tier["name"].lower(): tier for tier in _tier_order()}
 
 
 @lru_cache(maxsize=1)
 def _tier_index_by_id() -> dict[int, int]:
-    return {
-        tier["id"]: tier_idx
-        for tier_idx, tier in enumerate(_tier_order())
-    }
+    return {tier["id"]: tier_idx for tier_idx, tier in enumerate(_tier_order())}
 
 
 @lru_cache(maxsize=1)
 def _tier_energies() -> tuple[tuple[int, ...], ...]:
     return tuple(
-        tuple(rank["energy_threshold"] for rank in _ranks_by_tier().get(tier["id"], []))
-        for tier in _tier_order()
+        tuple(rank["energy_threshold"] for rank in _ranks_by_tier().get(tier["id"], [])) for tier in _tier_order()
     )
 
 
@@ -93,12 +87,14 @@ def _threshold_entries(resource_scenario: dict) -> list[dict]:
             if threshold_idx >= len(tier_ranks):
                 continue
             rank = tier_ranks[threshold_idx]
-            entries.append({
-                "threshold": threshold,
-                "rank": _title_rank(rank["name"]),
-                "energy": rank["energy_threshold"],
-                "tier_id": tier["tier_id"],
-            })
+            entries.append(
+                {
+                    "threshold": threshold,
+                    "rank": _title_rank(rank["name"]),
+                    "energy": rank["energy_threshold"],
+                    "tier_id": tier["tier_id"],
+                }
+            )
     return sorted(entries, key=lambda entry: entry["energy"])
 
 
@@ -162,8 +158,7 @@ def _uncapped_scenario_energy(score: float, thresholds: list[float], current_tie
 
     score_above_threshold = score - extended_thresholds[reached_idx]
     return (
-        extended_energies[reached_idx]
-        + score_above_threshold / threshold_difference * energy_differences[reached_idx]
+        extended_energies[reached_idx] + score_above_threshold / threshold_difference * energy_differences[reached_idx]
     )
 
 
@@ -355,10 +350,7 @@ def calculate_difficulty_overall_rank(rows: list[dict]) -> list[dict]:
     for summary in subcategory_summaries:
         summaries_by_difficulty.setdefault(summary["difficulty"], []).append(summary)
 
-    difficulty_order = {
-        difficulty: difficulty_idx
-        for difficulty_idx, difficulty in enumerate(_tiers_by_difficulty())
-    }
+    difficulty_order = {difficulty: difficulty_idx for difficulty_idx, difficulty in enumerate(_tiers_by_difficulty())}
     overall_summaries = []
     for difficulty in sorted(
         summaries_by_difficulty,
@@ -366,10 +358,7 @@ def calculate_difficulty_overall_rank(rows: list[dict]) -> list[dict]:
     ):
         summaries = summaries_by_difficulty[difficulty]
         capped_energies = [float(summary["energy"]) for summary in summaries]
-        uncapped_energies = [
-            float(summary.get("uncapped_energy", summary["energy"]))
-            for summary in summaries
-        ]
+        uncapped_energies = [float(summary.get("uncapped_energy", summary["energy"])) for summary in summaries]
         capped_overall_energy = floor(_harmonic_mean(capped_energies))
         uncapped_overall_energy = floor(_harmonic_mean(uncapped_energies))
         max_rank_energy = max(max(tier_energies) for tier_energies in _tier_energies())
@@ -378,14 +367,16 @@ def calculate_difficulty_overall_rank(rows: list[dict]) -> list[dict]:
         else:
             overall_energy = capped_overall_energy
         rank_summary = _rank_summary_for_energy(difficulty, overall_energy)
-        overall_summaries.append({
-            "difficulty": difficulty,
-            "energy": overall_energy,
-            "rank": rank_summary["rank"],
-            "rank_energy": rank_summary["rank_energy"],
-            "next_rank": rank_summary["next_rank"],
-            "next_rank_energy": rank_summary["next_rank_energy"],
-            "next_rank_progress_percent": rank_summary["next_rank_progress_percent"],
-            "subcategory_count": len(summaries),
-        })
+        overall_summaries.append(
+            {
+                "difficulty": difficulty,
+                "energy": overall_energy,
+                "rank": rank_summary["rank"],
+                "rank_energy": rank_summary["rank_energy"],
+                "next_rank": rank_summary["next_rank"],
+                "next_rank_energy": rank_summary["next_rank_energy"],
+                "next_rank_progress_percent": rank_summary["next_rank_progress_percent"],
+                "subcategory_count": len(summaries),
+            }
+        )
     return overall_summaries

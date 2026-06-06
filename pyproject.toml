@@ -15,15 +15,40 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "black>=24.0",
     "mypy>=1.11",
+    "pylint>=3.2",
     "pytest>=8.0",
     "ruff>=0.6",
 ]
 
+[tool.black]
+line-length = 120
+target-version = ["py39"]
+
 [tool.mypy]
 ignore_missing_imports = true
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+    "broad-exception-caught",
+    "import-outside-toplevel",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-return-statements",
+]
+
 [tool.ruff]
+line-length = 120
 target-version = "py39"
 
 [tool.setuptools]

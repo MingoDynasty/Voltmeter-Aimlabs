@@ -1,4 +1,5 @@
 """Aimlabs GraphQL API client helpers."""
+
 from __future__ import annotations
 
 import json
@@ -159,10 +160,7 @@ def fetch_one(
                     return result
                 last_error = parse_error
             elif status == 403:
-                last_error = (
-                    "HTTP 403 -- request rejected. Check local network access "
-                    "or configured Aimlabs auth."
-                )
+                last_error = "HTTP 403 -- request rejected. Check local network access or configured Aimlabs auth."
             else:
                 last_error = f"HTTP {status}: {text[:200]}"
         if attempt < retries:

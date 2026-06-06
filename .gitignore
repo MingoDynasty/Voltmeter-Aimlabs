@@ -2,6 +2,7 @@ config.toml
 .idea/
 __pycache__/
 .mypy_cache/
+.pytest_cache/
 .uv-cache/
 .venv/
 *.egg-info/

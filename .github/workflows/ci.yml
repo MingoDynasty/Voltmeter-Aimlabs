@@ -48,8 +48,31 @@ jobs:
           stopwatch.py
           voltaic_benchmarks.py
 
+      - name: Format check
+        run: >
+          python -m black --check
+          aimlab_scores.py
+          aimlabs_client.py
+          benchmark_constants.py
+          config.py
+          main.py
+          stopwatch.py
+          voltaic_benchmarks.py
+          tests
+
       - name: Lint
         run: python -m ruff check .
 
+      - name: Pylint
+        run: >
+          python -m pylint
+          aimlab_scores.py
+          aimlabs_client.py
+          benchmark_constants.py
+          config.py
+          main.py
+          stopwatch.py
+          voltaic_benchmarks.py
+
       - name: Run tests
-        run: python -m unittest discover -s tests
+        run: python -m pytest
