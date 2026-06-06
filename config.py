@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -15,6 +16,7 @@ class ConfigError(RuntimeError):
 @dataclass(frozen=True)
 class AppConfig:
     aimlabs_user_id: Optional[str] = None
+    aimlabs_session_cookie: Optional[str] = None
 
 
 def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
@@ -29,21 +31,37 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
 
     user_id = aimlabs_config.get("user_id")
     if user_id is None:
-        return AppConfig()
-    if not isinstance(user_id, str):
+        aimlabs_user_id = None
+    elif not isinstance(user_id, str):
         raise ConfigError(f"{resolved_path} [aimlabs].user_id must be a string.")
+    else:
+        aimlabs_user_id = user_id.strip() or None
 
-    return AppConfig(aimlabs_user_id=user_id.strip() or None)
+    session_cookie = aimlabs_config.get("session_cookie")
+    if session_cookie is None:
+        aimlabs_session_cookie = None
+    elif not isinstance(session_cookie, str):
+        raise ConfigError(f"{resolved_path} [aimlabs].session_cookie must be a string.")
+    else:
+        aimlabs_session_cookie = session_cookie.strip() or None
+
+    return AppConfig(
+        aimlabs_user_id=aimlabs_user_id,
+        aimlabs_session_cookie=aimlabs_session_cookie,
+    )
 
 
 def _load_toml(config_path: Path) -> dict[str, Any]:
     try:
-        import tomllib as toml_library
+        toml_library = importlib.import_module("tomllib")
     except ModuleNotFoundError:
         try:
-            import tomli as toml_library
+            toml_library = importlib.import_module("tomli")
         except ModuleNotFoundError:
-            return _load_basic_toml(config_path)
+            raise ConfigError(
+                "TOML support requires Python 3.11+ or the tomli package. "
+                "Install project dependencies, then try again."
+            ) from None
 
     try:
         with config_path.open("rb") as config_file:
@@ -54,39 +72,3 @@ def _load_toml(config_path: Path) -> dict[str, Any]:
     if not isinstance(config_data, dict):
         raise ConfigError(f"{config_path} must contain a TOML table.")
     return config_data
-
-
-def _load_basic_toml(config_path: Path) -> dict[str, Any]:
-    config_data: dict[str, Any] = {}
-    active_section = config_data
-
-    for line_number, raw_line in enumerate(config_path.read_text(encoding="utf-8").splitlines(), start=1):
-        line_text = raw_line.split("#", 1)[0].strip()
-        if not line_text:
-            continue
-
-        if line_text.startswith("[") and line_text.endswith("]"):
-            section_name = line_text[1:-1].strip()
-            if not section_name:
-                raise ConfigError(f"{config_path}:{line_number} has an empty section name.")
-            section_data = config_data.setdefault(section_name, {})
-            if not isinstance(section_data, dict):
-                raise ConfigError(f"{config_path}:{line_number} section conflicts with a value.")
-            active_section = section_data
-            continue
-
-        if "=" not in line_text:
-            raise ConfigError(f"{config_path}:{line_number} expected key = value.")
-        key_text, value_text = line_text.split("=", 1)
-        key_name = key_text.strip()
-        if not key_name:
-            raise ConfigError(f"{config_path}:{line_number} has an empty key.")
-        active_section[key_name] = _parse_basic_toml_value(config_path, line_number, value_text.strip())
-
-    return config_data
-
-
-def _parse_basic_toml_value(config_path: Path, line_number: int, value_text: str) -> str:
-    if len(value_text) >= 2 and value_text[0] == value_text[-1] == '"':
-        return value_text[1:-1]
-    raise ConfigError(f"{config_path}:{line_number} only quoted string values are supported.")

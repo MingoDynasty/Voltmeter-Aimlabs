@@ -1,3 +1,7 @@
 [aimlabs]
 # Copy this file to config.toml, then fill in your Aimlabs user id.
 user_id = ""
+
+# Optional. Prefer this or AIMLABS_COOKIE over passing Cookie via --header,
+# because command-line secrets can be exposed in shell history/process lists.
+session_cookie = ""

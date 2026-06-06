@@ -5,7 +5,7 @@ import json
 import time
 from typing import Optional
 
-from benchmark_constants import DEFAULT_DIFFICULTY, get_scenarios
+from benchmark_constants import DEFAULT_DIFFICULTY, DEFAULT_TASK_MODE, get_scenarios
 
 ENDPOINT = "https://api.aimlab.gg/graphql"
 
@@ -24,8 +24,7 @@ query LeaderboardEntry($leaderboardInput: LeaderboardInput!) {
 }
 """
 
-# Browser-like headers cut the chance of a WAF / anti-bot 403. Add a session
-# cookie or auth via --header "Key: Value" if Aimlabs starts rejecting calls.
+# Aimlabs expects browser-like metadata for these public web-client calls.
 BASE_HEADERS = {
     "Content-Type": "application/json",
     "Accept": "application/json",
@@ -66,7 +65,7 @@ def _build_payload(user_id: str, scenario: dict, source: str) -> dict:
                 "clientId": "aimlab",
                 "taskId": scenario["task_id"],
                 "userId": user_id,
-                "taskMode": scenario.get("task_mode", 42),
+                "taskMode": scenario.get("task_mode", DEFAULT_TASK_MODE),
                 "inputDevice": "MOUSE",
                 "source": source,
                 "weaponId": scenario["weapon_id"],
@@ -100,17 +99,8 @@ def _parse_entry(body_text: str) -> tuple[Optional[dict], Optional[str]]:
     return data, None
 
 
-def fetch_one(
-    scenario: dict,
-    user_id: str,
-    *,
-    source: str = "cache",
-    timeout: float = 20.0,
-    retries: int = 2,
-    extra_headers: Optional[dict] = None,
-) -> dict:
-    """Fetch one scenario PB. Always returns a result dict."""
-    result = {
+def _result_skeleton(scenario: dict) -> dict:
+    return {
         "key": scenario["key"],
         "name": scenario["name"],
         "category": scenario.get("category"),
@@ -123,11 +113,22 @@ def fetch_one(
         "accuracy": None,
         "rank": None,
         "ended_at": None,
-        "target": scenario.get("target"),
-        "gap": None,
         "error": None,
         "raw": None,
     }
+
+
+def fetch_one(
+    scenario: dict,
+    user_id: str,
+    *,
+    source: str = "cache",
+    timeout: float = 20.0,
+    retries: int = 2,
+    extra_headers: Optional[dict] = None,
+) -> dict:
+    """Fetch one scenario PB. Always returns a result dict."""
+    result = _result_skeleton(scenario)
     if not scenario.get("task_id") or not scenario.get("weapon_id"):
         result["error"] = "task_id/weapon_id not filled in"
         return result
@@ -155,15 +156,12 @@ def fetch_one(
                         ended_at=data.get("ended_at"),
                         raw=data,
                     )
-                    target = result["target"]
-                    if isinstance(target, (int, float)) and result["score"] is not None:
-                        result["gap"] = result["score"] - target
                     return result
                 last_error = parse_error
             elif status == 403:
                 last_error = (
-                    "HTTP 403 -- blocked. host_not_allowed => sandbox egress proxy "
-                    "(run locally). Else Aimlabs WAF: add a session cookie via --header."
+                    "HTTP 403 -- request rejected. Check local network access "
+                    "or configured Aimlabs auth."
                 )
             else:
                 last_error = f"HTTP {status}: {text[:200]}"
@@ -179,9 +177,22 @@ def fetch_all_scores(
     scenarios: Optional[list[dict]] = None,
     *,
     difficulty: str = DEFAULT_DIFFICULTY,
+    request_delay: float = 0.25,
+    deadline_at: Optional[float] = None,
     **kwargs,
 ) -> list[dict]:
     """Fetch a list of scenarios, defaulting to all difficulties."""
     if scenarios is None:
         scenarios = get_scenarios(difficulty)
-    return [fetch_one(scenario, user_id, **kwargs) for scenario in scenarios]
+
+    rows = []
+    for scenario_idx, scenario in enumerate(scenarios):
+        if deadline_at is not None and time.monotonic() >= deadline_at:
+            result = _result_skeleton(scenario)
+            result["error"] = "run deadline reached before request"
+            rows.append(result)
+            continue
+        if scenario_idx and request_delay > 0:
+            time.sleep(request_delay)
+        rows.append(fetch_one(scenario, user_id, **kwargs))
+    return rows
