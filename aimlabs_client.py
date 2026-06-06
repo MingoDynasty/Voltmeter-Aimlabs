@@ -1,0 +1,187 @@
+"""Aimlabs GraphQL API client helpers."""
+from __future__ import annotations
+
+import json
+import time
+from typing import Optional
+
+from benchmark_constants import DEFAULT_DIFFICULTY, get_scenarios
+
+ENDPOINT = "https://api.aimlab.gg/graphql"
+
+LEADERBOARD_ENTRY_QUERY = """
+query LeaderboardEntry($leaderboardInput: LeaderboardInput!) {
+  aimlab {
+    leaderboard(input: $leaderboardInput) {
+      leaderboardEntries {
+        data
+        play {
+          gridshieldStatus
+        }
+      }
+    }
+  }
+}
+"""
+
+# Browser-like headers cut the chance of a WAF / anti-bot 403. Add a session
+# cookie or auth via --header "Key: Value" if Aimlabs starts rejecting calls.
+BASE_HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "Origin": "https://app.voltaic.gg",
+    "Referer": "https://app.voltaic.gg/",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+}
+
+
+def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
+    body = json.dumps(payload).encode("utf-8")
+    try:
+        import requests  # type: ignore
+
+        response = requests.post(url, data=body, headers=headers, timeout=timeout)
+        return response.status_code, response.text
+    except ImportError:
+        import urllib.error
+        import urllib.request
+
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return response.getcode(), response.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as error:
+            return error.code, error.read().decode("utf-8", "replace")
+
+
+def _build_payload(user_id: str, scenario: dict, source: str) -> dict:
+    return {
+        "operationName": "LeaderboardEntry",
+        "query": LEADERBOARD_ENTRY_QUERY,
+        "variables": {
+            "leaderboardInput": {
+                "clientId": "aimlab",
+                "taskId": scenario["task_id"],
+                "userId": user_id,
+                "taskMode": scenario.get("task_mode", 42),
+                "inputDevice": "MOUSE",
+                "source": source,
+                "weaponId": scenario["weapon_id"],
+            }
+        },
+    }
+
+
+def _parse_entry(body_text: str) -> tuple[Optional[dict], Optional[str]]:
+    try:
+        payload = json.loads(body_text)
+    except json.JSONDecodeError:
+        return None, f"non-JSON response: {body_text[:200]}"
+    if isinstance(payload, dict) and payload.get("errors"):
+        return None, "graphql error: " + json.dumps(payload["errors"])[:300]
+    try:
+        entries = payload["data"]["aimlab"]["leaderboard"]["leaderboardEntries"]
+    except (KeyError, TypeError):
+        return None, f"unexpected shape: {body_text[:200]}"
+    if not entries:
+        return None, "no leaderboard entry (unplayed, or wrong task/weapon id?)"
+
+    data = entries[0].get("data")
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            return None, "could not parse entry data blob"
+    if not isinstance(data, dict):
+        return None, "entry data missing"
+    return data, None
+
+
+def fetch_one(
+    scenario: dict,
+    user_id: str,
+    *,
+    source: str = "cache",
+    timeout: float = 20.0,
+    retries: int = 2,
+    extra_headers: Optional[dict] = None,
+) -> dict:
+    """Fetch one scenario PB. Always returns a result dict."""
+    result = {
+        "key": scenario["key"],
+        "name": scenario["name"],
+        "category": scenario.get("category"),
+        "sub": scenario.get("sub"),
+        "difficulty": scenario.get("difficulty"),
+        "task_id": scenario.get("task_id"),
+        "weapon_id": scenario.get("weapon_id"),
+        "ok": False,
+        "score": None,
+        "accuracy": None,
+        "rank": None,
+        "ended_at": None,
+        "target": scenario.get("target"),
+        "gap": None,
+        "error": None,
+        "raw": None,
+    }
+    if not scenario.get("task_id") or not scenario.get("weapon_id"):
+        result["error"] = "task_id/weapon_id not filled in"
+        return result
+
+    headers = dict(BASE_HEADERS)
+    if extra_headers:
+        headers.update(extra_headers)
+    payload = _build_payload(user_id, scenario, source)
+
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            status, text = _post_json(ENDPOINT, payload, headers, timeout)
+        except Exception as error:  # noqa: BLE001
+            last_error = f"request failed: {error}"
+        else:
+            if status == 200:
+                data, parse_error = _parse_entry(text)
+                if data:
+                    result.update(
+                        ok=True,
+                        score=data.get("score"),
+                        accuracy=data.get("accuracy"),
+                        rank=data.get("rank"),
+                        ended_at=data.get("ended_at"),
+                        raw=data,
+                    )
+                    target = result["target"]
+                    if isinstance(target, (int, float)) and result["score"] is not None:
+                        result["gap"] = result["score"] - target
+                    return result
+                last_error = parse_error
+            elif status == 403:
+                last_error = (
+                    "HTTP 403 -- blocked. host_not_allowed => sandbox egress proxy "
+                    "(run locally). Else Aimlabs WAF: add a session cookie via --header."
+                )
+            else:
+                last_error = f"HTTP {status}: {text[:200]}"
+        if attempt < retries:
+            time.sleep(1.5 * (attempt + 1))
+
+    result["error"] = last_error
+    return result
+
+
+def fetch_all_scores(
+    user_id: str,
+    scenarios: Optional[list[dict]] = None,
+    *,
+    difficulty: str = DEFAULT_DIFFICULTY,
+    **kwargs,
+) -> list[dict]:
+    """Fetch a list of scenarios, defaulting to all difficulties."""
+    if scenarios is None:
+        scenarios = get_scenarios(difficulty)
+    return [fetch_one(scenario, user_id, **kwargs) for scenario in scenarios]

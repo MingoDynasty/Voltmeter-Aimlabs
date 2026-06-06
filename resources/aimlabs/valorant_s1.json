@@ -1,0 +1,1570 @@
+{
+    "alias": "valorant_s1",
+    "name": "Voltaic Valorant Benchmarks",
+    "season": "1",
+    "description": "The official Voltaic VALORANT Season 1 Benchmarks. These benchmarks are designed to measure the aiming techniques most prevalent in VALORANT and other tacFPS titles and they can be used as a routine to work on both your weaknesses and strengths. The benchmarks give you feasible goals to work towards as well as a clear indication of what skills you need to improve on.",
+    "icon_url": "https://cdn.voltaic.gg/benchmark-icons/val.png",
+    "color": "#fc586f",
+    "author": "Voltaic",
+    "has_leaderboards": true,
+    "is_active": true,
+    "scenarios":
+    [
+        {
+            "id": 123,
+            "name": "VT Floatshot VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        400,
+                        500,
+                        600,
+                        700
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Float.RSM6A6",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2957726985",
+            "subcategory_id": 10
+        },
+        {
+            "id": 124,
+            "name": "VT Angleshot VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        150,
+                        300,
+                        450,
+                        600
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Angle.ROAHX3",
+            "task_mode": 42,
+            "weapon_id": "Custom_Zaclicker",
+            "category_id": 4,
+            "workshop_id": "2916102646",
+            "subcategory_id": 10
+        },
+        {
+            "id": 125,
+            "name": "VT Adjustshot VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        300,
+                        400,
+                        500,
+                        600
+                    ]
+                },
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        750,
+                        850,
+                        950,
+                        1050
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Adjus.RTUQMP",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Clicker3",
+            "category_id": 4,
+            "workshop_id": "2968569658",
+            "subcategory_id": 10
+        },
+        {
+            "id": 144,
+            "name": "VT Floatshot VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        700,
+                        800,
+                        900,
+                        1000
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Float.RSM61S",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2957725595",
+            "subcategory_id": 10
+        },
+        {
+            "id": 145,
+            "name": "VT Angleshot VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        550,
+                        700,
+                        850,
+                        1000
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Angle.ROAHK9",
+            "task_mode": 42,
+            "weapon_id": "Custom_Zaclicker",
+            "category_id": 4,
+            "workshop_id": "2916101159",
+            "subcategory_id": 10
+        },
+        {
+            "id": 160,
+            "name": "VT Floatshot VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        950,
+                        1050,
+                        1150,
+                        1250
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Float.RRKM0A",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2947305768",
+            "subcategory_id": 10
+        },
+        {
+            "id": 161,
+            "name": "VT Angleshot VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        900,
+                        1050,
+                        1200,
+                        1300
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Angle.RO5NQH",
+            "task_mode": 42,
+            "weapon_id": "Custom_Zaclicker",
+            "category_id": 4,
+            "workshop_id": "2914685974",
+            "subcategory_id": 10
+        },
+        {
+            "id": 162,
+            "name": "VT Adjustshot VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        950,
+                        1050,
+                        1150,
+                        1250
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Twosh.RTUOMZ",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Clicker3",
+            "category_id": 4,
+            "workshop_id": "2968568660",
+            "subcategory_id": 10
+        },
+        {
+            "id": 126,
+            "name": "VT DotTS VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        1500,
+                        1700,
+                        1900,
+                        2100
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT DotTS.ROCEI4",
+            "task_mode": 42,
+            "weapon_id": "Custom_3000rpm",
+            "category_id": 4,
+            "workshop_id": "2916577921",
+            "subcategory_id": 11
+        },
+        {
+            "id": 127,
+            "name": "VT Miniphase VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        500,
+                        600,
+                        700,
+                        800
+                    ]
+                },
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        950,
+                        1050,
+                        1150,
+                        1250
+                    ]
+                },
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1300,
+                        1400,
+                        1600,
+                        1700
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Mini .RO6WXU",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Clicker3",
+            "category_id": 4,
+            "workshop_id": "2915275738",
+            "subcategory_id": 11
+        },
+        {
+            "id": 128,
+            "name": "VT Fourshot Adaptive VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        500,
+                        600,
+                        700,
+                        800
+                    ]
+                },
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        925,
+                        1025,
+                        1125,
+                        1225
+                    ]
+                },
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1300,
+                        1375,
+                        1475,
+                        1575
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Fours.RO4LXQ",
+            "task_mode": 42,
+            "weapon_id": "Custom_VTnoADS",
+            "category_id": 4,
+            "workshop_id": "2914526443",
+            "subcategory_id": 11
+        },
+        {
+            "id": 146,
+            "name": "VT DotTS VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        2150,
+                        2350,
+                        2550,
+                        2750
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT DotTS.ROCEC8",
+            "task_mode": 42,
+            "weapon_id": "Custom_3000rpm",
+            "category_id": 4,
+            "workshop_id": "2916576449",
+            "subcategory_id": 11
+        },
+        {
+            "id": 163,
+            "name": "VT DotTS VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        2650,
+                        2800,
+                        3000,
+                        3200
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT DotTS.RO5AHK",
+            "task_mode": 42,
+            "weapon_id": "Custom_3000rpm",
+            "category_id": 4,
+            "workshop_id": "2914585248",
+            "subcategory_id": 11
+        },
+        {
+            "id": 129,
+            "name": "VT 1w1t VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        5000,
+                        5400,
+                        5800,
+                        6200
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT 1w1t .ROCDQR",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2916571665",
+            "subcategory_id": 12
+        },
+        {
+            "id": 130,
+            "name": "VT Widereflex VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        3850,
+                        4400,
+                        4950,
+                        5500
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Wider.ROEHRQ",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2917116181",
+            "subcategory_id": 12
+        },
+        {
+            "id": 147,
+            "name": "VT 1w1t VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        6200,
+                        6600,
+                        7000,
+                        7400
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT 1w1t .ROCDJW",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2916570455",
+            "subcategory_id": 12
+        },
+        {
+            "id": 148,
+            "name": "VT Widereflex VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        5550,
+                        6100,
+                        6650,
+                        7200
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Wider.ROEHBY",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2917112992",
+            "subcategory_id": 12
+        },
+        {
+            "id": 164,
+            "name": "VT 1w1t VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        7250,
+                        7700,
+                        8150,
+                        8600
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT 1w1t .RO5GEB",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2914660443",
+            "subcategory_id": 12
+        },
+        {
+            "id": 165,
+            "name": "VT Widereflex VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        7100,
+                        7650,
+                        8200,
+                        8750
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Angle.ROE3C6",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 4,
+            "workshop_id": "2917064513",
+            "subcategory_id": 12
+        },
+        {
+            "id": 131,
+            "name": "VT Microshot VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        200,
+                        300,
+                        400,
+                        500
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.ROI4IE",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2918165597",
+            "subcategory_id": 13
+        },
+        {
+            "id": 132,
+            "name": "VT Angleshot Micro VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        450,
+                        600,
+                        750,
+                        900
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Angle.ROG6Y1",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2917545229",
+            "subcategory_id": 13
+        },
+        {
+            "id": 133,
+            "name": "VT Skyclick Multi VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        750,
+                        850,
+                        950,
+                        1050
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Skycl.RONRUV",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56MultiV2",
+            "category_id": 5,
+            "workshop_id": "2919716052",
+            "subcategory_id": 13
+        },
+        {
+            "id": 149,
+            "name": "VT Microshot VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        400,
+                        600,
+                        800,
+                        1000
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.ROI47X",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2918163506",
+            "subcategory_id": 13
+        },
+        {
+            "id": 150,
+            "name": "VT Angleshot Micro VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        900,
+                        1050,
+                        1200,
+                        1350
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Angle.ROG6UF",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2917544199",
+            "subcategory_id": 13
+        },
+        {
+            "id": 151,
+            "name": "VT Skyclick Multi VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        950,
+                        1050,
+                        1150,
+                        1250
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Skycl.RONRPF",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56MultiV2",
+            "category_id": 5,
+            "workshop_id": "2919715385",
+            "subcategory_id": 13
+        },
+        {
+            "id": 166,
+            "name": "VT Microshot VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        850,
+                        1050,
+                        1250,
+                        1450
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.ROGGPP",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2917623556",
+            "subcategory_id": 13
+        },
+        {
+            "id": 167,
+            "name": "VT Angleshot Micro VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1325,
+                        1475,
+                        1625,
+                        1725
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Angle.ROG08P",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2917491661",
+            "subcategory_id": 13
+        },
+        {
+            "id": 168,
+            "name": "VT Skyclick Multi VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1125,
+                        1225,
+                        1325,
+                        1425
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.RONNX5",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56MultiV2",
+            "category_id": 5,
+            "workshop_id": "2919696964",
+            "subcategory_id": 13
+        },
+        {
+            "id": 134,
+            "name": "VT Angelic Click VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        20,
+                        40,
+                        60,
+                        80
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.EmpireDeadman.VT Angel.RSOD8J",
+            "task_mode": 42,
+            "weapon_id": "Custom_VTDeadShot",
+            "category_id": 5,
+            "workshop_id": "2958262961",
+            "subcategory_id": 14
+        },
+        {
+            "id": 135,
+            "name": "VT MiniTS VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        50,
+                        65,
+                        80,
+                        95
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT MiniT.RSM77B",
+            "task_mode": 42,
+            "weapon_id": "Custom_rA100HzSetLeaderboar",
+            "category_id": 5,
+            "workshop_id": "2957731292",
+            "subcategory_id": 14
+        },
+        {
+            "id": 136,
+            "name": "VT Micro 2 Sphere VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        650,
+                        800,
+                        950,
+                        1100
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.RSM85K",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Clicker3",
+            "category_id": 5,
+            "workshop_id": "2957736731",
+            "subcategory_id": 14
+        },
+        {
+            "id": 152,
+            "name": "VT Angelic Click VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        75,
+                        95,
+                        115,
+                        135
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.EmpireDeadman.VT Angel.RSOD4F",
+            "task_mode": 42,
+            "weapon_id": "Custom_VTDeadShot",
+            "category_id": 5,
+            "workshop_id": "2958262642",
+            "subcategory_id": 14
+        },
+        {
+            "id": 153,
+            "name": "VT MiniTS VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        95,
+                        105,
+                        115,
+                        125
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT MiniT.RSM6Z5",
+            "task_mode": 42,
+            "weapon_id": "Custom_rA100HzSetLeaderboar",
+            "category_id": 5,
+            "workshop_id": "2957730354",
+            "subcategory_id": 14
+        },
+        {
+            "id": 154,
+            "name": "VT Micro 2 Sphere VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        1100,
+                        1250,
+                        1400,
+                        1550
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.RSM7Y0",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Clicker3",
+            "category_id": 5,
+            "workshop_id": "2957735864",
+            "subcategory_id": 14
+        },
+        {
+            "id": 169,
+            "name": "VT Angelic Click VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        130,
+                        145,
+                        165,
+                        185
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.EmpireDeadman.VT Angel.RRJ0K0",
+            "task_mode": 42,
+            "weapon_id": "Custom_VTDeadShot",
+            "category_id": 5,
+            "workshop_id": "2947004670",
+            "subcategory_id": 14
+        },
+        {
+            "id": 170,
+            "name": "VT MiniTS VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        115,
+                        125,
+                        135,
+                        145
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT MiniT.RRKPVO",
+            "task_mode": 42,
+            "weapon_id": "Custom_rA100hz",
+            "category_id": 5,
+            "workshop_id": "2947340472",
+            "subcategory_id": 14
+        },
+        {
+            "id": 171,
+            "name": "VT Micro 2 Sphere VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1500,
+                        1650,
+                        1800,
+                        1950
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.RRKNSK",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Clicker3",
+            "category_id": 5,
+            "workshop_id": "2947324475",
+            "subcategory_id": 14
+        },
+        {
+            "id": 137,
+            "name": "VT Peekshot VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        2075,
+                        2575,
+                        3075,
+                        3575
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Peeks.ROCNRK",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Click",
+            "category_id": 5,
+            "workshop_id": "2916645283",
+            "subcategory_id": 15
+        },
+        {
+            "id": 138,
+            "name": "VT Micropace VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        925,
+                        975,
+                        1025,
+                        1075
+                    ]
+                },
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        1125,
+                        1175,
+                        1225,
+                        1275
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.RTUMO2",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2968543982",
+            "subcategory_id": 15
+        },
+        {
+            "id": 139,
+            "name": "VT Microcluster VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        400,
+                        500,
+                        600,
+                        700
+                    ]
+                },
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        800,
+                        900,
+                        1000,
+                        1100
+                    ]
+                },
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1200,
+                        1300,
+                        1400,
+                        1500
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.ROLMYC",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Clicker3",
+            "category_id": 5,
+            "workshop_id": "2919205077",
+            "subcategory_id": 15
+        },
+        {
+            "id": 155,
+            "name": "VT Peekshot VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        3575,
+                        4075,
+                        4575,
+                        5075
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Peeks.ROCNDN",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Click",
+            "category_id": 5,
+            "workshop_id": "2916643836",
+            "subcategory_id": 15
+        },
+        {
+            "id": 172,
+            "name": "VT Peekshot VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        4800,
+                        5300,
+                        5800,
+                        6300
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Peeks.ROCEZS",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56Click",
+            "category_id": 5,
+            "workshop_id": "2916584287",
+            "subcategory_id": 15
+        },
+        {
+            "id": 173,
+            "name": "VT Micropace VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1250,
+                        1300,
+                        1350,
+                        1400
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Micro.RTUMYE",
+            "task_mode": 42,
+            "weapon_id": "Custom_LG56CLICKER4",
+            "category_id": 5,
+            "workshop_id": "2968549312",
+            "subcategory_id": 15
+        },
+        {
+            "id": 140,
+            "name": "VT Controlstrafes VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        1600,
+                        2200,
+                        2800,
+                        3400
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Contr.RU7JIR",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper",
+            "category_id": 6,
+            "workshop_id": "2971901519",
+            "subcategory_id": 16
+        },
+        {
+            "id": 141,
+            "name": "VT Peektrack VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        2025,
+                        2175,
+                        2325,
+                        2475
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Peekt.ROLW7A",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper3",
+            "category_id": 6,
+            "workshop_id": "2919266860",
+            "subcategory_id": 16
+        },
+        {
+            "id": 156,
+            "name": "VT Controlstrafes VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        3550,
+                        4150,
+                        4750,
+                        5350
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Contr.RU7INB",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper",
+            "category_id": 6,
+            "workshop_id": "2971899418",
+            "subcategory_id": 16
+        },
+        {
+            "id": 157,
+            "name": "VT Peektrack VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        2475,
+                        2625,
+                        2775,
+                        2925
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Peekt.ROLVU0",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper3",
+            "category_id": 6,
+            "workshop_id": "2919263911",
+            "subcategory_id": 16
+        },
+        {
+            "id": 174,
+            "name": "VT Controlstrafes VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        5100,
+                        5500,
+                        5900,
+                        6300
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Contr.RU7D62",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper",
+            "category_id": 6,
+            "workshop_id": "2971850206",
+            "subcategory_id": 16
+        },
+        {
+            "id": 175,
+            "name": "VT Peektrack VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        2750,
+                        2900,
+                        3050,
+                        3200
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Peekt.ROLS0T",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper3",
+            "category_id": 6,
+            "workshop_id": "2919256184",
+            "subcategory_id": 16
+        },
+        {
+            "id": 142,
+            "name": "VT Angle Track VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        2775,
+                        2975,
+                        3175,
+                        3375
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.EmpireDeadman.VT Angle.RSOCZG",
+            "task_mode": 42,
+            "weapon_id": "Custom_VTDeadTrack",
+            "category_id": 6,
+            "workshop_id": "2958262065",
+            "subcategory_id": 17
+        },
+        {
+            "id": 143,
+            "name": "VT Adjust Track VALORANT Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 2,
+                    "thresholds":
+                    [
+                        1800,
+                        2000,
+                        2200,
+                        2400
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Adjus.ROJF3J",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper",
+            "category_id": 6,
+            "workshop_id": "2918554194",
+            "subcategory_id": 17
+        },
+        {
+            "id": 158,
+            "name": "VT Angle Track VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        3375,
+                        3575,
+                        3775,
+                        3975
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.EmpireDeadman.VT Angle.RSOCTO",
+            "task_mode": 42,
+            "weapon_id": "Custom_VTDeadTrack",
+            "category_id": 6,
+            "workshop_id": "2958261133",
+            "subcategory_id": 17
+        },
+        {
+            "id": 159,
+            "name": "VT Adjust Track VALORANT",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        2400,
+                        2600,
+                        2800,
+                        3000
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Adjus.ROJETY",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper",
+            "category_id": 6,
+            "workshop_id": "2918550774",
+            "subcategory_id": 17
+        },
+        {
+            "id": 176,
+            "name": "VT Angle Track VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        3925,
+                        4150,
+                        4375,
+                        4600
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.EmpireDeadman.VT Angle.RRKPJ5",
+            "task_mode": 42,
+            "weapon_id": "Custom_VTDeadTrack",
+            "category_id": 6,
+            "workshop_id": "2947352988",
+            "subcategory_id": 17
+        },
+        {
+            "id": 177,
+            "name": "VT Adjust Track VALORANT Hard",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        2600,
+                        2800,
+                        3000,
+                        3200
+                    ]
+                }
+            ],
+            "task_id": "CsLevel.Lowgravity56.VT Adjus.ROJCI3",
+            "task_mode": 42,
+            "weapon_id": "Custom_VoltaicZapper",
+            "category_id": 6,
+            "workshop_id": "2918525603",
+            "subcategory_id": 17
+        }
+    ],
+    "tiers":
+    [
+        {
+            "playlist_workshop_id": "3006025005",
+            "id": 2,
+            "name": "Novice",
+            "color": "#37eca6"
+        },
+        {
+            "playlist_workshop_id": "3006026602",
+            "id": 3,
+            "name": "Intermediate",
+            "color": "#ffab54"
+        },
+        {
+            "playlist_workshop_id": "3006023748",
+            "id": 4,
+            "name": "Advanced",
+            "color": "#fc596f"
+        }
+    ],
+    "ranks":
+    [
+        {
+            "name": "iron",
+            "color": "#999999",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/iron.png",
+            "energy_threshold": 100,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/iron.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/iron-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/iron-complete.png"
+        },
+        {
+            "name": "bronze",
+            "color": "#ff9900",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/bronze.png",
+            "energy_threshold": 200,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/bronze.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/bronze-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/bronze-complete.png"
+        },
+        {
+            "name": "silver",
+            "color": "#cbd9e6",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/silver.png",
+            "energy_threshold": 300,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/silver.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/silver-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/silver-complete.png"
+        },
+        {
+            "name": "gold",
+            "color": "#cab148",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/gold.png",
+            "energy_threshold": 400,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/gold.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/gold-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/gold-complete.png"
+        },
+        {
+            "name": "platinum",
+            "color": "#53d4e0",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/platinum.png",
+            "energy_threshold": 500,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/platinum.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/platinum-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/platinum-complete.png"
+        },
+        {
+            "name": "diamond",
+            "color": "#c588f4",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/diamond.png",
+            "energy_threshold": 600,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/diamond.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/diamond-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/diamond-complete.png"
+        },
+        {
+            "name": "ascendant",
+            "color": "#3cb57b",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/ascendant.png",
+            "energy_threshold": 700,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/ascendant.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/ascendant-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/ascendant-complete.png"
+        },
+        {
+            "name": "immortal",
+            "color": "#c0304c",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/immortal.png",
+            "energy_threshold": 800,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/immortal.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/immortal-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/immortal-complete.png"
+        },
+        {
+            "name": "radiant",
+            "color": "#efab41",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/radiant.png",
+            "energy_threshold": 900,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/radiant.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/radiant-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/radiant-complete.png"
+        },
+        {
+            "name": "elysian",
+            "color": "#738cff",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/elysian.png",
+            "energy_threshold": 1000,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/elysian.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/elysian-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/elysian-complete.png"
+        },
+        {
+            "name": "aurora",
+            "color": "#ff68b4",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/aurora.png",
+            "energy_threshold": 1100,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/aurora.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/aurora-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/aurora-complete.png"
+        },
+        {
+            "name": "angelic",
+            "color": "#b8eaff",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/valorant-rank-icons/angelic.png",
+            "energy_threshold": 1200,
+            "icon_url_complex": "https://cdn.voltaic.gg/valorant-rank-icons/angelic.png",
+            "icon_url_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/angelic-complete.png",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/valorant-rank-icons/complete/angelic-complete.png"
+        }
+    ],
+    "categories":
+    [
+        {
+            "id": 4,
+            "name": "flick-tech",
+            "color": "#cc013c",
+            "subcategories":
+            [
+                {
+                    "id": 10,
+                    "name": "dynamic",
+                    "color": "#f1c232"
+                },
+                {
+                    "id": 11,
+                    "name": "core",
+                    "color": "#e06666"
+                },
+                {
+                    "id": 12,
+                    "name": "reflex",
+                    "color": "#a93965"
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "name": "micros",
+            "color": "#17cc93",
+            "subcategories":
+            [
+                {
+                    "id": 13,
+                    "name": "evasive",
+                    "color": "#3c78d8"
+                },
+                {
+                    "id": 14,
+                    "name": "core",
+                    "color": "#1e4d3e"
+                },
+                {
+                    "id": 15,
+                    "name": "reflex",
+                    "color": "#058059"
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "name": "stability",
+            "color": "#528afb",
+            "subcategories":
+            [
+                {
+                    "id": 16,
+                    "name": "strafe",
+                    "color": "#674ea7"
+                },
+                {
+                    "id": 17,
+                    "name": "precise",
+                    "color": "#45818e"
+                }
+            ]
+        }
+    ]
+}

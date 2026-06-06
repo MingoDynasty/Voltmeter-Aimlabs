@@ -1,0 +1,1198 @@
+{
+    "alias": "kovaaks_s5",
+    "name": "Voltaic KovaaK's Benchmarks",
+    "season": "5",
+    "description": "The official Voltaic Season 5 Benchmarks. These benchmarks are designed to measure your overall aiming ability and they can be used as a routine to work on both your weaknesses and strengths. The benchmarks give you feasible goals to work towards. The tasks are divided into 3 main categories: Clicking, Tracking and Switching. These categories are further divided into Static, Linear, Dynamic, Precise, Control, Reactive, Speed, Evasive and Stability.",
+    "icon_url": "https://cdn.voltaic.gg/benchmark-icons/kvks.png",
+    "color": "#ed4800",
+    "author": "Voltaic",
+    "has_leaderboards": true,
+    "is_active": true,
+    "scenarios": [
+        {
+            "id": 1,
+            "name": "VT Pasu Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        555,
+                        660,
+                        745,
+                        800
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98059",
+            "subcategory_id": 1
+        },
+        {
+            "id": 2,
+            "name": "VT Popcorn Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        390,
+                        500,
+                        600,
+                        720
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98285",
+            "subcategory_id": 1
+        },
+        {
+            "id": 19,
+            "name": "VT Pasu Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        770,
+                        850,
+                        930,
+                        980
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98330",
+            "subcategory_id": 1
+        },
+        {
+            "id": 20,
+            "name": "VT Popcorn Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        600,
+                        690,
+                        780,
+                        860
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98333",
+            "subcategory_id": 1
+        },
+        {
+            "id": 37,
+            "name": "VT Pasu Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        910,
+                        1020,
+                        1110,
+                        1240
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98023",
+            "subcategory_id": 1
+        },
+        {
+            "id": 38,
+            "name": "VT Popcorn Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        680,
+                        800,
+                        910,
+                        1020
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98024",
+            "subcategory_id": 1
+        },
+        {
+            "id": 3,
+            "name": "VT 1w4ts Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        820,
+                        915,
+                        1010,
+                        1110
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "103210",
+            "subcategory_id": 2
+        },
+        {
+            "id": 4,
+            "name": "VT ww5t Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        990,
+                        1090,
+                        1190,
+                        1290
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98030",
+            "subcategory_id": 2
+        },
+        {
+            "id": 21,
+            "name": "VT 1w3ts Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        1120,
+                        1220,
+                        1300,
+                        1380
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "103209",
+            "subcategory_id": 2
+        },
+        {
+            "id": 22,
+            "name": "VT ww5t Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        1310,
+                        1400,
+                        1490,
+                        1560
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98029",
+            "subcategory_id": 2
+        },
+        {
+            "id": 39,
+            "name": "VT 1w2ts Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        1320,
+                        1420,
+                        1520,
+                        1620
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98025",
+            "subcategory_id": 2
+        },
+        {
+            "id": 40,
+            "name": "VT ww5t Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        1510,
+                        1610,
+                        1720,
+                        1860
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98026",
+            "subcategory_id": 2
+        },
+        {
+            "id": 5,
+            "name": "VT Frogtagon Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        620,
+                        740,
+                        850,
+                        980
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "106186",
+            "subcategory_id": 7
+        },
+        {
+            "id": 6,
+            "name": "VT Floating Heads Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        375,
+                        460,
+                        540,
+                        640
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98054",
+            "subcategory_id": 7
+        },
+        {
+            "id": 23,
+            "name": "VT Frogtagon Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        940,
+                        1040,
+                        1140,
+                        1230
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "105828",
+            "subcategory_id": 7
+        },
+        {
+            "id": 24,
+            "name": "VT Floating Heads Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        610,
+                        690,
+                        770,
+                        860
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98055",
+            "subcategory_id": 7
+        },
+        {
+            "id": 41,
+            "name": "VT Frogtagon Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        1090,
+                        1220,
+                        1360,
+                        1490
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "105776",
+            "subcategory_id": 7
+        },
+        {
+            "id": 42,
+            "name": "VT Floating Heads Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        740,
+                        830,
+                        920,
+                        1050
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "98012",
+            "subcategory_id": 7
+        },
+        {
+            "id": 7,
+            "name": "VT PGT Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        1900,
+                        2325,
+                        2775,
+                        3050
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98060",
+            "subcategory_id": 3
+        },
+        {
+            "id": 8,
+            "name": "VT Snake Track Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        2400,
+                        2750,
+                        3125,
+                        3425
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "101560",
+            "subcategory_id": 3
+        },
+        {
+            "id": 25,
+            "name": "VT PGT Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        2275,
+                        2675,
+                        3050,
+                        3325
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98331",
+            "subcategory_id": 3
+        },
+        {
+            "id": 26,
+            "name": "VT Snake Track Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        2800,
+                        3175,
+                        3500,
+                        3750
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98045",
+            "subcategory_id": 3
+        },
+        {
+            "id": 43,
+            "name": "VT PGT Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        2750,
+                        3175,
+                        3625,
+                        4050
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98255",
+            "subcategory_id": 3
+        },
+        {
+            "id": 44,
+            "name": "VT Snake Track Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        3050,
+                        3425,
+                        3725,
+                        4050
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98297",
+            "subcategory_id": 3
+        },
+        {
+            "id": 9,
+            "name": "VT Aether Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        1525,
+                        1900,
+                        2250,
+                        2650
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "101370",
+            "subcategory_id": 4
+        },
+        {
+            "id": 10,
+            "name": "VT Ground Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        2100,
+                        2500,
+                        2825,
+                        3100
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "101744",
+            "subcategory_id": 4
+        },
+        {
+            "id": 27,
+            "name": "VT Aether Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        2175,
+                        2550,
+                        2900,
+                        3175
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "101369",
+            "subcategory_id": 4
+        },
+        {
+            "id": 28,
+            "name": "VT Ground Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        2550,
+                        2850,
+                        3100,
+                        3350
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "101743",
+            "subcategory_id": 4
+        },
+        {
+            "id": 45,
+            "name": "VT Aether Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        2750,
+                        3175,
+                        3525,
+                        3825
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "100140",
+            "subcategory_id": 4
+        },
+        {
+            "id": 46,
+            "name": "VT Ground Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        2875,
+                        3200,
+                        3500,
+                        3725
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "100768",
+            "subcategory_id": 4
+        },
+        {
+            "id": 11,
+            "name": "VT Raw Control Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        2125,
+                        2550,
+                        2975,
+                        3450
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98047",
+            "subcategory_id": 8
+        },
+        {
+            "id": 12,
+            "name": "VT Controlsphere Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        1575,
+                        1950,
+                        2400,
+                        2900
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "103765",
+            "subcategory_id": 8
+        },
+        {
+            "id": 29,
+            "name": "VT Raw Control Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        2775,
+                        3200,
+                        3550,
+                        3875
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98048",
+            "subcategory_id": 8
+        },
+        {
+            "id": 30,
+            "name": "VT Controlsphere Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        2750,
+                        3175,
+                        3525,
+                        3825
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "103353",
+            "subcategory_id": 8
+        },
+        {
+            "id": 47,
+            "name": "VT Raw Control Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        3150,
+                        3550,
+                        3875,
+                        4250
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "98253",
+            "subcategory_id": 8
+        },
+        {
+            "id": 48,
+            "name": "VT Controlsphere Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        3100,
+                        3475,
+                        3800,
+                        4125
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "103114",
+            "subcategory_id": 8
+        },
+        {
+            "id": 13,
+            "name": "VT DotTS Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        845,
+                        940,
+                        1030,
+                        1090
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104868",
+            "subcategory_id": 5
+        },
+        {
+            "id": 14,
+            "name": "VT EddieTS Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        640,
+                        730,
+                        810,
+                        890
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104835",
+            "subcategory_id": 5
+        },
+        {
+            "id": 31,
+            "name": "VT DotTS Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        1110,
+                        1180,
+                        1230,
+                        1280
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104865",
+            "subcategory_id": 5
+        },
+        {
+            "id": 32,
+            "name": "VT EddieTS Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        880,
+                        950,
+                        1020,
+                        1080
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "105176",
+            "subcategory_id": 5
+        },
+        {
+            "id": 49,
+            "name": "VT DotTS Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        1280,
+                        1360,
+                        1420,
+                        1500
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104961",
+            "subcategory_id": 5
+        },
+        {
+            "id": 50,
+            "name": "VT EddieTS Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        1020,
+                        1120,
+                        1200,
+                        1280
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104864",
+            "subcategory_id": 5
+        },
+        {
+            "id": 15,
+            "name": "VT DriftTS Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        315,
+                        355,
+                        390,
+                        430
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104862",
+            "subcategory_id": 6
+        },
+        {
+            "id": 16,
+            "name": "VT FlyTS Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        420,
+                        460,
+                        500,
+                        535
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104830",
+            "subcategory_id": 6
+        },
+        {
+            "id": 33,
+            "name": "VT DriftTS Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        390,
+                        430,
+                        460,
+                        490
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104863",
+            "subcategory_id": 6
+        },
+        {
+            "id": 34,
+            "name": "VT FlyTS Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        520,
+                        570,
+                        610,
+                        650
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "105142",
+            "subcategory_id": 6
+        },
+        {
+            "id": 51,
+            "name": "VT DriftTS Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        430,
+                        470,
+                        510,
+                        540
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104866",
+            "subcategory_id": 6
+        },
+        {
+            "id": 52,
+            "name": "VT FlyTS Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        540,
+                        600,
+                        660,
+                        720
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "105143",
+            "subcategory_id": 6
+        },
+        {
+            "id": 17,
+            "name": "VT ControlTS Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        340,
+                        380,
+                        420,
+                        450
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "105132",
+            "subcategory_id": 9
+        },
+        {
+            "id": 18,
+            "name": "VT Penta Bounce Novice S5",
+            "tiers": [
+                {
+                    "tier_id": 2,
+                    "thresholds": [
+                        290,
+                        340,
+                        390,
+                        445
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "103262",
+            "subcategory_id": 9
+        },
+        {
+            "id": 35,
+            "name": "VT ControlTS Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        420,
+                        460,
+                        485,
+                        520
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104890",
+            "subcategory_id": 9
+        },
+        {
+            "id": 36,
+            "name": "VT Penta Bounce Intermediate S5",
+            "tiers": [
+                {
+                    "tier_id": 3,
+                    "thresholds": [
+                        450,
+                        490,
+                        540,
+                        580
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "103261",
+            "subcategory_id": 9
+        },
+        {
+            "id": 53,
+            "name": "VT ControlTS Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        450,
+                        490,
+                        520,
+                        550
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "104833",
+            "subcategory_id": 9
+        },
+        {
+            "id": 54,
+            "name": "VT Penta Bounce Advanced S5",
+            "tiers": [
+                {
+                    "tier_id": 4,
+                    "thresholds": [
+                        530,
+                        580,
+                        630,
+                        670
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "98619",
+            "subcategory_id": 9
+        }
+    ],
+    "tiers": [
+        {
+            "sharecode": "KovaaKsBouncingSilverBinding",
+            "benchmark_api_id": 432,
+            "id": 2,
+            "name": "Novice",
+            "color": "#37eca6"
+        },
+        {
+            "sharecode": "KovaaKsBottingShinyDoor",
+            "benchmark_api_id": 431,
+            "id": 3,
+            "name": "Intermediate",
+            "color": "#ffab54"
+        },
+        {
+            "sharecode": "KovaaKsBobbingSepiaBuff",
+            "benchmark_api_id": 427,
+            "id": 4,
+            "name": "Advanced",
+            "color": "#fc596f"
+        }
+    ],
+    "ranks": [
+        {
+            "name": "iron",
+            "color": "#999999",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_1_Iron.svg",
+            "energy_threshold": 100,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/iron_nbn3tw.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_1_Iron_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/iron-complete_pdsg6p.svg"
+        },
+        {
+            "name": "bronze",
+            "color": "#ff9900",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_2_Bronze.svg",
+            "energy_threshold": 200,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/bronze_zjk7ws.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_2_Bronze_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/bronze-complete_zyvf0g.svg"
+        },
+        {
+            "name": "silver",
+            "color": "#afbfcd",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_3_Silver.svg",
+            "energy_threshold": 300,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/silver_rniwde.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_3_Silver_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/silver-complete_rgpu8h.svg"
+        },
+        {
+            "name": "gold",
+            "color": "#cab148",
+            "tier_id": 2,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_4_Gold.svg",
+            "energy_threshold": 400,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/gold_wbezjr.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_4_Gold_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/gold-complete_k2keat.svg"
+        },
+        {
+            "name": "platinum",
+            "color": "#2fcfc2",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_5_Platinum.svg",
+            "energy_threshold": 500,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/platinum_ed8opn.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_5_Platinum_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/platinum-complete_nzzl2j.svg"
+        },
+        {
+            "name": "diamond",
+            "color": "#88d3e4",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_6_Diamond.svg",
+            "energy_threshold": 600,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/diamond_m7mgg6.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_6_Diamond_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/diamond-complete_tbe6xt.svg"
+        },
+        {
+            "name": "jade",
+            "color": "#85fa85",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_7_Jade.svg",
+            "energy_threshold": 700,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/jade_vk0ymm.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_7_Jade_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/jade-complete_vsmsa9.svg"
+        },
+        {
+            "name": "master",
+            "color": "#ec44ca",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_8_Master.svg",
+            "energy_threshold": 800,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/master_h7mqrx.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_8_Master_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/master-complete_j3akea.svg"
+        },
+        {
+            "name": "grandmaster",
+            "color": "#ffd700",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_9_Grandmaster.svg",
+            "energy_threshold": 900,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/grandmaster_uxldhb.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_9_Grandmaster_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/grandmaster-complete_zfl780.svg"
+        },
+        {
+            "name": "nova",
+            "color": "#BEA0F9",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_10_Nova.svg",
+            "energy_threshold": 1000,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/nova_o0hfir.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_10_Nova_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/nova-complete_a7puhy.svg"
+        },
+        {
+            "name": "astra",
+            "color": "#ff2262",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_11_Astra.svg",
+            "energy_threshold": 1100,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/astra_thmf54.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_11_Astra_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/astra-complete_ambbsr.svg"
+        },
+        {
+            "name": "celestial",
+            "color": "#24ddd8",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_12_Celestial.svg",
+            "energy_threshold": 1200,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/celestial_hs5lc0.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_12_Celestial_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/celestial-complete_nwhvqo.svg"
+        }
+    ],
+    "categories": [
+        {
+            "id": 1,
+            "name": "clicking",
+            "color": "#e53535",
+            "subcategories": [
+                {
+                    "id": 1,
+                    "name": "dynamic",
+                    "color": "#E9C452"
+                },
+                {
+                    "id": 2,
+                    "name": "static",
+                    "color": "#FF5A47"
+                },
+                {
+                    "id": 7,
+                    "name": "linear",
+                    "color": "#ff8a45"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "tracking",
+            "color": "#2663ce",
+            "subcategories": [
+                {
+                    "id": 3,
+                    "name": "precise",
+                    "color": "#61C0E0"
+                },
+                {
+                    "id": 4,
+                    "name": "reactive",
+                    "color": "#8bb7ff"
+                },
+                {
+                    "id": 8,
+                    "name": "control",
+                    "color": "#42a5ff"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "name": "switching",
+            "color": "#7844d9",
+            "subcategories": [
+                {
+                    "id": 5,
+                    "name": "speed",
+                    "color": "#8E6BFF"
+                },
+                {
+                    "id": 6,
+                    "name": "evasive",
+                    "color": "#6B77FF"
+                },
+                {
+                    "id": 9,
+                    "name": "stability",
+                    "color": "#b4a3ff"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,3 @@
+[aimlabs]
+# Copy this file to config.toml, then fill in your Aimlabs user id.
+user_id = ""
