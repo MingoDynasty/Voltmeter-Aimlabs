@@ -1,4 +1,5 @@
 {
+    "url": "https://app.voltaic.gg/api/v1/aimlabs/benchmarks/valorant_s1",
     "alias": "valorant_s1",
     "name": "Voltaic Valorant Benchmarks",
     "season": "1",
