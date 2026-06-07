@@ -1,0 +1,80 @@
+# AGENTS.md
+
+Shared guidance for agents working in this repository.
+
+## Git Identity
+
+Commits made by Codex must use:
+
+- Name: `Codex`
+- Email: `codex@openai.com`
+
+Use per-commit identity overrides by default:
+
+```powershell
+git -c user.name=Codex -c user.email=codex@openai.com commit -m "..."
+```
+
+If a different commit path is used, verify the effective identity first:
+
+```powershell
+git config --show-origin --get user.name
+git config --show-origin --get user.email
+```
+
+Repo-local config is acceptable in a dedicated Codex worktree, but avoid changing shared worktree config unless the user asks for it.
+Do not commit Codex-authored work as the repo owner or the user's global Git identity.
+
+## Git Workflow
+
+- Use one PR per milestone or scoped task.
+- Codex-created branches should use the `codex/` prefix unless the user asks otherwise.
+- The user merges PRs.
+- After a merge, switch to `main`, fast-forward from `origin/main`, delete the merged local branch, and confirm a clean worktree.
+- Before staging, inspect `git status -sb` and stage only files that belong to the current task. Leave unrelated user or tool changes alone.
+
+## Validation
+
+Use the `uv` workflow where possible. Prefer CI-equivalent file scopes or touched-file scopes for tools that do not need to scan the full repo:
+
+```powershell
+uv run pytest
+uv run black --check <CI file list or touched files>
+uv run mypy <CI source file list or touched source files>
+uv run pylint <CI source file list or touched source files>
+uv run ruff check .
+```
+
+Known caveat: full-repo local checks may report existing untouched proof-of-concept noise that CI does not check. Do not fix or format unrelated POC files unless that is explicitly in scope. `ruff check .` is currently full-repo in CI.
+
+## Coding Standards
+
+Follow `CODING_STANDARDS.md`.
+
+Local conventions:
+
+- Avoid single-letter variable names.
+- Use `idx` for indexes.
+- Use singular loop variables for plural iterables, such as `for row in rows`.
+- Prefer focused, synthetic regression tests for edge cases called out in reviews.
+
+## Project Settings
+
+- Python requirement: `>=3.14`.
+- Add new top-level modules to `[tool.setuptools] py-modules` in `pyproject.toml`.
+- Keep fixtures synthetic and sanitized.
+- Never commit real Aimlabs account dumps, local DBs, cookies, tokens, `.env`, or `config.toml`.
+
+## Documentation
+
+- Keep README examples compact and user-facing.
+- For long command output, prefer a short README excerpt linked to a sanitized artifact under `docs/`.
+- Do not reconcile README/config examples for future run-history commands until the milestone that exposes those commands requires it.
+
+## Run-History Pipeline
+
+- Design source of truth: `proof-of-concepts/RUN_HISTORY_ARCHITECTURE.md`.
+- Review checklist: `proof-of-concepts/REVIEW_CHECKLIST.md`.
+- Keep PR scope to the current milestone.
+- Do not silently change settled decisions from the design doc; raise deviations for discussion.
+- Use mock-only/offline tests for history sync behavior. Live data is single-page, so multi-page, crash, retry, and cursor behavior must be synthetic.
