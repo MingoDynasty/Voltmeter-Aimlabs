@@ -144,10 +144,13 @@ the bearer nears expiry, aimlabs.com's backend silently refreshes it (using the
 `offline_access` refresh token it holds) and returns a new one. We never touch
 the token endpoint, the client secret, the refresh token, or the password.
 
-**Why this is the clean, legitimate path** (not a hack): we use the site exactly
-as its own frontend does. No password scripting (which would break on CSRF,
-device checks, MFA), no client secret we don't own, and **no captcha** — the only
-real login happens in a real browser, where Aim Lab handles MFA/captcha itself.
+**Why this is the least-invasive own-account path** (not a hack): we use the site
+exactly as its own frontend does — for the user's own account, with no password
+scripting (which would break on CSRF, device checks, MFA), no client secret we
+don't own, no credential theft, no third-party data access, and **no captcha**
+(the only real login happens in a real browser, where Aim Lab handles MFA/captcha
+itself). It does, however, rely on **undocumented frontend behavior**
+(`/api/auth/session` exposing `accessToken`) that may change — see §9.1.
 
 ### 4.3 Token vs. cookie — lifetimes
 
@@ -180,9 +183,7 @@ is `ok` / `expired` (a session cookie exists but the route rejected it) /
 
 Credentials are read from the environment, optionally seeded from a **`.env`** file by a
 tiny zero-dependency loader (`load_dotenv`) that never overrides an already-exported
-variable. (See §8: `.env` is *not* yet gitignored at the repo root — it is only
-incidentally untracked because `proof-of-concepts/` as a whole is untracked. Fix
-`.gitignore` before this moves into tracked package code.)
+variable. (`.env` is gitignored — see §8.)
 
 ---
 
@@ -264,11 +265,10 @@ Once an `Authorization` header is in hand:
 - **Local-only by design.** The script runs on the user's machine against their
   own account. The session cookie and bearer **never leave the machine**.
 - **Never commit secrets.** They live in `.env`, and `_write_env_var` `chmod 0600`s the
-  file on POSIX. ⚠️ **Reality check:** the repo-root `.gitignore` does *not* currently
-  block `.env`, `*.token`, `*.cookie`, or `*_history.json` — it only lists `config.toml`
-  and cache dirs. `.env` is safe today **only** because `proof-of-concepts/` is untracked
-  wholesale. **Before any of this lands in tracked code, add those patterns (and the
-  SQLite data file) to `.gitignore`** — this is the first task of the package build.
+  file on POSIX. The repo-root `.gitignore` **already blocks** `.env`, `.env.*`, `*.token`,
+  `*.cookie`, `*_history.json`, `config.toml`, and the local data store (`data/`, `*.db`,
+  `*.sqlite*`) — done when the POC was committed. Still: never commit a real populated
+  `.env`, token/cookie, database, or history dump.
 - **The session cookie is the crown jewel** — a ~30-day "logged in as you"
   credential. If it leaks, the remedy is to log out of aimlabs.com (invalidates
   the session) and re-capture.
@@ -292,13 +292,26 @@ Once an `Authorization` header is in hand:
    aimlabs.com reconfigures NextAuth to stop surfacing the token, the script
    **fails loud** (clear "no accessToken … keys seen: […]" error) and you fall
    back to manual bearer capture.
+   - **Observed live (2026-06-06):** the route can return HTTP 200 with
+     `{ accessTokenError: "RefreshAccessTokenError", user, expires }` and **no**
+     `accessToken` — the server-side `offline_access` **refresh token died while
+     the session cookie itself was still valid** (`expires` a month out). This is a
+     **terminal "re-login required"** state, distinct from "cookie expired" and from
+     a transient 5xx. The remedy (verified) is a fresh `--login`. Callers must treat
+     any `accessTokenError` this way and **not** retry-loop. The POC's current
+     message ("session cookie is likely expired/invalid") is misleading here and
+     should name the `RefreshAccessTokenError` case explicitly.
 2. **pywebview `httpOnly` cookie reads are backend-dependent.** Confirmed to work
    on Windows (WebView2). Verify on any new platform; if a backend hides the
    `httpOnly` cookie, `--login` says so explicitly and manual capture remains the
    fallback.
-3. **Token lifetime is ~1h, session ~30 days.** For periodic use, a fresh bearer
-   per run is plenty; a real refresh-token flow was deliberately **not** built
-   (manual/auto re-login on session expiry is enough for a POC).
+3. **Token lifetime is ~1h, session ~30 days — but the two are decoupled.** The
+   cookie's *identity* lifetime (`expires`, ~30d) and its *token-minting* ability
+   (the `offline_access` refresh token) are independent, and the refresh token can
+   die first (see §9.1 above). So "session valid" (cookie not past `expires`) does
+   **not** guarantee "can mint a bearer." For periodic use a fresh bearer per run is
+   plenty; a real refresh-token flow was deliberately **not** built (re-login on
+   `RefreshAccessTokenError`/expiry is enough).
 4. **Sandbox/CI cannot reach `api.aimlab.gg` or `aimlabs.com`.** All live
    validation is local. Logic is covered by mock tests (see §11).
 5. **`TASK_INFO` is seeded with one scenario only** (Adjustshot Intermediate).

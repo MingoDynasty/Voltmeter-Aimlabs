@@ -1,16 +1,21 @@
 # Voltmeter-Aimlabs — Run-History Pipeline: Design
 
-**Status:** Draft for review
+**Status:** Draft for review — **rev 6** (incorporates [`DESIGN_REVIEW.md`](DESIGN_REVIEW.md) + [`DESIGN_REVIEW_v2.md`](DESIGN_REVIEW_v2.md) + [`DESIGN_REVIEW_v3.md`](DESIGN_REVIEW_v3.md) + round-4 & round-5 general findings)
 **Date:** 2026-06-06
 **Author:** MingoDynasty
 **Audience:** senior engineers; one will likely implement this.
-**Scope:** pulling, storing, and analyzing a user's full Aimlabs play history. Sibling to
-[`ARCHITECTURE.md`](ARCHITECTURE.md), which covers **authentication** and is a dependency
-of this design (summarized in §4).
+**Scope:** pulling, storing, and analyzing a user's Aimlabs play history. Sibling to
+[`ARCHITECTURE.md`](ARCHITECTURE.md), which covers **authentication** and is a dependency of
+this design (summarized in §4).
 
-> **Reviewers:** the decisions in §15 and the open questions in §16 are where your input is
-> most valuable. The validation numbers throughout come from the author's own account
-> (N=919 plays, captured 2026-06-06) and are evidence, not universal facts — see §17.
+> **Review status:** three review rounds ([`DESIGN_REVIEW.md`](DESIGN_REVIEW.md),
+> [`DESIGN_REVIEW_v2.md`](DESIGN_REVIEW_v2.md), [`DESIGN_REVIEW_v3.md`](DESIGN_REVIEW_v3.md))
+> are folded in. Points we pushed back on or qualified are in
+> [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) (round 1),
+> [`DESIGN_PUSHBACK_v2.md`](DESIGN_PUSHBACK_v2.md) (round-2 qualifications + the live-validation
+> hedges that informed rev 3), and [`DESIGN_PUSHBACK_v3.md`](DESIGN_PUSHBACK_v3.md) (round-3).
+> Validation numbers come from the author's own account (N=919, 2026-06-06) and are evidence,
+> not universal facts (§17). The §5.1 pre-M1 live validation is **done**.
 
 ---
 
@@ -20,12 +25,12 @@ Voltmeter-Aimlabs is an unofficial progress tracker for **Voltaic** aim-training
 played on **Aimlabs**. Unlike KovaaKs (which writes per-play stats to local files), Aimlabs
 stores all play data server-side, reachable only through its GraphQL API behind a login.
 
-This design adds a **run-history pipeline**: it syncs a user's entire play history into a
-local SQLite store (incrementally, cheap on repeat runs), maps each play to its Voltaic
-scenario, and renders a reverse-chronological runs table plus basic per-scenario stats. It
-is the data layer beneath a future evxl-style rank-progress tracker.
+This design adds a **run-history pipeline**: it syncs the account's **mode-42 play history**
+(see scope, §5.1) into a local SQLite store (incrementally, cheap on repeat runs), maps each
+play to its Voltaic scenario, and renders a reverse-chronological runs table plus basic
+per-scenario stats. It is the data layer beneath a future evxl-style rank-progress tracker.
 
-The core architectural bet (validated live, §5): fetch the **entire account history as one
+The core architectural bet (validated live, §5): fetch the account's mode-42 history as **one
 unfiltered, reverse-chronological stream** and bucket by scenario locally — rather than
 querying scenario-by-scenario.
 
@@ -36,31 +41,36 @@ querying scenario-by-scenario.
 Domain primer for reviewers new to aim trainers:
 
 - **Aimlabs** — an aim-training game. Exposes a GraphQL API at `api.aimlab.gg`.
-- **Voltaic** — an organization that publishes standardized **benchmarks** (curated sets of
-  scenarios with score thresholds that map to skill **ranks**). Voltaic benchmarks exist for
-  both KovaaKs and Aimlabs. This project targets the **Voltaic × Aimlabs** benchmarks.
-- **Scenario / task** — one drill (e.g. "Adjustshot"). Identified by a stable string
+- **Voltaic** — an organization publishing standardized **benchmarks** (curated scenario sets
+  with score thresholds mapping to skill **ranks**), for both KovaaKs and Aimlabs. This
+  project targets the **Voltaic × Aimlabs** benchmarks.
+- **Scenario / task** — one drill (e.g. "Adjustshot"), identified by a stable string
   **`task_id`** like `CsLevel.Lowgravity56.VT Adjus.RTUQMP`.
-- **Play / run** — one attempt at a scenario, yielding a **score** and detailed
-  **`performanceScores`** (accuracy, hits, shots, etc.). Each play has a stable UUID.
+- **Play / run** — one attempt, yielding a **score** and detailed **`performanceScores`**
+  (accuracy, hits, shots, …). Each play has a stable UUID.
+- **Practice run** — a non-benchmark attempt. Aimlabs distinguishes these via `is_practice`
+  on the aggregate query; whether the history query exposes it is a **pre-M1 validation item**
+  (§5.1).
 - **PB** — personal best (max score) on a scenario.
-- **anthicId** — Aimlabs' stable per-account identifier (semi-public; appears in anonymous
-  leaderboard queries). The account key throughout.
+- **anthicId / userId** — Aimlabs' stable per-account identifier. The profile query calls it
+  `anthicId`; the leaderboard query calls it `userId`; **they are the same value** (confirmed).
+  Config: `[aimlabs].user_id` in `config.toml` (AppConfig attr `aimlabs_user_id`); §12,
+  [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #1, [`DESIGN_PUSHBACK_v3.md`](DESIGN_PUSHBACK_v3.md) #2.
 - **gridshield** — Aimlabs' anti-cheat verdict on a play (`APPROVED`, or flagged).
-- **`taskMode`** — a play-mode discriminator. Voltaic benchmark plays are always mode `42`.
-- **Relay cursor** — the GraphQL pagination style the `plays` connection uses
+- **`taskMode`** — a play-mode discriminator. Voltaic benchmark plays are mode `42`.
+- **Relay cursor** — the pagination style the `plays` connection uses
   (`pageInfo.hasNextPage` + `endCursor` → next page's `after`).
-- **evxl** ([evxl.app](https://evxl.app)) — an existing rank-progress tracker for *KovaaKs*.
-  Nothing comparable exists for Aimlabs; this project aims to fill that gap.
-- **Season** — Voltaic revises its benchmark set periodically (S1, S2, S3…). Each season is
-  a separate resource file; **task_ids are minted fresh each season** (§9).
+- **evxl** ([evxl.app](https://evxl.app)) — an existing rank-progress tracker for *KovaaKs*;
+  nothing comparable exists for Aimlabs. This project aims to fill that gap.
+- **Season** — Voltaic revises its benchmark set periodically (S1, S2, S3…). Each season is a
+  separate resource file; **task_ids are minted fresh each season** (§9).
 
 ---
 
 ## 3. Goals & non-goals
 
 **Goals**
-- Sync a single account's complete Aimlabs play history into a local store, incrementally.
+- Sync the configured account's mode-42 play history into a local store, incrementally.
 - Survive large first-time backfills (resumable; auth-refresh-aware).
 - Map plays to Voltaic scenarios via a metadata catalog that improves over time without
   re-fetching plays.
@@ -68,62 +78,120 @@ Domain primer for reviewers new to aim trainers:
   per-scenario rolling stats, computed offline from the store.
 
 **Non-goals (now)**
-- Trend classification / cold-score analysis (the hard, easy-to-get-wrong part — deferred,
-  §10.3).
-- Voltaic energy/rank computation over history (the repo already does this for PBs; layering
-  it onto history is future work, §16).
-- Multi-account *features* (the schema is multi-account-safe, but there's no account-switching
-  UX — §7).
-- A hosted/multi-user service (explicitly out of scope; see auth doc §8 for why).
-- Non-Voltaic scenario support as a first-class product surface (kept in storage, parked in
-  an "other" bucket — §9).
+- Trend classification / cold-score analysis (the hard, easy-to-get-wrong part — §10.3).
+- Voltaic energy/rank computation over history (the repo already does this for PBs; future, §16).
+- Multi-account *features* (schema is multi-account-safe, but no account-switching UX — §7).
+- A hosted/multi-user service (out of scope; auth doc §8 explains why).
+- Non-Voltaic scenarios as a first-class surface (kept in storage, parked in "other" — §9).
 - A packaged/installable distribution (remains source-checkout tooling; §7).
 
 ---
 
-## 4. Dependency: authentication (summary)
+## 4. Dependency: authentication
 
 Full detail in [`ARCHITECTURE.md`](ARCHITECTURE.md). What this pipeline relies on:
 
-- The target query (`aimlabProfile.plays`) is **account-scoped and requires auth**; called
-  anonymously it returns `UNAUTHENTICATED`.
+- The target query (`aimlabProfile.plays`) is **account-scoped and requires auth**; anonymous
+  calls return `UNAUTHENTICATED`.
 - The durable credential is a **NextAuth session cookie** from `aimlabs.com` (~30-day life),
-  stored locally. It is exchanged on demand for a short-lived (~1 h) **bearer token** via
-  `GET aimlabs.com/api/auth/session`, which is then sent to `api.aimlab.gg/graphql`.
-- A `login` command captures the session cookie via an embedded browser (handles MFA/captcha
-  natively). The credential **never leaves the user's machine**.
+  stored locally, exchanged on demand for a short-lived (~1 h) **bearer** via
+  `GET aimlabs.com/api/auth/session`, sent to `api.aimlab.gg/graphql`.
+- A `login` command captures the session cookie via an embedded browser (handles MFA/captcha).
+  The credential **never leaves the machine**.
 
-This design assumes a function `get_bearer() -> str` that returns a fresh bearer (minting a
-new one from the session cookie when needed), and surfaces one new requirement on it:
-**re-mint mid-run on a 401** during long backfills (§8.4).
+> **Decoupled lifetimes (observed live, §17):** the cookie's *identity* lifetime (`expires`,
+> ~30 days) and its *token-minting* ability (the underlying `offline_access` refresh token) are
+> **independent — the refresh token can die first.** When it does, `/api/auth/session` returns
+> HTTP 200 with `{ accessTokenError: "RefreshAccessTokenError", user, expires }` and **no**
+> `accessToken`, even though the cookie still "logs you in." The auth layer must classify this
+> as a distinct, **terminal "re-login required"** state — *not* "cookie expired" (it isn't) and
+> *not* a transient 5xx (it's a 200). The only fix is a fresh `login`. (We do not fully
+> understand what triggers the refresh token's death — it happened ~2 min after a successful
+> mint in testing — which is itself a reason to handle *any* `accessTokenError` this way rather
+> than reason about a lifecycle we don't control. The POC's current message mislabels this as
+> "cookie likely expired" and should be corrected.)
+
+**Production auth policy** (per review blocker #4):
+
+- **`AIMLAB_SESSION` (session cookie) is the canonical credential for `sync`.** A raw bearer
+  (`AIMLAB_TOKEN` / manual `Authorization`) is **debug/short-run only** and is *not* equivalent
+  — long backfills require the session cookie so the **401 re-mint** (§8.4) can work.
+- **`report` and other offline commands never resolve auth, never touch the network, never
+  trigger login** (§10, §11).
+- `sync` may auto-login in an interactive desktop context, but **`--no-login` is the default
+  for any scheduled/unattended run.**
+
+The implementation assumes `get_bearer()` returns a fresh bearer (minting from the session
+cookie as needed) and can **re-mint mid-run on a 401** (§8.4).
 
 ---
 
 ## 5. Key insight: one unfiltered global stream
 
-A naive design queries history **per scenario** (send a `taskId` filter, paginate, repeat
-for every scenario). That is the wrong model here:
+A naive design queries history **per scenario** (send a `taskId` filter, paginate, repeat).
+That is the wrong model:
 
 - You'd need the full list of task_ids up front — but you don't have it. The benchmark
-  resource knows ~55 scenarios; a real account's history spans **far more** (the author's has
-  122 distinct task_ids — practice drills, retired/seasonal variants). A per-scenario sweep
-  silently misses anything not in your list.
-- It means N pagination cursors and N high-water marks to track for incremental sync.
+  resources know ~151 scenarios across seasons; a real account spans more (the author's has
+  122 distinct task_ids — practice/retired/seasonal variants). A per-scenario sweep silently
+  misses anything not in your list.
+- It means N cursors and N high-water marks for incremental sync.
 
-The `aimlabProfile.plays` connection accepts **no `taskId` filter**, returning **every play
-across every scenario** as one Relay-paginated, **reverse-chronological** stream, with
-`task { id }` on each node. So the model is: **paginate one stream, bucket by `node.task.id`
-locally.** One cursor, one high-water mark, and scenario discovery comes from the data.
+The `aimlabProfile.plays` connection accepts **no `taskId` filter**, returning **every play**
+as one Relay-paginated, **reverse-chronological** stream, with `task { id }` per node. So:
+**paginate one stream, bucket by `node.task.id` locally.** One cursor, one high-water mark,
+scenario discovery from the data.
 
-**Validated live** (author's account, 2026-06-06): the unfiltered query returned all **919
-plays** in reverse-chronological order, every node carrying `task.id`, spanning **122 distinct
-task_ids**, all `gridshieldStatus = APPROVED`. The query sends `filter: { mode: 42 }` (Voltaic
-benchmark mode) and selects `task { id }` per node.
+**Validated live** (author's account, 2026-06-06): returned all **919 plays**
+reverse-chronologically, every node carrying `task.id`, spanning **122 task_ids**, all
+`gridshieldStatus = APPROVED`. The query sends `filter: { mode: 42 }` and selects `task { id }`.
 
 > ⚠️ **Do not rely on single-page responses.** At the author's scale the server returned all
-> 919 in one page (no `first` supplied). That is a default cap that happens to exceed 919, not
-> a contract. The implementation **must** send an explicit page size and follow the cursor
-> (§8). Larger accounts will paginate.
+> 919 in one page (no `first` supplied). That is a default cap exceeding 919, not a contract.
+> The implementation **must** send an explicit page size and follow the cursor (§8).
+
+### 5.1 Pre-M1 live-validation checklist
+
+Probed against the live account 2026-06-06 (results in §17). Status:
+
+- [x] **Practice runs — resolved:** the history `Play` node exposes **no** `is_practice`
+  field and `PlayFilterInput` has **no** practice filter (so we cannot tag/exclude practice
+  on the history stream). It doesn't matter: the aggregate endpoint shows
+  `task_mode == 42 & is_practice == true` = **0** and `… == false` = **919** (matching the
+  history `totalCount`). So **`mode: 42` already excludes 100% of practice plays.** Caveat —
+  see contamination check below: this is one account at one time, not a structural guarantee.
+- [x] **Input device — resolved:** `inputDevice`/`input_device`/`deviceType` are **not**
+  exposed on the `Play` node. Per-input-device analysis isn't possible from this stream (would
+  need another source) — treat as a non-goal.
+- [x] **`userId == anthicId`:** confirmed equal — one config key (`[aimlabs].user_id`).
+- [ ] **Cursor expiry — still open (non-blocking):** whether a stored Relay `endCursor`
+  survives between runs is unverified. The M2b **cursor-rejection → top-restart fallback**
+  (§8.2) makes this safe regardless, so it doesn't block M1/M2; confirm opportunistically.
+- [x] **Scale/paging:** single-page at 919 confirmed; **`first` must be ≥ 1** (`first: 0`
+  returns HTTP 500). Server introspection is disabled (no schema dumping).
+
+**Scope decision (final):** sync **all authenticated mode-42 plays for the configured
+account** = the account's benchmark plays. Practice is excluded by the `mode: 42` filter
+(live-verified), so **the `is_practice` column is dropped** and benchmark validity is inferred
+from **catalog membership + `mode == 42`**.
+
+**Practice-contamination safety net (because we can't filter practice on the history stream):**
+since the "mode 42 ⇒ no practice" result is empirical for one account, add a cheap per-sync
+check using the aggregate endpoint (§5.2): `count(user_id, task_mode=42, is_practice=true)` —
+if **> 0**, warn that practice plays have entered the mode-42 stream (they would otherwise
+silently pollute stats, with no per-row way to exclude them). Same drift-signal philosophy as
+the `totalCount` check (§8.3).
+
+### 5.2 A second, complementary endpoint: `plays_agg` (server-side counts)
+
+Probing surfaced a capable aggregate endpoint distinct from the history connection:
+`aimlab.plays_agg(where: AimlabPlayWhere)` returns server-side `count` / `avg` / `max` filtered
+by `user_id`, `task_id`, `task_mode`, and `is_practice` (note: the aggregate's mode field is
+**`task_mode`**, vs the history filter's **`mode`**). It is **not** the sync source (no
+pagination, no per-play rows), but it's a cheap cross-check tool — used for the contamination
+check above, and available for count reconciliation. `aimlab_agg.py` already wraps it. One
+gotcha: its `max{}` aggregate **500s on an empty result set**, so contamination/edge queries
+should select `count` only.
 
 ---
 
@@ -141,56 +209,53 @@ and store logic test offline:
                                           (task_id → metadata, rebuildable)
 ```
 
-Built **into the package** (not left in `proof-of-concepts/`), reusing existing modules.
-Proposed new modules and responsibilities:
+Built **into the package**, reusing existing modules. New modules:
 
 | Module | Responsibility | Depends on | Network? |
 |---|---|---|---|
 | `aimlabs_auth.py` | session→bearer exchange, `login` capture, credential resolution, **401 re-mint** | `config` | yes |
-| `aimlabs_history.py` | build the unfiltered payload, paginate the Relay cursor, parse nodes → play dicts | `aimlabs_client` (HTTP) | yes (via injected client) |
-| `play_store.py` | SQLite schema + migrations, `upsert_plays`, `sync_state` get/set, queries, `totalCount` drift check | stdlib `sqlite3` | no |
-| `history_sync.py` | orchestrates the incremental early-break loop: resumable cursor, 401 re-mint, deletion-drift warning | `aimlabs_auth`, `aimlabs_history`, `play_store` | yes (boundary injected) |
-| `scenario_catalog.py` | union season resources → `task_id → {name, category, sub, difficulty, season}`; rebuildable; resolver interface for a future API source | `voltaic_benchmarks` resources | no |
-| `history_report.py` | offline runs table + basic rolling stats from store + catalog | `play_store`, `scenario_catalog` | no |
+| `aimlabs_history.py` | build the unfiltered payload, paginate, parse nodes → play dicts (stateless) | `aimlabs_client` | yes (via injected client) |
+| `play_store.py` | SQLite schema + migrations, upsert, `sync_state`, queries, drift check | stdlib `sqlite3` | no |
+| `history_sync.py` | orchestrates the sync state machine: early-break, resume, 401 re-mint, backoff, drift | `aimlabs_auth`, `aimlabs_history`, `play_store` | yes (boundary injected) |
+| `scenario_catalog.py` | union season resources → catalog records; rebuildable; resolver interface for a future API source | `voltaic_benchmarks` resources | no |
+| `history_report.py` | offline runs table + basic rolling stats (store-only) | `play_store`, `scenario_catalog` | **no — ever** |
 | `cli.py` (or extend `main.py`) | argparse subcommands: `sync` / `login` / `report` / `refresh-catalog` | all of the above | — |
 
-**Reused as-is:** `aimlabs_client.py` (HTTP/headers/endpoint), `voltaic_benchmarks.py` +
-`benchmark_constants.py` (catalog source, future energy math), `config.py` (extended, §11).
-New modules must be added to `[tool.setuptools] py-modules` in `pyproject.toml` or packaging
-breaks.
+Keep `aimlabs_history.py` **stateless and separate** from `history_sync.py` (per review) so
+pagination/parse logic is trivially testable. **Reused as-is:** `aimlabs_client.py`,
+`voltaic_benchmarks.py` + `benchmark_constants.py`, `config.py` (extended, §11). New modules
+must be added to `[tool.setuptools] py-modules` in `pyproject.toml`.
 
-**Single-writer assumption:** the tool is invoked one process at a time. We rely on SQLite's
-file locking for safety but do not design for concurrent invocations (acceptable for a local
-single-user tool; stated so reviewers don't expect more).
+**Single-writer assumption:** one process at a time. We rely on SQLite file locking but do not
+design for concurrent invocations (fine for a local single-user tool).
 
 ---
 
 ## 7. Data model & storage
 
-**Engine: SQLite, single file.** Stdlib, zero deps, one portable file fitting the local-only
-model. Scales to millions of rows with the index below (a heavy multi-year account is
-~50–100k plays — trivial). The alternative (JSONL) degrades because every analysis re-parses
-the whole file. A DB server (Postgres) is rejected — local-only by design.
+**Engine: SQLite, single file.** Stdlib, zero deps, portable, fits the local-only model;
+scales to millions of rows with the indexes below. JSONL was rejected (re-parses everything);
+a DB server was rejected (local-only).
 
-**Location:** `data/aimlabs.db` (project-relative, gitignored), path overridable in
-`config.toml`. This matches the source-checkout reality. (If packaging ever happens — a
-distant maybe — migrate to an OS user-data dir via `platformdirs`.)
+**Location:** `data/aimlabs.db` (project-relative, gitignored), overridable in `config.toml`.
+Matches the source-checkout reality; an OS user-data dir via `platformdirs` is a distant maybe.
 
-**Account scoping:** single-account *product*, account-stamped *storage*. We expect one
-account per user and offer no account-switching UX, but `account_id` (the stable `anthicId`)
-is on every row from day one — it costs one column, is needed internally anyway (high-water
-mark and the drift check are per-account), and averts a painful migration later.
+**Account scoping:** single-account *product*, account-stamped *storage*. `account_id` (the
+stable anthicId) is on every row — one column, needed internally (per-account high-water mark
+and drift check), and averts a migration if multi-account ever matters.
 
 **Timestamps:** store the API's ISO-8601 UTC string **verbatim** (e.g.
-`2026-06-06T02:43:54.249Z`). That single choice is simultaneously "as-is from the API,"
-"ISO," and an unambiguous UTC instant; it sorts lexicographically (the high-water-mark check
-and the `ended_at DESC` index rely on this) and stays readable. **Never store local/naive
-time.** Timezone is a display/grouping concern only (§10).
+`2026-06-06T02:43:54.249Z`) — simultaneously "as-is," "ISO," and an unambiguous instant; it
+sorts lexicographically (the high-water mark and `ended_at DESC` indexes rely on this).
+**Never store local/naive time.** Timezone is a display concern only (§10).
 
-**Fidelity:** keep `performance_scores` as a raw JSON blob so a future metric needs no
-re-fetch. `mode` and `weapon_id` are intentionally **not** stored — every Voltaic scenario is
-`task_mode` 42 and `task_id → weapon_id` is strictly 1:1 in the catalog, so both are
-derivable from `task_id`.
+**Raw is canonical (per review + [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #6):** every play
+stores its full raw node JSON. Every other column except our two metadata timestamps is a
+**pure projection of `raw`, re-derived whenever `raw` is written** — so "raw wins" is
+structural, not documentary (see §7.1). `mode`, `weapon_id`, and `is_practice` are not stored:
+`task_mode` is always 42; `task_id → weapon_id` is 1:1 in the catalog (both derivable from
+`task_id`); and the history node exposes no practice field — mode 42 already excludes practice
+(§5.1), so an `is_practice` column would be both unpopulatable and unnecessary.
 
 ```sql
 PRAGMA user_version = 1;               -- schema version; bump + migrate on change (§16)
@@ -203,27 +268,65 @@ CREATE TABLE plays (
   score              REAL,
   play_duration      INTEGER,           -- manifest.playDuration (ms)
   pause_duration     INTEGER,
-  gridshield_status  TEXT,              -- APPROVED / flagged / ...
-  performance_scores TEXT,              -- raw JSON, verbatim
-  raw                TEXT,              -- optional: full node JSON, future-proofing
-  fetched_at         TEXT NOT NULL,     -- ISO-8601 UTC; when we ingested it
+  gridshield_status  TEXT,              -- projection of raw (anti-cheat verdict)
+  performance_scores TEXT,              -- projection of raw (parsed JSON)
+  raw                TEXT NOT NULL,     -- full node JSON; CANONICAL — projection re-derived from this
+  first_fetched_at   TEXT NOT NULL,     -- our metadata; set on insert, immutable
+  last_seen_at       TEXT NOT NULL,     -- our metadata; bumped on --full reconcile
   PRIMARY KEY (account_id, id)
 );
-CREATE INDEX idx_plays_acct_task_date ON plays(account_id, task_id, ended_at DESC);
+CREATE INDEX idx_plays_acct_task_date ON plays(account_id, task_id, ended_at DESC); -- per-scenario stats
+CREATE INDEX idx_plays_acct_date      ON plays(account_id, ended_at DESC);          -- global runs table
 
 CREATE TABLE sync_state (
-  account_id         TEXT PRIMARY KEY,  -- stable anthicId
-  resume_cursor      TEXT,              -- Relay endCursor of last page written (resumability)
-  backfill_complete  INTEGER NOT NULL,  -- 0 until the stream has been fully walked once
-  newest_id          TEXT,              -- high-water mark for incremental sync
-  newest_ended_at    TEXT,
-  api_total_count    INTEGER,           -- last totalCount seen; drives drift warning (§8.3)
-  updated_at         TEXT NOT NULL
+  account_id            TEXT PRIMARY KEY,  -- stable anthicId (NEVER a username, §11)
+  resume_cursor         TEXT,              -- Relay endCursor of last committed page (resume)
+  backfill_anchor_id    TEXT,              -- newest id seen when the first backfill began (§8.2)
+  backfill_phase        TEXT NOT NULL,     -- BACKFILLING | TOP_SWEEP | COMPLETE — durable phase (§8.2)
+  newest_id             TEXT,              -- high-water mark for incremental sync
+  newest_ended_at       TEXT,
+  api_total_count       INTEGER,           -- finalized freshest-top totalCount; drives drift signal (§8.1/§8.3)
+  updated_at            TEXT NOT NULL
 );
 ```
 
-The scenario catalog is a separate, rebuildable projection (§9) — it may be a `scenarios`
-table or computed at read time; either way plays never depend on it existing.
+The scenario catalog (§9) is a separate, rebuildable projection — plays never depend on it.
+
+### 7.1 Data mutability & the raw→projection contract (review v2, blocker #1)
+
+`raw` is the single source of truth; every play column except our two metadata timestamps is a
+**pure projection of `raw`, re-derived whenever `raw` is written.** This makes "raw wins"
+structural rather than documentary — there is no path that updates `raw` while leaving a
+projection column stale.
+
+- **Projection columns** (derived from `raw`): `task_id`, `ended_at`, `score`,
+  `performance_scores`, durations, `gridshield_status`.
+- **Our metadata** (not from `raw`): `first_fetched_at` (set on insert, immutable),
+  `last_seen_at` (bumped on `--full`).
+- **Semantic expectation:** the gameplay facts (`score`, `ended_at`, `task_id`, durations,
+  `performance_scores`) are not *expected* to change upstream; `gridshield_status` can.
+  "Expected stable" drives a warning, not a storage rule.
+- **Upsert semantics:**
+  - **Incremental `sync`** = insert-only: `INSERT … ON CONFLICT(account_id, id) DO NOTHING`.
+    Re-seeing a play (e.g. one-page overlap) is a true no-op — nothing changes, not even
+    timestamps — so re-ingesting the same data leaves the store byte-identical.
+  - **`sync --full`** = for each play, **re-derive the full projection from the incoming `raw`**
+    and write `raw` + all projection columns + `last_seen_at = now()`. If a field we expected to
+    be stable changed (e.g. `score`), the re-derive still wins (raw is canonical) and a
+    **visible "field drift" warning** is emitted naming the play + field.
+- **Deterministic projection (per review v3 #3).** Projected JSON/text columns
+  (`performance_scores`, and `raw` itself) must serialize **canonically** — stable key order,
+  compact separators (`json.dumps(obj, sort_keys=True, separators=(",", ":"))`) — so the same
+  logical value always yields the same bytes. Otherwise key-order/whitespace/float-format
+  variance produces **false drift warnings** on `--full` and flaky tests. *(Scope: this matters
+  for the `--full` re-derive/compare path; the incremental no-op never re-serializes, so it's
+  byte-identical by construction. Equivalent alternative: detect drift by comparing **parsed
+  structures**, not serialized strings.)*
+- **Idempotency / drift tests:** incremental ingest twice → byte-identical. `--full` with only
+  `gridshield_status` changed → only that column + `last_seen_at` change. `--full` with
+  `raw.score` or `raw.performanceScores` changed → projection rebuilt deterministically + drift
+  warning. **A fixture where `performance_scores` key order/whitespace varies but the value is
+  equal → no drift** (proves canonical serialization).
 
 ---
 
@@ -231,151 +334,297 @@ table or computed at read time; either way plays never depend on it existing.
 
 ### 8.1 Incremental early-break
 
-Reverse-chronological stream + immutable play `id` ⇒ fetch newest-first, stop once we reach
-already-stored data:
+Reverse-chronological stream + immutable play `id` ⇒ fetch newest-first, stop at known data:
 
 ```
 high_water_id = sync_state.newest_id      # None on first run
+run_top_id = run_top_ended_at = None      # captured from THIS run's first NON-EMPTY page
+run_top_total_count = None                # totalCount as seen at the TOP of this run
 seen_known = False
-for each page (newest → older, following endCursor):
-    for node in page:
-        upsert(node)                      # idempotent; re-seeing a play is a no-op
-        if node.id == high_water_id:
-            seen_known = True
+for page_index, page in enumerate(pages, newest → older, following endCursor):
+    if page and run_top_id is None:       # first row we actually see this run
+        run_top_id, run_top_ended_at = page[0].id, page[0].ended_at
+        run_top_total_count = page.totalCount
+    BEGIN TRANSACTION                     # page-ingest + PROGRESS checkpoint are atomic (§8.2)
+      for node in page: upsert(node)      # INSERT OR IGNORE; re-seeing is a no-op
+      if any node.id == high_water_id: seen_known = True
+      write sync_state(resume_cursor=endCursor, updated_at)   # PROGRESS only — not totals/high-water
+    COMMIT
     if seen_known: break                  # finish the page first, THEN stop
     if not pageInfo.hasNextPage: break
-update sync_state (newest_id, newest_ended_at, api_total_count, backfill_complete)
+
+# Finalize HIGH-WATER + totalCount only after the run completes safely (NOT per page):
+finalize:
+    if run_top_id is not None:            # saw at least one play
+        newest_id, newest_ended_at = run_top_id, run_top_ended_at
+        api_total_count = run_top_total_count
+    # else (empty stream): newest_id = NULL, api_total_count = 0  (see "Empty stream" below)
+    clear resume_cursor; run drift check (§8.3)
+    # backfill_phase transitions (BACKFILLING → TOP_SWEEP → COMPLETE) are owned by §8.2.
+    # An incremental run (already COMPLETE) only updates high-water/totalCount above.
+    # On first backfill, defer high-water/totalCount to the SWEEP's top (§8.2).
 ```
 
-- **Finish the page before breaking** — a page can mix new + cached; breaking on the first
-  cached id mid-page would skip newer plays after it.
-- **Upsert by `(account_id, id)`** — re-seeing a play is a no-op, so a one-page overlap is
-  free insurance and re-runs are always safe (cron-friendly).
+- **`resume_cursor` ≠ `newest_id` ≠ `api_total_count`.** `resume_cursor` is a *progress
+  checkpoint* (written every page). `newest_id` and `api_total_count` are *completed-sync* values
+  **captured from the top of the stream and finalized only at the end** — never written per page.
+  If `newest_id` advanced per page it would drift *downward* and a later run would early-break too
+  early; if `api_total_count` were a stale mid-run page value it would **false-warn** the §8.3
+  drift check once newer plays land (review round-4 #4). Both follow the same rule: *capture at
+  top, finalize from the freshest top observation.*
+- **Empty stream (per review v3 #1).** A new account, or any zero-result state, returns an
+  **empty first page** — the `run_top` capture must guard against indexing `page[0]`. On an
+  empty stream: insert no rows, set `newest_id = NULL`, `newest_ended_at = NULL`,
+  `api_total_count = 0`, set `backfill_phase = COMPLETE`, and the report renders "no runs found."
+  A subsequent run simply starts fresh from the top (high-water is NULL) — cheap, since the
+  stream is empty/small. **`page_size` must be validated `≥ 1`** (`first: 0` returns HTTP 500,
+  §5.1).
+- **Finish the page before breaking** — a page can mix new + cached; breaking mid-page on the
+  first cached id would skip newer plays after it.
 - **Cost is O(new plays)** — a daily sync walks one or two pages and stops.
 
-### 8.2 Resumable backfill
+### 8.2 Resumable backfill & sync state machine (per review blocker #2)
 
-The first backfill of a large account is the only expensive operation (~2,000 pages for
-~100k plays). Checkpoint `resume_cursor` after each written page and set `backfill_complete`
-only when the stream ends. An interrupted first backfill **resumes** from the last page
-instead of restarting.
+The first backfill of a large account (~2,000 pages at 100k plays) is the only expensive op.
 
-### 8.3 Deletion & status drift
+**Durable phase machine (`backfill_phase`, per review round-5 #1).** A boolean `backfill_complete`
+can't tell "still walking old pages" from "old walk done, top sweep not yet run" — both are
+`0` — so a crash between them is ambiguous. Use an explicit, persisted enum with three states:
 
-Per-play *values* are immutable facts — trustworthy forever. Only two things can drift:
+| `backfill_phase` | meaning | a fresh run does |
+|---|---|---|
+| `BACKFILLING` | walking old pages toward the end | resume from `resume_cursor` (§8.1) |
+| `TOP_SWEEP` | old-page walk done; sweep not yet finalized | (re)run the top sweep |
+| `COMPLETE` | steady state | normal incremental sync (§8.1) |
 
-- **Status** (`gridshield_status` flips) — refreshed by an occasional `sync --full`, which
-  walks the whole stream and upserts.
-- **Membership** (a play deleted upstream — not expected from Aimlabs) — **walk-and-upsert
-  does NOT catch this** (a vanished play simply stops appearing; upsert never revisits it).
-  Instead, detect cheaply via **`totalCount` drift**: the API returns `totalCount` per sync,
-  so compare it to the stored count — `stored > totalCount` ⇒ **warn** ("N local plays no
-  longer upstream"). Identifying *which* plays vanished needs a full id set-diff; relegate
-  that to an opt-in `sync --full --show-deleted`. A passive warning is the right
-  effort:value given deletions aren't expected.
+Transitions, each committed in its own transaction so recovery is unambiguous:
 
-### 8.4 Auth refresh & late writes
+- **Start:** first run sets `BACKFILLING` and records `backfill_anchor_id` (the newest id at
+  backfill start) on the first page. Pages commit atomically with their `resume_cursor` checkpoint
+  (a 401/crash before commit just re-fetches that page — idempotent upsert makes it safe).
+- **End of old-page walk → commit `TOP_SWEEP` *before* running the sweep.** This is the durable
+  marker the boolean lacked: a crash here leaves `TOP_SWEEP` persisted, so the next run knows to
+  run the sweep rather than mis-resume old pages.
+- **Top sweep:** sweep from the **top** down to `backfill_anchor_id` — captures plays that arrived
+  *while* the (possibly minutes-long) backfill ran (happens even on an uninterrupted run). The
+  sweep is bounded and idempotent, so re-running it after a crash is safe (no separate checkpoint
+  needed).
+- **Sweep done → commit `COMPLETE`,** finalizing `newest_id`/`newest_ended_at` **and
+  `api_total_count`** to the **sweep's** top-of-stream values (freshest, not a mid-backfill value —
+  review round-4 #4).
+
+Crash recovery is then total: crash in `BACKFILLING` → resume cursor; crash after the old walk
+(or during/after the sweep, before `COMPLETE`) → `TOP_SWEEP` persisted → re-run the idempotent
+sweep. No state is ambiguous.
+
+- **Cursor-invalidation fallback:** if a stored `resume_cursor` is rejected, **restart from the
+  top of the stream** and rely on idempotent upserts to skip already-stored plays — never fail
+  permanently. (Whether cursors actually expire is a §5.1 validation item.)
+- **Page size:** `page_size` (the Relay `first`) defaults to **50**, config-validated to **1–200**
+  (review round-4 #3). Because we follow the cursor, it's a politeness/efficiency knob, not a
+  correctness one: if the server *caps* an over-large `first` and under-delivers, the loop simply
+  continues from `endCursor` (harmless). Only a hard *rejection* of a `first` value matters — the
+  bounded default avoids it; if a future server change rejects it, **halve and retry**.
+
+### 8.3 Drift signals (cheap, per-sync warnings)
+
+Per-play facts are immutable. Three things can drift, each surfaced by a cheap warning:
+
+- **Status** (`gridshield_status` flips) — refreshed by `sync --full`, which walks the stream
+  and re-derives the projection from each play's latest `raw` (§7.1).
+- **Membership** (a play deleted upstream — not expected from Aimlabs). Detect via a **cheap
+  drift signal, not deletion detection** (per review; reasoning corrected in
+  [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #2): compare stored count to the **finalized**
+  `api_total_count` — the freshest top-of-stream value (§8.1/§8.2), *not* a mid-backfill page
+  value, or it false-warns. `stored > api_total_count` ⇒ **warn** ("N local plays no longer
+  upstream"). This is a signal, not proof; precise identification needs a full id set-diff,
+  relegated to opt-in `sync --full --show-deleted`. Right effort:value given deletions aren't
+  expected.
+- **Practice contamination** (we can't filter practice on the history stream, §5.1). Once per
+  sync, query the aggregate endpoint for `count(user_id, task_mode=42, is_practice=true)`
+  (§5.2). It is **0** today (live-verified), but if it ever goes **> 0**, **warn** that practice
+  plays have entered the mode-42 stream and stats may be polluted. Cheap insurance against the
+  "mode 42 ⇒ no practice" assumption being one-account-specific.
+
+### 8.4 Auth refresh, rate limiting & late writes
 
 - **Bearer re-mint on 401:** a long backfill can exceed the ~1 h bearer lifetime. On a 401
   mid-pagination, re-mint from the session cookie (§4) and continue from `resume_cursor`.
-  Daily syncs never hit this.
-- **Late/out-of-order writes:** the algorithm assumes history is append-only and ordering is
-  stable. If ever violated (server backfill, clock skew), `sync --full` is the backstop.
-- **Rate limiting:** add exponential backoff on HTTP 429 before the large-backfill path
-  matters (§16).
+  **Requires session-cookie auth** (a raw bearer can't re-mint). Daily syncs never hit this.
+  **But re-mint can fail terminally:** if the session route returns `RefreshAccessTokenError`
+  (§4), the refresh token is dead and no bearer can be minted — the sync must **stop and surface
+  "re-login required"** (resume state is already checkpointed in `resume_cursor`, so a later run
+  resumes after the user re-logs in), **not** retry-loop. So an unattended backfill can pause on
+  a wall only a human `login` clears.
+- **Rate limiting / transient errors:** exponential backoff on **HTTP 429 and transient 5xx**
+  — this is an **M2 requirement** (the large-backfill path *is* M2), mock-tested (§13).
+- **Late/out-of-order writes:** the algorithm assumes append-only, stable ordering. If violated
+  (server backfill, clock skew), `sync --full` is the backstop.
 
 ---
 
 ## 9. Scenario catalog (metadata projection)
 
-**Principle:** the play store is the source of truth keyed by the stable `task_id`. Mapping
-`task_id → {name, category, sub, difficulty, season}` is a **separate projection that
-improves over time** and must **never require re-fetching plays**. Ingest stores `task_id`
-regardless of whether it can be named yet; "fill in the blanks later" is the normal flow.
+**Principle:** the play store is the source of truth keyed by stable `task_id`. Mapping
+`task_id → metadata` is a **separate projection that improves over time** and must **never
+require re-fetching plays**. Ingest stores `task_id` regardless of whether it can be named yet;
+"fill in the blanks later" is the normal flow.
 
 **Sources** (resolved as a union, behind one interface):
 - **Per-season resource files** `resources/aimlabs/*.json` (`valorant_s1`, `aimlabs_s2`,
   `aimlabs_s3`, future seasons). Identical schema.
-- **A future Aimlabs task-info API** (query metadata by task_id) — would slot in as another
-  source, with a local cache. This is the enabler for non-Voltaic naming (§ scope below).
+- **A future Aimlabs task-info API** (query metadata by task_id) — slots in as another source
+  with a local cache. The enabler for non-Voltaic naming.
+
+**Catalog record fields (per review — these distinguish product surfaces):** the resources are
+*not* one surface, and the metadata to tell them apart is already in the files. Each catalog
+record carries at least:
+
+| field | source | example |
+|---|---|---|
+| `name`, `category`, `sub`, `difficulty` | scenario + tiers | "Adjustshot", Intermediate |
+| `season` | resource `season` | 1 / 2 / 3 |
+| `benchmark_alias` | resource `alias` | `valorant_s1`, `aimlabs_s2` |
+| `benchmark_name` | resource `name` | "Voltaic Valorant Benchmarks" vs "Voltaic Aimlabs Benchmarks" |
+| `family` | derived | `valorant` (S1) vs `aimlabs` (S2/S3) |
+| `is_active`, `has_leaderboards` | resource | (S2 has `has_leaderboards = false`) |
+
+This lets the report choose "VALORANT only", "active only", or "all known Voltaic Aimlabs"
+**without reworking storage** — selected via `config.report_family` (default `all`; see §10.1).
 
 **Scope (Voltaic-first).** The catalog *is* the Voltaic boundary: a resolved `task_id` is a
-tracked Voltaic scenario (the product surface); an unresolved one is a not-yet-loaded season
-or a non-Voltaic scenario, parked in a secondary "other / unclassified" bucket — **kept, not
-dropped** (storage ingests everything; re-fetching dropped plays later is impractical).
+tracked Voltaic scenario (product surface); an unresolved one is a not-yet-loaded season or a
+non-Voltaic scenario, parked in a secondary "other / unclassified" bucket — **kept, not
+dropped**.
 
-**Mechanics.** Don't bake resolved name/difficulty into `plays` — join at read time or keep a
-rebuildable `scenarios` table that `refresh-catalog` recomputes from all current sources.
-**Bucket analyses by exact `task_id`; map to a name only for display — never group by name**
-(distinct variants share a name but not a task_id).
+**Mechanics.** Don't bake resolved metadata into `plays` — join at read time or keep a
+rebuildable `scenarios` table that `refresh-catalog` recomputes from all sources. **Bucket
+analyses by exact `task_id`; map to a name only for display — never group by name** (distinct
+variants share a name but not a task_id). **Duplicate `task_id` across sources** must be handled
+even though current resources have none: prefer newest season, or record all — merge defensively.
 
-**Validation** (author's account, 122 distinct task_ids):
+**Validation** (author's account, 122 task_ids): `s1` resolves 55; `s1+s2+s3` resolves 73
+(+18 from adding two files, **zero re-fetch**); 49 remain unknown (64 plays; low-count
+non-benchmark "…swipe" drills — confirmed **non-practice** (§5.1), just outside the Voltaic
+catalog). **task_ids never collide across seasons**
+(each season mints fresh ids), so the union is conflict-free today and `task_id` identifies the
+season. **Resource surfaces differ:** S1 = "Voltaic Valorant Benchmarks" (`has_leaderboards`
+true), S2 = "Voltaic Aimlabs Benchmarks" (`has_leaderboards` **false**), S3 = "Voltaic Aimlabs
+Benchmarks" (true).
 
-| Catalog sources | resolved |
-|---|---|
-| `s1` only | 55 / 122 |
-| `s1 + s2 + s3` | **73 / 122** (+18 from adding two files — **zero re-fetch**) |
-| still unknown | 49 (64 plays; low-count practice "…swipe" drills) |
-
-Two findings that shape the implementation: **task_ids never collide across seasons** (each
-season mints fresh ids), so the union needs no conflict resolution and `task_id` alone
-identifies the season; and **`task_id → weapon_id` is 1:1** with `task_mode` always 42 across
-all 151 catalog scenarios, so neither needs storing (§7).
-
-**Code note:** `voltaic_benchmarks.py` is currently hardwired to one season
-(`RESOURCE_PATH = …valorant_s1.json`, `load_valorant_s1()`); `scenario_catalog.py` generalizes
-it to a multi-season union. Keep the season-specific **energy/threshold math separate** from
-plain naming — the pipeline only needs name/difficulty.
+**Code note:** `voltaic_benchmarks.py` is hardwired to one season (`load_valorant_s1()`);
+`scenario_catalog.py` generalizes it to a multi-season union. Keep the season-specific
+energy/threshold math **separate** from plain naming.
 
 ---
 
 ## 10. Analysis & presentation
 
-All analysis is a pure function of the store: offline, no network, no auth. Window sizes are
-read-time parameters (tunable without re-fetch).
+All analysis is a **pure function of the store: offline, no network, no auth** — and the
+`report` command must preserve that invariant (§11). Window sizes are read-time parameters.
 
 ### 10.1 Runs table (near-term)
 
 `Date | Scenario | Score | Scenario Stats`, reverse-chronological. "Scenario Stats" = chosen
-`performanceScores` columns (`accTotal`, `hitsTotal`, `shotsTotal`, …); the displayed set
-adapts per scenario since tracking vs clicking drills expose different keys. **Voltaic-scoped
-by default** — features catalog-resolved scenarios; non-Voltaic plays collapse into one
-"other" footer (e.g. "+49 scenarios, 64 plays, untracked"), not interleaved.
+`performanceScores` columns; the displayed set adapts per scenario (tracking vs clicking drills
+expose different keys).
+
+**Default report scope (decided):** governed by `config.report_family`, **default `all`** —
+all known Voltaic Aimlabs benchmarks (S1 VALORANT + S2/S3 Aimlabs). Set
+`report_family = "valorant"` to restrict to the VALORANT benchmark (S1) only. (Chosen because
+the product scope is "Voltaic on Aimlabs" broadly and the S2/S3 resources are loaded; note all
+three resources are `is_active`, so "active" and "all" are identical today.) Plays outside the
+selected families — including non-Voltaic ones — collapse into a single "other" footer
+("+N scenarios, M plays, untracked"), not interleaved.
+
+**Status handling (per review — changed from rev 1):** store all plays, but **stats/PB exclude
+non-APPROVED runs by default**, with a visible note ("3 non-APPROVED runs excluded"). A config/
+flag option includes all statuses for audit. (This is a *progress* tracker — flagged runs
+silently inflating stats would mislead.) Practice runs need no handling here — `mode: 42`
+already excludes them (§5.1); the §8.3 contamination check is the backstop.
+
+**Timezone:** display in **system-local by default**, configurable via `timezone`; reports
+**label the timezone used**. (Stored values stay UTC, §7.)
 
 ### 10.2 Basic rolling stats (near-term)
 
-Per-`task_id`: PB (max), mean/median, rolling median (last 10), rolling max (last 25), date
-range. Grouped by exact `task_id`.
+Per-`task_id`, over APPROVED runs (all mode-42, hence already non-practice — §5.1): PB (max),
+mean/median, rolling median (last 10), rolling max (last 25), date range. Grouped by exact
+`task_id`.
 
 ### 10.3 Trend / cold-score analysis (deferred)
 
-Explicitly out of near-term scope, recorded so it isn't done naively later. Score is
-confounded by cold-vs-warm and session position; a rolling median over last-N *plays* mixes
-cold openers with warm runs. A real "rising/declining/plateau" signal needs session/cold
-detection and a stated threshold (delta-vs-noise or OLS slope with a confidence interval) —
-not a gut read. See §16.
+Out of near-term scope, recorded so it isn't done naively later. Score is confounded by
+cold-vs-warm and session position; a rolling median over last-N plays mixes cold openers with
+warm runs. A real "rising/declining/plateau" signal needs session/cold detection and a stated
+threshold (delta-vs-noise or OLS slope with CI) — not a gut read. See §16.
 
 ---
 
 ## 11. CLI & configuration
 
-**Configuration lives in `config.toml`; the CLI carries only verbs.** A config file describes
-state, not "what to do this run," so a small CLI is required (editing config between runs is
-not scriptable). The current POC's ~18 flags collapse to ~4 subcommands + 2 globals.
+**Configuration lives in `config.toml`; the CLI carries only verbs** (a config file describes
+state, not "what to do this run"). The POC's ~18 flags collapse to ~4 subcommands + 2 globals.
 
 ```
-voltmeter sync              # incremental sync + report — the 90% path
-voltmeter sync --full       # status-refresh reconcile (§8.3); --show-deleted for id diff
-voltmeter login             # capture session cookie -> .env
-voltmeter report            # offline: runs table + stats from the store, no network
+voltmeter sync [--full] [--report] [--no-login] [--session VALUE]
+                            # incremental sync; --full = status reconcile (§8.3, +--show-deleted);
+                            # --report prints a report after; auth flags below
+voltmeter login [--timeout SECONDS]
+                            # the ONLY command that opens the interactive login window -> .env
+voltmeter report            # OFFLINE ONLY: runs table + stats from the store. Never auths/networks/logs in.
 voltmeter refresh-catalog   # rebuild the scenario projection (§9)
    globals: --config PATH, --verbose
 ```
 
-`config.toml` keys (extend `AppConfig`): `anthic_id`, optional `username`, `db_path`,
-`page_size`, `request_delay`, `request_timeout`, `timezone`, rolling-window sizes.
-**Precedence:** defaults < `config.toml` < environment (secret only). No per-knob flag
-overrides unless a concrete need appears. argparse **subcommands** (stdlib, no new dep).
+**`sync` auth flags & defaults (review round-5 #3):**
+- **default:** resolve the credential from `$AIMLAB_SESSION`/`.env`/config; auto-open the login
+  window **only when an interactive desktop is detected** (the POC's `_gui_likely_available`).
+- **`--no-login`:** never open the window — if no valid credential, fail with "run `voltmeter
+  login`". **This is the recommended default for scheduled/unattended runs** (cron, the future
+  headless companion).
+- **`--session VALUE`:** **debug-only** credential override (bypasses `.env`/config; short-run,
+  can't re-mint — §4). Not for normal use.
+
+**Report invariant (per review):** `report` (and `sync --report`'s reporting half) read
+**only** from the store — no network, no auth, no login, ever. Only `sync` does I/O.
+
+`config.toml` extends `AppConfig`, following the existing `[section].key → section_key`
+flattening convention (`config.py` already maps `[aimlabs].user_id → aimlabs_user_id`). **Target
+schema (pin one so implementers don't each choose top-level vs `[aimlabs]` vs `[report]` — review
+round-4 #2):**
+
+```toml
+[aimlabs]
+user_id = "…"                  # -> aimlabs_user_id  (REQUIRED; the stable anthicId == userId)
+# session_cookie = "…"         # -> aimlabs_session_cookie (legacy; prefer AIMLAB_SESSION in .env)
+
+[storage]
+db_path = "data/aimlabs.db"    # -> storage_db_path
+
+[sync]
+page_size = 50                 # -> sync_page_size (validated 1..200, default 50; §8.1/§8.2)
+request_delay_seconds = 0.25   # -> sync_request_delay_seconds
+request_timeout_seconds = 20   # -> sync_request_timeout_seconds
+
+[report]
+family = "all"                 # -> report_family ("all" | "valorant"; default "all", §10.1)
+timezone = "local"             # -> report_timezone ("local" | IANA name, e.g. "America/Los_Angeles")
+rolling_median_window = 10     # -> report_rolling_median_window
+rolling_max_window = 25        # -> report_rolling_max_window
+```
+
+The secret (`AIMLAB_SESSION`) stays **out** of `config.toml` (§12). **Precedence:** defaults <
+`config.toml` < environment (secret only). argparse **subcommands** (stdlib). *(Sectioning is
+adjustable — the point is to commit to one layout; this is the proposed default.)*
+
+**Account id: `user_id` (anthicId) required; `username` is not supported (review round-5 #2).**
+Storage and `sync_state` are keyed by the **stable `account_id` = anthicId** (§7). A `username`
+is *mutable* (a rename would orphan/duplicate rows or repoint state to a different account), so
+rather than carry a "resolve username → anthicId before any write" step and an extra API
+dependency, the pipeline simply **requires the anthicId** (`[aimlabs].user_id`) — same input the
+shipped scores tool already uses. **Never key any row or state by username.** (The
+`aimlabProfile` query still accepts `username`, but the pipeline passes only `anthicId`.)
 
 ---
 
@@ -384,57 +633,88 @@ overrides unless a concrete need appears. argparse **subcommands** (stdlib, no n
 Detail in auth doc §8; pipeline-relevant points:
 
 - **Local-only.** Session cookie and bearer never leave the machine.
-- **Secret ≠ config.** The session cookie's canonical home is the **`AIMLAB_SESSION` env
-  var, seeded from a gitignored `.env`** (`login` writes it and `chmod 600`s it on POSIX).
-  Non-secret identifiers live in `config.toml`. Resolution precedence:
-  `--session` > `$AIMLAB_SESSION` > `.env` > `config.toml` legacy `session_cookie`. The
-  README's `AIMLABS_COOKIE` is unused — drop it.
-- **`.gitignore` (action required, first commit).** The repo-root `.gitignore` currently
-  ignores only `config.toml` + caches — **not** `.env`, `*.token`, `*.cookie`, or the SQLite
-  file. They are safe today only because `proof-of-concepts/` is untracked wholesale. Before
-  any tracked code lands, add those patterns + `data/`.
+- **Secret ≠ config.** The session cookie's canonical home is the **`AIMLAB_SESSION` env var,
+  seeded from a gitignored `.env`** (`login` writes it, `chmod 600` on POSIX). Identifiers live
+  in `config.toml` (`[aimlabs].user_id`). Precedence: `--session` > `$AIMLAB_SESSION` > `.env` >
+  `config.toml` legacy `session_cookie`.
+  - **Note (review v3 #2):** the *pipeline's* auth uses `AIMLAB_SESSION`. The **currently
+    shipped** `aimlab_scores` tool legitimately reads `[aimlabs].session_cookie` and the
+    `AIMLABS_COOKIE` env var (`aimlab_scores.py:265`) — those are **not** dead and must **not**
+    be stripped from the README/`config.example.toml` now. Reconciling the user-facing setup docs
+    onto the unified `AIMLAB_SESSION` scheme is an **M6 task** (when the pipeline replaces/extends
+    that tool), not a pre-implementation edit — see [`DESIGN_PUSHBACK_v3.md`](DESIGN_PUSHBACK_v3.md) #2.
+- **Auth policy** is production-specific — see §4 (session canonical for sync; bearer
+  debug-only; report never auths; `--no-login` default for unattended).
+- **`.gitignore` — DONE.** The repo `.gitignore` now ignores `.env`, `.env.*`, `*.token`,
+  `*.cookie`, `*_history.json`, `data/`, `*.db`, `*.sqlite*`, and `config.toml` (committed with
+  the POC). Reviewers: still never commit a real history dump or a populated `.env`.
 
 ---
 
 ## 13. Testing strategy
 
-Offline, mock-only (matches the repo's existing suites; CI cannot reach Aimlabs). The network
-boundary is injected into `history_sync`/`aimlabs_history` so the interesting logic is
-testable without a live API.
+Offline, mock-only (matches existing suites; CI cannot reach Aimlabs). The network boundary is
+injected into `history_sync`/`aimlabs_history` so the interesting logic tests without a live API.
 
-- **`play_store`:** upsert idempotency (ingest a fixture twice → byte-identical store); schema
-  creation + `user_version`; `totalCount`-drift detection; account scoping.
-- **`history_sync`:** drive a **fake page-fetcher** returning synthetic multi-page responses
-  to cover pagination, finish-page-then-break, one-page overlap, **cursor resume after a
-  simulated interruption**, and the **401 re-mint** path. (Critical: the author's live data is
-  single-page, so multi-page behavior has no real-data coverage and must be mock-tested.)
-- **`scenario_catalog`:** union across small `s1/s2/s3` fixtures; unknown handling; season
-  uniqueness; never-group-by-name.
-- **`history_report`:** rolling median/max correctness on a known fixture; per-`task_id`
-  bucketing; "other" footer.
+- **`play_store`:** incremental upsert idempotency (ingest fixture twice → byte-identical);
+  **`--full` raw→projection re-derive** — only `gridshield_status` changed → only it + `last_seen_at`
+  move; `raw.score` / `raw.performanceScores` changed → projection rebuilt deterministically +
+  drift warning (§7.1); schema + `user_version`; `totalCount` drift signal; account scoping.
+- **`history_sync`:** a **fake page-fetcher** returning synthetic multi-page responses covers
+  pagination, finish-page-then-break, one-page overlap, **resume after interruption**, **new
+  plays arriving mid-backfill** (anchor + top sweep), **401 re-mint**, **`RefreshAccessTokenError`
+  → terminal "re-login required" (no retry-loop, §4/§8.4)**, **429/5xx backoff**, and
+  **cursor-rejection → top restart**. **High-water semantics (§8.1):** a 3-page incremental
+  where pages 2–3 are older → `newest_id` stays page-1's top after completion; a crash after the
+  page-2 checkpoint → resume uses `resume_cursor` but does *not* advance `newest_id` to page 2;
+  a first backfill + top sweep → `newest_id` is the true top **and `api_total_count` is the
+  *sweep's* count (not a mid-backfill value)** only after the sweep (§8.2/round-4 #4).
+  **`backfill_phase` recovery (§8.2/round-5 #1):** crash after the old-page walk but before the
+  sweep → phase persisted as `TOP_SWEEP` → next run runs the sweep (not a mis-resume of old
+  pages); crash *during* the sweep → still `TOP_SWEEP` → re-running the sweep is idempotent;
+  phase flips to `COMPLETE` only after the sweep finalizes. **Empty stream (§8.1):** empty first
+  page → no rows, `newest_id = NULL`, `api_total_count = 0`,
+  backfill marked complete, no index error; plus `page_size < 1` is rejected by config
+  validation. (Live data is single-page, so multi-page behavior has no real-data coverage — it
+  *must* be mock-tested.)
+- **`scenario_catalog`:** union across small `s1/s2/s3` fixtures; product-surface fields;
+  unknown handling; duplicate-`task_id` policy; never-group-by-name.
+- **`history_report`:** rolling median/max correctness; per-`task_id` bucketing; "other" footer;
+  default exclusion of non-APPROVED; `report_family` scoping (default `all` vs `valorant`);
+  **empty store → "no runs found"** renders cleanly (§8.1).
+- **`history_sync` contamination check:** mock the aggregate `count(task_mode=42,
+  is_practice=true)` → `0` (silent) and `>0` (warns) (§8.3).
 - **`aimlabs_auth`:** port the POC's mock tests (session-route exchange, `.env` precedence).
-- **Fixtures must be synthetic/sanitized** — do **not** commit a real account dump (it's
-  personal data and gitignored). Hand-author small fixtures.
+- **Fixtures must be synthetic/sanitized** — never commit a real account dump.
 
 ---
 
 ## 14. Milestones
 
-Built into the package, milestone by milestone; each is its own PR that passes the existing
-pylint/ruff/mypy/pytest gate (the POC won't — porting means rewrite-to-standard, not
-copy-paste). **M0 is already done** (validated live, §5, §17).
+Built into the package, milestone by milestone; each PR passes the existing
+pylint/ruff/mypy/pytest gate. **M0 done** (validated live, §5). **`.gitignore` hardening: done**
+(committed with the POC). **§5.1 live-validation: done** — scope finalized (mode 42 ⇒ benchmark,
+no practice; no `is_practice` column); only the non-blocking cursor-expiry check remains (M2b).
+
+> **Milestone-complete ≠ user-release-complete (review round-4 #1).** M1–M6 are *development*
+> milestones. The pipeline becomes **user-visible** the moment `sync`/`report` ship (M2/M4), but
+> its README/`config.example.toml` are owned by the current `aimlab_scores` tool and aren't
+> reconciled until M6. **Releasing any pipeline command to users is gated on its docs/config
+> matching** — i.e. the M6 reconciliation (or the slice covering the exposed commands) must ship
+> *with* that release. Docs travel with the feature that needs them; **M4 is not
+> user-release-complete until the M6 doc/config reconciliation lands.**
 
 | # | Milestone | Acceptance criteria |
 |---|---|---|
-| **M1** | **Store** | `.gitignore` secrets + `data/` (first commit). `play_store.py` with the §7 schema (`account_id`, `sync_state`, `user_version`) at `data/aimlabs.db`; idempotent `upsert_plays`; raw `performance_scores` preserved. Unit-tested via a synthetic fixture. |
-| **M2** | **Incremental sync** | `aimlabs_history.py` + `history_sync.py`: newest→older pagination, finish-page-then-break, one-page overlap (§8.1); resumable cursor (§8.2); `totalCount` drift warning (§8.3); 401 re-mint (§8.4). Network boundary injected; mock-page tests per §13. First run backfills all; second touches ≤1–2 pages, 0 new rows. |
-| **M3** | **Scenario catalog** | `scenario_catalog.py`: union of all `resources/aimlabs/*.json` → `task_id → {name, category, sub, difficulty, season}`, rebuildable via `refresh-catalog`; unknowns labeled not dropped; resolver interface ready for a future API source (§9). |
-| **M4** | **Runs table + basic rolling stats** | `history_report.py` + `report` command: reverse-chron table and per-`task_id` PB/median/rolling-median(10)/rolling-max(25), offline; Voltaic-scoped with "other" footer; timezone + non-APPROVED handling resolved per §16. |
-| **M5** | **(deferred)** trend / cold-score analysis | Not on the near-term path (§10.3, §16). |
-| **M6** | **Decommission the POC** | Once M1–M4 ship, retire `proof-of-concepts/` history scripts; auth/config unified through `aimlabs_auth`/`config`. |
+| **M1** | **Store** | `play_store.py` with the §7 schema (`account_id`, `raw` canonical, `first_fetched_at`/`last_seen_at`, `user_version`) at `data/aimlabs.db`; both indexes (incl. `idx_plays_acct_date`); **explicit + tested upsert semantics** (incremental insert-only/byte-identical; `--full` re-derives projection from `raw` + drift warning) per §7.1; **canonical JSON serialization** (sorted-keys/compact) with a key-order-variance fixture proving no false drift (§7.1); synthetic fixtures only. |
+| **M2a** | **Core incremental sync** | `aimlabs_history.py` (stateless) + `history_sync.py`: newest→older pagination, finish-page-then-break, one-page overlap (§8.1); **transactional page-ingest + progress checkpoint**; **`resume_cursor` vs `newest_id` separation** (§8.1); **empty-first-page path** (no rows, `newest_id`/`api_total_count` set, `page_size ≥ 1` validation, §8.1); `totalCount` drift signal (§8.3); **resume/re-run safely after local interruption** (idempotent upsert + `resume_cursor`). Mock-page tests. Second run touches ≤1–2 pages, 0 new rows. |
+| **M2b** | **Sync resilience** | First-backfill state machine with the durable **`backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`, §8.2): resume + **new-plays-mid-backfill** (anchor + post-backfill top sweep on *every* initial backfill); **crash-before-sweep and crash-during-sweep tests** (phase persisted, sweep re-run idempotent); **401 re-mint (session-cookie auth)**; **429/5xx backoff**; **cursor-*rejection* → top-restart fallback** (distinct from M2a's local-interruption resume). All mock-tested. *(M2 split per [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #3.)* |
+| **M3** | **Scenario catalog** | `scenario_catalog.py`: union of all `resources/aimlabs/*.json` → catalog records incl. **`benchmark_alias`/`benchmark_name`/`family`/`season`/`is_active`/`has_leaderboards`** (§9), not just name/season; rebuildable via `refresh-catalog`; **duplicate-`task_id` policy defined**; unknowns retained + reportable; resolver interface ready for a future API source. |
+| **M4** | **Runs table + basic stats** | `history_report.py` + `report` command: reverse-chron table, per-`task_id` PB/median/rolling stats; **offline-only (no auth/network)**; scoped by `report_family` (default `all`) + "other" footer; **non-APPROVED excluded by default with a visible note**; **timezone labeled**; **JSON output** included if a dashboard/test consumer exists, else console-only with JSON fast-follow. |
+| **M5** | **(deferred)** trend / cold-score | Not near-term (§10.3, §16). |
+| **M6** | **Decommission the POC** | After M1–M4 ship, retire `proof-of-concepts/` history scripts; auth/config unified through `aimlabs_auth`/`config`. Reconcile **`README.md` + `config.example.toml`** onto the unified scheme (`[aimlabs].user_id`, `AIMLAB_SESSION`, `report_family` default); retire `AIMLABS_COOKIE`/`session_cookie` from user-facing docs **only once the shipped tool no longer needs them** (review v3 #2). |
 
-Order: **M1 → M2 → M3 → M4 → M6**. M4 can begin once M1+M3 exist (analyze a fixture before
-M2's live sync lands).
+Order: **M1 → M2a → M2b → M3 → M4 → M6** (§5.1 validation done). M4 can begin once M1+M3 exist.
 
 ---
 
@@ -442,47 +722,71 @@ M2's live sync lands).
 
 | # | Decision | § |
 |---|---|---|
-| 1 | **Fetch one unfiltered global stream**, bucket by `task_id` locally (not per-scenario). | 5 |
-| 2 | **Storage: SQLite**, single `data/aimlabs.db`. | 7 |
-| 3 | **Immutable-once-written**; `--full` refreshes status; deletions surfaced by cheap `totalCount`-drift warning, not active reconcile. | 8.3 |
-| 4 | **Timestamps: ISO-8601 UTC verbatim**; convert only at display. | 7 |
-| 5 | **Single-account product, account-stamped storage** (`account_id` column). | 7 |
-| 6 | **Scenario metadata is a separate, rebuildable, multi-source projection**; store-all, analyze-Voltaic. | 9 |
-| 7 | **Credentials: secret in gitignored `.env` (`AIMLAB_SESSION`)**, identifiers in `config.toml`; drop `AIMLABS_COOKIE`. | 12 |
-| 8 | **Analysis kept simple now** (table + basic rolling stats); trend classifier deferred. | 10 |
-| 9 | **CLI = verbs only; config = `config.toml`**; ~4 subcommands + 2 globals; delete POC debug flags. | 11 |
-| 10 | **Build into the package**, milestone by milestone, gate-green per PR; secrets `.gitignore`d first. | 6, 14 |
+| 1 | **Fetch one unfiltered global stream**, bucket by `task_id` locally. | 5 |
+| 2 | **Storage: SQLite**, single `data/aimlabs.db`; **`raw` JSON is canonical**, typed columns derived. | 7 |
+| 3 | **`raw` is canonical; typed columns are a pure projection re-derived on every `raw` write.** Incremental = insert-only no-op; `--full` re-derives the projection + warns on drift. | 7.1 |
+| 4 | **Timestamps ISO-8601 UTC verbatim**; display-time conversion only; reports label the TZ. | 7, 10 |
+| 5 | **Single-account product, account-stamped storage.** | 7 |
+| 6 | **Scenario metadata = separate, rebuildable, multi-source projection** carrying product-surface fields; store-all, analyze-Voltaic. | 9 |
+| 7 | **Credentials: `AIMLAB_SESSION` in `.env`; account id `[aimlabs].user_id` in `config.toml`** (userId == anthicId, confirmed). Session canonical for sync; report never auths. Shipped tool's `session_cookie`/`AIMLABS_COOKIE` are live — reconcile at M6, not now. | 4, 12 |
+| 8 | **Analysis simple now**; **non-APPROVED excluded from stats by default**, visible note, override available. | 10 |
+| 9 | **CLI = verbs only; config = `config.toml`**; `report` is offline-only. | 11 |
+| 10 | **Build into the package**, gate-green per PR; `.gitignore` hardening **done**. | 12, 14 |
+| 11 | **History scope = all mode-42 plays = benchmark plays.** Live-verified `mode 42 ⇒ 0 practice` (0/919); no `is_practice` column; cheap aggregate contamination warning as backstop. | 5.1, 8.3 |
+| 12 | **M2 split into M2a (core) / M2b (resilience).** | 14 |
+| 13 | **`resume_cursor` (progress checkpoint) is separate from `newest_id` *and* `api_total_count`** — the latter two are captured at the top and finalized from the freshest top observation (top sweep), never per-page. | 8.1, 8.2 |
+| 14 | **Default report scope `report_family = all`** (all Voltaic Aimlabs S1+S2+S3); `valorant` restricts to S1. | 10.1 |
+| 15 | **Auth: `RefreshAccessTokenError` is a terminal "re-login required" state** (cookie identity vs token-minting lifetimes are decoupled); re-mint stops, doesn't retry-loop. | 4, 8.4 |
+| 16 | **Empty stream handled** — empty first page ⇒ no rows, `newest_id = NULL`, `api_total_count = 0`, `backfill_phase = COMPLETE`; `page_size` validated ≥ 1. | 8.1 |
+| 17 | **Projection JSON serialized canonically** (sorted keys, compact separators) so re-derive is byte-stable — no false drift. | 7.1 |
+| 18 | **`config.toml` schema pinned** — `[aimlabs]` / `[storage]` / `[sync]` / `[report]`, flattened `section_key`; one layout, not implementer's choice. | 11 |
+| 19 | **`page_size` default 50, bounds 1–200**; cursor loop tolerates server capping (politeness knob, not correctness). | 8.2, 11 |
+| 20 | **User-release is gated on doc/config reconciliation** (M6) — a milestone being code-complete ≠ user-release-complete. | 14 |
+| 21 | **Durable `backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`) replaces the `backfill_complete` boolean — crash-before/during-sweep is unambiguous. | 7, 8.2 |
+| 22 | **`user_id` (anthicId) required; `username` dropped** — storage/state always keyed by stable anthicId, never the mutable username. | 7, 11 |
+| 23 | **`sync` auth flags pinned** — `--no-login` (recommended for unattended), `--session` (debug-only); auto-login only when an interactive desktop is detected. | 4, 11 |
 
 ---
 
 ## 16. Open questions for reviewers
 
-1. **Timezone default** — propose: configurable `timezone`, defaulting to system-local for
-   display. Acceptable, or prefer always-UTC display?
-2. **Non-APPROVED plays** — propose: store all; default analysis *includes* all (sample is
-   100% APPROVED so immaterial today) with `gridshield_status` available for a future filter.
-   Should non-APPROVED be excluded from stats by default instead?
-3. **`report` output format** — propose: console table for M4, with `--format json|csv` as a
-   fast-follow. Is console-only acceptable to start?
-4. **Module split** (§6) — is the seven-module decomposition right, or should some merge
-   (e.g. fold `aimlabs_history` into `history_sync`)?
-5. **Energy/rank over history** — out of scope now (§3). The repo already computes Voltaic
-   energy for PBs; is layering it onto history a near-future priority or genuinely later?
-6. **Deletion handling** — is the passive `totalCount`-drift warning (vs. active
-   reconcile/delete) the right call given deletions aren't expected?
+Most questions are now resolved (timezone → system-local + labeled; non-APPROVED → excluded by
+default; module split → keep 7; report format → JSON in M4 iff a consumer exists; **history
+scope/practice → resolved by §5.1 live probe: mode 42 excludes practice**). Remaining:
+
+1. **Energy/rank over history** — out of scope now; layering it later should compute from stored
+   plays + threshold resources, not PB snapshots. Near-future priority or genuinely later?
+2. **Deletion handling** — passive drift signal accepted for v1; precise reconciliation is an
+   opt-in `--full --show-deleted`. Confirm that's the right floor.
+3. **Cursor expiry** — the one unvalidated §5.1 item; non-blocking (M2b cursor-rejection
+   fallback covers it) but unconfirmed. OK to leave for M2b testing?
 
 ---
 
 ## 17. Appendix: validation findings
 
-Captured against the author's live Aimlabs account on **2026-06-06** (N = 919 plays) using a
-POC spike (`proof-of-concepts/`). Evidence for the design choices above; not universal facts.
+Captured against the author's live account on **2026-06-06** (N = 919) via the POC spike.
+Evidence for the design; not universal facts.
 
-- Unfiltered `plays` stream works with auth; **919 plays, reverse-chronological**, `task.id`
-  on every node, all `APPROVED`. (§5)
+- Unfiltered `plays` stream works with auth; **919 plays, reverse-chronological**, `task.id` on
+  every node, all `APPROVED`. (§5)
 - **122 distinct task_ids**; catalog coverage 55 (s1) → 73 (s1+s2+s3); 49 unknown. (§9)
 - **`task_id → weapon_id` 1:1**, `task_mode` always 42 across 151 catalog scenarios. (§7, §9)
-- Server returned all 919 in **one page** when `first` was omitted — a scale artifact, not a
-  contract; explicit paging is required. (§5)
-- Per-`task_id` rolling-median(10) sat above lifetime median on most scenarios — a *plausible*
-  improvement hint, but the naive confounded metric; not relied upon. (§10.3)
+- **Resource surfaces differ:** S1 "Voltaic Valorant Benchmarks"; S2/S3 "Voltaic Aimlabs
+  Benchmarks"; `has_leaderboards` varies (S2 = false). (§9)
+- **Practice (§5.1, resolved):** the history `Play` node exposes no `is_practice` /
+  `inputDevice` field and `PlayFilterInput` has no practice filter (validation errors). But the
+  aggregate (`AimlabPlayWhere`, mode field `task_mode`) shows **`task_mode=42 & is_practice=true`
+  = 0**, `… = false` = **919** (matches history `totalCount`). Account-wide census: **1141 total
+  plays, 1137 non-practice, 4 practice — all 4 outside mode 42.** So mode 42 ⇒ no practice. The
+  "swipe" drills are non-practice (just non-Voltaic).
+- **Second endpoint:** `aimlab.plays_agg(where: AimlabPlayWhere)` gives server-side
+  `count/avg/max` filtered by `user_id`/`task_id`/`task_mode`/`is_practice` — used for the
+  contamination check (§5.2). Its `max{}` 500s on an empty set; use `count`-only there.
+- **Auth fragility (live):** mid-session the cookie returned
+  `accessTokenError: RefreshAccessTokenError` with `expires` a month out — token-minting died
+  while identity stayed valid. Re-`login` fixed it. Drives the terminal "re-login required"
+  handling (§4, §8.4). Trigger not fully understood.
+- **Operational:** server returned all 919 in one page when `first` omitted (scale artifact —
+  page explicitly); **`first: 0` → HTTP 500** (use `first ≥ 1`); **introspection disabled**.
+- `userId == anthicId` confirmed equal. (§2, §12)
