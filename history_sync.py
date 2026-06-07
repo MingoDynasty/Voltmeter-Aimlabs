@@ -1,15 +1,28 @@
-"""Core incremental sync orchestration for Aimlabs play history."""
+"""Incremental and resilient sync orchestration for Aimlabs play history."""
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import sys
+import time
 from typing import Any, Optional, Protocol, TextIO
 
-from aimlabs_history import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, HistoryPage, validate_page_size
+from aimlabs_history import (
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    AimlabsCursorRejectedError,
+    AimlabsTransientHistoryError,
+    AimlabsUnauthorizedError,
+    HistoryPage,
+    validate_page_size,
+)
 import play_store
+
+DEFAULT_RETRY_DELAYS = (0.5, 1.0, 2.0, 4.0, 8.0)
 
 
 class PageFetcher(Protocol):  # pylint: disable=too-few-public-methods
@@ -46,10 +59,19 @@ class IncrementalSyncResult:  # pylint: disable=too-many-instance-attributes
     drift_warnings: tuple[TotalCountDriftWarning, ...]
 
 
+@dataclass
+class SyncCounters:
+    pages_fetched: int = 0
+    inserted: int = 0
+    skipped: int = 0
+
+
 NowFunc = Callable[[], str]
+AuthRefresher = Callable[[], None]
+SleepFunc = Callable[[float], None]
 
 
-def sync_incremental(  # pylint: disable=too-many-arguments,too-many-locals
+def sync_incremental(  # pylint: disable=too-many-locals
     connection: Any,
     account_id: str,
     fetch_page: PageFetcher,
@@ -58,28 +80,344 @@ def sync_incremental(  # pylint: disable=too-many-arguments,too-many-locals
     seen_at: Optional[str] = None,
     now_func: Optional[NowFunc] = None,
     warning_stream: TextIO = sys.stderr,
+    refresh_auth: Optional[AuthRefresher] = None,
+    sleep_func: SleepFunc = time.sleep,
+    retry_delays: Sequence[float] = DEFAULT_RETRY_DELAYS,
 ) -> IncrementalSyncResult:
-    """Sync newest-to-older pages from the top until the previous high-water is seen."""
+    """Sync newest-to-older pages, including initial backfill resilience."""
     if not account_id:
         raise ValueError("account_id is required.")
     effective_page_size = validate_page_size(page_size)
     timestamp_func = _utc_now_text if now_func is None else now_func
     sync_timestamp = seen_at or timestamp_func()
     previous_state = play_store.get_sync_state(connection, account_id)
-    high_water_id = previous_state.newest_id if previous_state is not None else None
+    fetch_context = FetchContext(
+        fetch_page=fetch_page,
+        page_size=effective_page_size,
+        refresh_auth=refresh_auth,
+        sleep_func=sleep_func,
+        retry_delays=retry_delays,
+    )
 
+    if previous_state is not None and previous_state.backfill_phase == play_store.BACKFILLING:
+        counters = SyncCounters()
+        return _sync_backfill(
+            connection,
+            account_id,
+            previous_state,
+            fetch_context,
+            sync_timestamp,
+            warning_stream,
+            counters,
+        )
+    if previous_state is not None and previous_state.backfill_phase == play_store.TOP_SWEEP:
+        counters = SyncCounters()
+        return _sync_top_sweep(
+            connection,
+            account_id,
+            previous_state,
+            fetch_context,
+            sync_timestamp,
+            warning_stream,
+            counters,
+        )
+    if previous_state is None or previous_state.newest_id is None:
+        counters = SyncCounters()
+        return _sync_empty_or_initial_backfill(
+            connection,
+            account_id,
+            fetch_context,
+            sync_timestamp,
+            warning_stream,
+            counters,
+        )
+    return _sync_steady_state(
+        connection,
+        account_id,
+        previous_state,
+        fetch_context,
+        sync_timestamp,
+        warning_stream,
+    )
+
+
+@dataclass(frozen=True)
+class FetchContext:
+    fetch_page: PageFetcher
+    page_size: int
+    refresh_auth: Optional[AuthRefresher]
+    sleep_func: SleepFunc
+    retry_delays: Sequence[float]
+
+
+def _sync_empty_or_initial_backfill(
+    connection: Any,
+    account_id: str,
+    fetch_context: FetchContext,
+    sync_timestamp: str,
+    warning_stream: TextIO,
+    counters: SyncCounters,
+) -> IncrementalSyncResult:
+    first_page = _fetch_page_with_resilience(fetch_context, after=None)
+    counters.pages_fetched += 1
+    raw_plays = list(first_page.plays)
+    if not raw_plays:
+        finalized_total_count = 0
+        play_store.save_sync_state(
+            connection,
+            play_store.SyncState(
+                account_id=account_id,
+                resume_cursor=None,
+                backfill_anchor_id=None,
+                backfill_phase=play_store.COMPLETE,
+                newest_id=None,
+                newest_ended_at=None,
+                api_total_count=finalized_total_count,
+                updated_at=sync_timestamp,
+            ),
+        )
+        drift_warnings = _total_count_drift_warnings(
+            connection,
+            account_id,
+            finalized_total_count,
+            warning_stream,
+        )
+        return _result(
+            counters,
+            newest_id=None,
+            newest_ended_at=None,
+            api_total_count=finalized_total_count,
+            stopped_on_high_water=False,
+            drift_warnings=drift_warnings,
+        )
+
+    anchor_id = _required_play_text(raw_plays[0], "id")
+    checkpoint_state = _backfilling_state(
+        account_id=account_id,
+        anchor_id=anchor_id,
+        resume_cursor=_next_resume_cursor(first_page),
+        updated_at=sync_timestamp,
+    )
+    upsert_result = play_store.upsert_plays_and_save_sync_state(
+        connection,
+        account_id,
+        raw_plays,
+        checkpoint_state,
+        seen_at=sync_timestamp,
+    )
+    _add_upsert_counts(counters, upsert_result)
+    if first_page.has_next_page:
+        return _finish_backfill_walk(
+            connection,
+            account_id,
+            anchor_id,
+            first_page.end_cursor,
+            fetch_context,
+            sync_timestamp,
+            warning_stream,
+            counters,
+        )
+    return _start_top_sweep(
+        connection,
+        account_id,
+        anchor_id,
+        fetch_context,
+        sync_timestamp,
+        warning_stream,
+        counters,
+    )
+
+
+def _sync_backfill(
+    connection: Any,
+    account_id: str,
+    previous_state: play_store.SyncState,
+    fetch_context: FetchContext,
+    sync_timestamp: str,
+    warning_stream: TextIO,
+    counters: SyncCounters,
+) -> IncrementalSyncResult:
+    anchor_id = _required_state_anchor(previous_state)
+    return _finish_backfill_walk(
+        connection,
+        account_id,
+        anchor_id,
+        previous_state.resume_cursor,
+        fetch_context,
+        sync_timestamp,
+        warning_stream,
+        counters,
+    )
+
+
+def _finish_backfill_walk(
+    connection: Any,
+    account_id: str,
+    anchor_id: str,
+    after: Optional[str],
+    fetch_context: FetchContext,
+    sync_timestamp: str,
+    warning_stream: TextIO,
+    counters: SyncCounters,
+) -> IncrementalSyncResult:
+    used_cursor_restart = False
+    while True:
+        try:
+            page = _fetch_page_with_resilience(fetch_context, after=after)
+        except AimlabsCursorRejectedError:
+            if after is None or used_cursor_restart:
+                raise
+            after = None
+            used_cursor_restart = True
+            continue
+
+        counters.pages_fetched += 1
+        raw_plays = list(page.plays)
+        checkpoint_state = _backfilling_state(
+            account_id=account_id,
+            anchor_id=anchor_id,
+            resume_cursor=_next_resume_cursor(page),
+            updated_at=sync_timestamp,
+        )
+        upsert_result = play_store.upsert_plays_and_save_sync_state(
+            connection,
+            account_id,
+            raw_plays,
+            checkpoint_state,
+            seen_at=sync_timestamp,
+        )
+        _add_upsert_counts(counters, upsert_result)
+
+        if not page.has_next_page:
+            break
+        after = page.end_cursor
+
+    return _start_top_sweep(
+        connection,
+        account_id,
+        anchor_id,
+        fetch_context,
+        sync_timestamp,
+        warning_stream,
+        counters,
+    )
+
+
+def _start_top_sweep(
+    connection: Any,
+    account_id: str,
+    anchor_id: str,
+    fetch_context: FetchContext,
+    sync_timestamp: str,
+    warning_stream: TextIO,
+    counters: SyncCounters,
+) -> IncrementalSyncResult:
+    top_sweep_state = play_store.SyncState(
+        account_id=account_id,
+        resume_cursor=None,
+        backfill_anchor_id=anchor_id,
+        backfill_phase=play_store.TOP_SWEEP,
+        newest_id=None,
+        newest_ended_at=None,
+        api_total_count=None,
+        updated_at=sync_timestamp,
+    )
+    play_store.save_sync_state(connection, top_sweep_state)
+    return _sync_top_sweep(
+        connection,
+        account_id,
+        top_sweep_state,
+        fetch_context,
+        sync_timestamp,
+        warning_stream,
+        counters,
+    )
+
+
+def _sync_top_sweep(  # pylint: disable=too-many-arguments,too-many-locals
+    connection: Any,
+    account_id: str,
+    previous_state: play_store.SyncState,
+    fetch_context: FetchContext,
+    sync_timestamp: str,
+    warning_stream: TextIO,
+    counters: SyncCounters,
+) -> IncrementalSyncResult:
+    anchor_id = _required_state_anchor(previous_state)
+    after: Optional[str] = None
+    sweep_top_id: Optional[str] = None
+    sweep_top_ended_at: Optional[str] = None
+    sweep_top_total_count: Optional[int] = None
+    stopped_on_anchor = False
+
+    while True:
+        page = _fetch_page_with_resilience(fetch_context, after=after)
+        counters.pages_fetched += 1
+        raw_plays = list(page.plays)
+        if raw_plays and sweep_top_id is None:
+            sweep_top_id = _required_play_text(raw_plays[0], "id")
+            sweep_top_ended_at = _required_play_text(raw_plays[0], "endedAt")
+            sweep_top_total_count = page.total_count
+
+        upsert_result = play_store.upsert_plays(connection, account_id, raw_plays, seen_at=sync_timestamp)
+        _add_upsert_counts(counters, upsert_result)
+
+        if _page_contains_play_id(raw_plays, anchor_id):
+            stopped_on_anchor = True
+            break
+        if not page.has_next_page:
+            break
+        after = page.end_cursor
+
+    finalized_total_count = sweep_top_total_count if sweep_top_total_count is not None else 0
+    play_store.save_sync_state(
+        connection,
+        play_store.SyncState(
+            account_id=account_id,
+            resume_cursor=None,
+            backfill_anchor_id=None,
+            backfill_phase=play_store.COMPLETE,
+            newest_id=sweep_top_id,
+            newest_ended_at=sweep_top_ended_at,
+            api_total_count=finalized_total_count,
+            updated_at=sync_timestamp,
+        ),
+    )
+    drift_warnings = _total_count_drift_warnings(
+        connection,
+        account_id,
+        finalized_total_count,
+        warning_stream,
+    )
+    return _result(
+        counters,
+        newest_id=sweep_top_id,
+        newest_ended_at=sweep_top_ended_at,
+        api_total_count=finalized_total_count,
+        stopped_on_high_water=stopped_on_anchor,
+        drift_warnings=drift_warnings,
+    )
+
+
+def _sync_steady_state(  # pylint: disable=too-many-arguments,too-many-locals
+    connection: Any,
+    account_id: str,
+    previous_state: play_store.SyncState,
+    fetch_context: FetchContext,
+    sync_timestamp: str,
+    warning_stream: TextIO,
+) -> IncrementalSyncResult:
+    high_water_id = previous_state.newest_id
     after: Optional[str] = None
     run_top_id: Optional[str] = None
     run_top_ended_at: Optional[str] = None
     run_top_total_count: Optional[int] = None
     stopped_on_high_water = False
-    pages_fetched = 0
-    inserted = 0
-    skipped = 0
+    counters = SyncCounters()
 
     while True:
-        page = fetch_page(after=after, page_size=effective_page_size)
-        pages_fetched += 1
+        page = _fetch_page_with_resilience(fetch_context, after=after)
+        counters.pages_fetched += 1
         raw_plays = list(page.plays)
         if raw_plays and run_top_id is None:
             run_top_id = _required_play_text(raw_plays[0], "id")
@@ -87,48 +425,92 @@ def sync_incremental(  # pylint: disable=too-many-arguments,too-many-locals
             run_top_total_count = page.total_count
 
         upsert_result = play_store.upsert_plays(connection, account_id, raw_plays, seen_at=sync_timestamp)
-        inserted += upsert_result.inserted
-        skipped += upsert_result.skipped
+        _add_upsert_counts(counters, upsert_result)
 
         if high_water_id is not None and _page_contains_play_id(raw_plays, high_water_id):
             stopped_on_high_water = True
             break
         if not page.has_next_page:
             break
-        if page.end_cursor is None:
-            break
         after = page.end_cursor
 
-    finalized_total_count = run_top_total_count if run_top_id is not None else 0
-    if finalized_total_count is None:
-        finalized_total_count = 0
-    finalized_state = play_store.SyncState(
-        account_id=account_id,
-        resume_cursor=None,
-        backfill_anchor_id=None,
-        backfill_phase=play_store.COMPLETE,
-        newest_id=run_top_id,
-        newest_ended_at=run_top_ended_at,
-        api_total_count=finalized_total_count,
-        updated_at=sync_timestamp,
+    finalized_total_count = run_top_total_count if run_top_total_count is not None else 0
+    play_store.save_sync_state(
+        connection,
+        play_store.SyncState(
+            account_id=account_id,
+            resume_cursor=None,
+            backfill_anchor_id=None,
+            backfill_phase=play_store.COMPLETE,
+            newest_id=run_top_id,
+            newest_ended_at=run_top_ended_at,
+            api_total_count=finalized_total_count,
+            updated_at=sync_timestamp,
+        ),
     )
-    play_store.save_sync_state(connection, finalized_state)
     drift_warnings = _total_count_drift_warnings(
         connection,
         account_id,
         finalized_total_count,
         warning_stream,
     )
-    return IncrementalSyncResult(
-        pages_fetched=pages_fetched,
-        inserted=inserted,
-        skipped=skipped,
+    return _result(
+        counters,
         newest_id=run_top_id,
         newest_ended_at=run_top_ended_at,
         api_total_count=finalized_total_count,
         stopped_on_high_water=stopped_on_high_water,
         drift_warnings=drift_warnings,
     )
+
+
+def _fetch_page_with_resilience(fetch_context: FetchContext, *, after: Optional[str]) -> HistoryPage:
+    transient_failures = 0
+    refreshed_for_request = False
+    while True:
+        try:
+            return fetch_context.fetch_page(after=after, page_size=fetch_context.page_size)
+        except AimlabsUnauthorizedError:
+            if fetch_context.refresh_auth is None or refreshed_for_request:
+                raise
+            fetch_context.refresh_auth()
+            refreshed_for_request = True
+        except AimlabsTransientHistoryError:
+            if transient_failures >= len(fetch_context.retry_delays):
+                raise
+            fetch_context.sleep_func(float(fetch_context.retry_delays[transient_failures]))
+            transient_failures += 1
+
+
+def _backfilling_state(
+    *,
+    account_id: str,
+    anchor_id: str,
+    resume_cursor: Optional[str],
+    updated_at: str,
+) -> play_store.SyncState:
+    return play_store.SyncState(
+        account_id=account_id,
+        resume_cursor=resume_cursor,
+        backfill_anchor_id=anchor_id,
+        backfill_phase=play_store.BACKFILLING,
+        newest_id=None,
+        newest_ended_at=None,
+        api_total_count=None,
+        updated_at=updated_at,
+    )
+
+
+def _next_resume_cursor(page: HistoryPage) -> Optional[str]:
+    if not page.has_next_page:
+        return None
+    return page.end_cursor
+
+
+def _required_state_anchor(sync_state: play_store.SyncState) -> str:
+    if sync_state.backfill_anchor_id is None:
+        raise play_store.PlayStoreError("sync_state.backfill_anchor_id is required for backfill recovery.")
+    return sync_state.backfill_anchor_id
 
 
 def _page_contains_play_id(raw_plays: Iterable[dict[str, Any]], play_id: str) -> bool:
@@ -160,6 +542,32 @@ def _required_play_text(raw_play: dict[str, Any], field_name: str) -> str:
     return value
 
 
+def _add_upsert_counts(counters: SyncCounters, upsert_result: play_store.UpsertResult) -> None:
+    counters.inserted += upsert_result.inserted
+    counters.skipped += upsert_result.skipped
+
+
+def _result(
+    counters: SyncCounters,
+    *,
+    newest_id: Optional[str],
+    newest_ended_at: Optional[str],
+    api_total_count: int,
+    stopped_on_high_water: bool,
+    drift_warnings: tuple[TotalCountDriftWarning, ...],
+) -> IncrementalSyncResult:
+    return IncrementalSyncResult(
+        pages_fetched=counters.pages_fetched,
+        inserted=counters.inserted,
+        skipped=counters.skipped,
+        newest_id=newest_id,
+        newest_ended_at=newest_ended_at,
+        api_total_count=api_total_count,
+        stopped_on_high_water=stopped_on_high_water,
+        drift_warnings=drift_warnings,
+    )
+
+
 def _utc_now_text() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -167,6 +575,7 @@ def _utc_now_text() -> str:
 __all__ = [
     "DEFAULT_PAGE_SIZE",
     "MAX_PAGE_SIZE",
+    "DEFAULT_RETRY_DELAYS",
     "IncrementalSyncResult",
     "PageFetcher",
     "TotalCountDriftWarning",

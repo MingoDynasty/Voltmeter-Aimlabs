@@ -3,7 +3,9 @@ import unittest
 from typing import Optional
 
 from aimlabs_history import (
+    AimlabsCursorRejectedError,
     AimlabsHistoryError,
+    AimlabsTransientHistoryError,
     AimlabsUnauthorizedError,
     build_history_payload,
     fetch_history_page,
@@ -77,6 +79,10 @@ class AimlabsHistoryTests(unittest.TestCase):
         with self.assertRaisesRegex(AimlabsHistoryError, "graphql error"):
             parse_history_page(json.dumps({"errors": [{"message": "bad"}]}))
 
+    def test_parse_history_page_classifies_cursor_rejection(self) -> None:
+        with self.assertRaises(AimlabsCursorRejectedError):
+            parse_history_page(json.dumps({"errors": [{"message": "invalid cursor for after"}]}))
+
     def test_page_size_bounds(self) -> None:
         self.assertEqual(validate_page_size(1), 1)
         self.assertEqual(validate_page_size(200), 200)
@@ -111,6 +117,15 @@ class AimlabsHistoryTests(unittest.TestCase):
 
         with self.assertRaises(AimlabsUnauthorizedError):
             fetch_history_page(ACCOUNT_ID, "expired-token", post_json=fake_post)
+
+    def test_fetch_history_page_classifies_transient_http_statuses(self) -> None:
+        for status_code in (429, 500, 503):
+
+            def fake_post(_url: str, _payload: dict, _headers: dict, _timeout: float) -> tuple[int, str]:
+                return status_code, "{}"
+
+            with self.assertRaises(AimlabsTransientHistoryError):
+                fetch_history_page(ACCOUNT_ID, "fresh-token", post_json=fake_post)
 
 
 if __name__ == "__main__":
