@@ -14,11 +14,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "black>=24.0",
-    "mypy>=1.11",
-    "pylint>=3.2",
-    "pytest>=8.0",
-    "ruff>=0.6",
+    "black>=26.5.1",
+    "mypy>=2.1.0",
+    "pylint>=4.0.5",
+    "pytest>=9.0.3",
+    "ruff>=0.15.16",
 ]
 
 [tool.black]
