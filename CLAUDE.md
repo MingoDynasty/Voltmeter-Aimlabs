@@ -23,3 +23,35 @@ so the user can distinguish their own GitHub activity from Claude's.
   Code identity above (that's what shows throughout the diff).
 
 - Commits made **before** this request are left as-is (the change is "from now on").
+
+## Run-history pipeline — build process (consistent across chats)
+
+The work is built over many chats (≈ a new chat per milestone). To stay consistent, every
+chat follows this and updates the status below. The **design/spec** is
+`proof-of-concepts/RUN_HISTORY_ARCHITECTURE.md` (rev 9): **§14** = milestones + acceptance
+criteria, **§15** = settled decisions (do not relitigate).
+
+**Roles:** Codex implements · Claude reviews · the **user merges** (Claude never merges; `gh`
+is the user's account).
+
+**Workflow — one PR per milestone, off `main`:**
+1. **Brief.** Claude writes a scoped handoff brief for the milestone (format/example:
+   `proof-of-concepts/M1_BRIEF.md`). Scope = that milestone only.
+2. **Implement.** Codex implements against the brief + design §14. (Ideally Codex commits under
+   a distinct identity, e.g. `Codex`, so the three actors are distinguishable — configured on
+   Codex's side.)
+3. **Review.** Claude reviews the PR against `proof-of-concepts/REVIEW_CHECKLIST.md` — CI-green
+   is the floor, not the bar; verify the hard-case tests actually exist.
+4. **Merge.** The user merges after Claude's LGTM, then the next milestone starts.
+
+**Order:** `M1 → M2a → M2b → M3 (∥ after M1) → M4 → M6`. Review+merge each before the next
+builds on it (serialize the critical path; M3 may run parallel to M2). CI gate =
+mypy/pytest/pylint/ruff; new modules → add to `[tool.setuptools] py-modules`; **fixtures
+synthetic only** (never a real account dump).
+
+**Status — update this when a milestone merges** (source of truth for "done" = merged PRs on `main`):
+- Design: **rev 9** complete (8 review rounds). · M0 live-validation: ✅ done. · `.gitignore`: ✅ done.
+- **M1** store: ⬜ not started (next) · **M2a** ⬜ · **M2b** ⬜ · **M3** ⬜ · **M4** ⬜ · **M6** ⬜
+- (When finalizing the design — dereferencing pass — see `RUN_HISTORY_ARCHITECTURE.md` status
+  header history; the `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` and `M1_BRIEF`/`REVIEW_CHECKLIST` docs
+  live under `proof-of-concepts/` and may relocate with the design.)
