@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sqlite3
 import sys
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 SCHEMA_VERSION = 1
 DEFAULT_DB_PATH = Path(__file__).resolve().parent / "data" / "aimlabs.db"
@@ -97,8 +97,7 @@ def connect(db_path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
 
 
 def initialize_schema(connection: sqlite3.Connection) -> None:
-    connection.executescript(
-        """
+    connection.executescript("""
         PRAGMA user_version = 1;
 
         CREATE TABLE IF NOT EXISTS plays (
@@ -132,8 +131,7 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
           api_total_count       INTEGER,
           updated_at            TEXT NOT NULL
         );
-        """
-    )
+        """)
 
 
 def upsert_plays(
@@ -143,7 +141,6 @@ def upsert_plays(
     *,
     full: bool = False,
     seen_at: Optional[str] = None,
-    warning_sink: Optional[Callable[[str], None]] = None,
 ) -> UpsertResult:
     if not account_id:
         raise PlayStoreError("account_id is required.")
@@ -171,7 +168,7 @@ def upsert_plays(
             else:
                 skipped += 1
 
-    _emit_field_drift_warnings(drift_warnings, warning_sink)
+    _emit_field_drift_warnings(drift_warnings)
     return UpsertResult(
         inserted=inserted,
         updated=updated,
@@ -417,13 +414,9 @@ def _find_field_drifts(
 
 def _emit_field_drift_warnings(
     drift_warnings: Iterable[FieldDriftWarning],
-    warning_sink: Optional[Callable[[str], None]],
 ) -> None:
     for drift_warning in drift_warnings:
-        if warning_sink is None:
-            print(drift_warning.message, file=sys.stderr)
-        else:
-            warning_sink(drift_warning.message)
+        print(drift_warning.message, file=sys.stderr)
 
 
 def _required_text(value: Any, field_name: str) -> str:

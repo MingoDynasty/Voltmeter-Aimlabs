@@ -1,9 +1,11 @@
 import copy
+import io
 import json
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import play_store
 
@@ -46,9 +48,7 @@ class PlayStoreSchemaTests(unittest.TestCase):
         user_version = connection.execute("PRAGMA user_version").fetchone()[0]
         indexes = {
             row["name"]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'plays'"
-            )
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'plays'")
         }
 
         self.assertEqual(user_version, 1)
@@ -138,24 +138,18 @@ class PlayStoreUpsertTests(unittest.TestCase):
 
         updated_play = copy.deepcopy(play)
         updated_play["gridshieldStatus"] = "APPROVED"
-        warning_messages: list[str] = []
         result = play_store.upsert_plays(
             connection,
             ACCOUNT_ID,
             [updated_play],
             full=True,
             seen_at=REFETCHED_AT,
-            warning_sink=warning_messages.append,
         )
         after = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
 
-        changed_columns = {
-            column
-            for column, before_value in before.items()
-            if before_value != after[column]
-        }
+        changed_columns = {column for column, before_value in before.items() if before_value != after[column]}
         self.assertEqual(result.updated, 1)
-        self.assertEqual(warning_messages, [])
+        self.assertEqual(result.drift_warnings, ())
         self.assertEqual(changed_columns, {"gridshield_status", "raw", "last_seen_at"})
         self.assertEqual(after["first_fetched_at"], FETCHED_AT)
         self.assertEqual(after["last_seen_at"], REFETCHED_AT)
@@ -173,20 +167,20 @@ class PlayStoreUpsertTests(unittest.TestCase):
             score=1300,
             performance_scores={"shotsTotal": 60, "hitsTotal": 55},
         )
-        warning_messages: list[str] = []
-        result = play_store.upsert_plays(
-            connection,
-            ACCOUNT_ID,
-            [changed_play],
-            full=True,
-            seen_at=REFETCHED_AT,
-            warning_sink=warning_messages.append,
-        )
+        with patch("sys.stderr", new=io.StringIO()) as stderr:
+            result = play_store.upsert_plays(
+                connection,
+                ACCOUNT_ID,
+                [changed_play],
+                full=True,
+                seen_at=REFETCHED_AT,
+            )
         row = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
 
         self.assertEqual(result.updated, 1)
         self.assertEqual({warning.field_name for warning in result.drift_warnings}, {"score", "performance_scores"})
-        self.assertTrue(any("field drift" in message and "play-1" in message for message in warning_messages))
+        self.assertIn("field drift", stderr.getvalue())
+        self.assertIn("play-1", stderr.getvalue())
         self.assertEqual(row["score"], 1300.0)
         self.assertEqual(row["performance_scores"], '{"hitsTotal":55,"shotsTotal":60}')
 
@@ -200,18 +194,16 @@ class PlayStoreUpsertTests(unittest.TestCase):
         )
 
         same_scores_play = synthetic_play(performance_scores='{\n  "hitsTotal": 45,\n  "shotsTotal": 50\n}')
-        warning_messages: list[str] = []
-        play_store.upsert_plays(
+        result = play_store.upsert_plays(
             connection,
             ACCOUNT_ID,
             [same_scores_play],
             full=True,
             seen_at=REFETCHED_AT,
-            warning_sink=warning_messages.append,
         )
         row = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
 
-        self.assertEqual(warning_messages, [])
+        self.assertEqual(result.drift_warnings, ())
         self.assertEqual(row["performance_scores"], '{"hitsTotal":45,"shotsTotal":50}')
 
     def test_account_scoping_keeps_duplicate_play_ids_separate(self) -> None:
