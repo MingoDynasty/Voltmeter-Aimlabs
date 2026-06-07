@@ -18,6 +18,10 @@ class ConfigError(RuntimeError):
 class AppConfig:
     aimlabs_user_id: Optional[str] = None
     aimlabs_session_cookie: Optional[str] = None
+    storage_db_path: Optional[str] = None
+    sync_page_size: int = 50
+    sync_request_delay_seconds: float = 0.25
+    sync_request_timeout_seconds: float = 20.0
 
 
 def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
@@ -29,6 +33,8 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
     aimlabs_config = config_data.get("aimlabs", {})
     if not isinstance(aimlabs_config, dict):
         raise ConfigError(f"{resolved_path} [aimlabs] must be a table.")
+    storage_config = _optional_table(config_data, "storage", resolved_path)
+    sync_config = _optional_table(config_data, "sync", resolved_path)
 
     user_id = aimlabs_config.get("user_id")
     if user_id is None:
@@ -49,6 +55,22 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
     return AppConfig(
         aimlabs_user_id=aimlabs_user_id,
         aimlabs_session_cookie=aimlabs_session_cookie,
+        storage_db_path=_optional_non_empty_string(storage_config, "db_path", resolved_path, "storage"),
+        sync_page_size=_sync_page_size(sync_config, resolved_path),
+        sync_request_delay_seconds=_optional_number(
+            sync_config,
+            "request_delay_seconds",
+            resolved_path,
+            "sync",
+            default=0.25,
+        ),
+        sync_request_timeout_seconds=_optional_number(
+            sync_config,
+            "request_timeout_seconds",
+            resolved_path,
+            "sync",
+            default=20.0,
+        ),
     )
 
 
@@ -62,3 +84,49 @@ def _load_toml(config_path: Path) -> dict[str, Any]:
     if not isinstance(config_data, dict):
         raise ConfigError(f"{config_path} must contain a TOML table.")
     return config_data
+
+
+def _optional_table(config_data: dict[str, Any], section: str, config_path: Path) -> dict[str, Any]:
+    section_config = config_data.get(section, {})
+    if not isinstance(section_config, dict):
+        raise ConfigError(f"{config_path} [{section}] must be a table.")
+    return section_config
+
+
+def _optional_non_empty_string(
+    section_config: dict[str, Any],
+    key: str,
+    config_path: Path,
+    section: str,
+) -> Optional[str]:
+    value = section_config.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ConfigError(f"{config_path} [{section}].{key} must be a string.")
+    return value.strip() or None
+
+
+def _sync_page_size(sync_config: dict[str, Any], config_path: Path) -> int:
+    value = sync_config.get("page_size", 50)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ConfigError(f"{config_path} [sync].page_size must be an integer.")
+    if not 1 <= value <= 200:
+        raise ConfigError(f"{config_path} [sync].page_size must be between 1 and 200.")
+    return value
+
+
+def _optional_number(
+    section_config: dict[str, Any],
+    key: str,
+    config_path: Path,
+    section: str,
+    *,
+    default: float,
+) -> float:
+    value = section_config.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ConfigError(f"{config_path} [{section}].{key} must be numeric.")
+    if value < 0:
+        raise ConfigError(f"{config_path} [{section}].{key} must be greater than or equal to zero.")
+    return float(value)

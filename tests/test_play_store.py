@@ -15,7 +15,7 @@ FETCHED_AT = "2026-06-06T10:00:00.000Z"
 REFETCHED_AT = "2026-06-06T11:00:00.000Z"
 
 
-def synthetic_play(
+def synthetic_play(  # pylint: disable=too-many-arguments
     play_id: str = "play-1",
     *,
     task_id: str = "CsLevel.Lowgravity56.VT Unit.ROAHX3",
@@ -39,6 +39,12 @@ def synthetic_play(
 
 def row_dict(row: sqlite3.Row) -> dict:
     return {key: row[key] for key in row.keys()}
+
+
+def get_play_row(connection: sqlite3.Connection, account_id: str, play_id: str) -> sqlite3.Row:
+    row = play_store.get_play(connection, account_id, play_id)
+    assert row is not None
+    return row
 
 
 class PlayStoreSchemaTests(unittest.TestCase):
@@ -120,7 +126,7 @@ class PlayStoreUpsertTests(unittest.TestCase):
                 second_result = play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=REFETCHED_AT)
                 connection.commit()
                 second_bytes = db_path.read_bytes()
-                row = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
+                row = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
             finally:
                 connection.close()
 
@@ -134,7 +140,7 @@ class PlayStoreUpsertTests(unittest.TestCase):
         connection = play_store.connect(":memory:")
         play = synthetic_play(gridshield_status="PENDING")
         play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
-        before = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
+        before = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
 
         updated_play = copy.deepcopy(play)
         updated_play["gridshieldStatus"] = "APPROVED"
@@ -145,7 +151,7 @@ class PlayStoreUpsertTests(unittest.TestCase):
             full=True,
             seen_at=REFETCHED_AT,
         )
-        after = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
+        after = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
 
         changed_columns = {column for column, before_value in before.items() if before_value != after[column]}
         self.assertEqual(result.updated, 1)
@@ -175,7 +181,7 @@ class PlayStoreUpsertTests(unittest.TestCase):
                 full=True,
                 seen_at=REFETCHED_AT,
             )
-        row = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
+        row = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
 
         self.assertEqual(result.updated, 1)
         self.assertEqual({warning.field_name for warning in result.drift_warnings}, {"score", "performance_scores"})
@@ -201,7 +207,7 @@ class PlayStoreUpsertTests(unittest.TestCase):
             full=True,
             seen_at=REFETCHED_AT,
         )
-        row = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))
+        row = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
 
         self.assertEqual(result.drift_warnings, ())
         self.assertEqual(row["performance_scores"], '{"hitsTotal":45,"shotsTotal":50}')
@@ -219,11 +225,11 @@ class PlayStoreUpsertTests(unittest.TestCase):
         self.assertEqual(play_store.count_plays(connection, ACCOUNT_ID), 1)
         self.assertEqual(play_store.count_plays(connection, OTHER_ACCOUNT_ID), 1)
         self.assertEqual(
-            row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-1"))["first_fetched_at"],
+            row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))["first_fetched_at"],
             FETCHED_AT,
         )
         self.assertEqual(
-            row_dict(play_store.get_play(connection, OTHER_ACCOUNT_ID, "play-1"))["first_fetched_at"],
+            row_dict(get_play_row(connection, OTHER_ACCOUNT_ID, "play-1"))["first_fetched_at"],
             REFETCHED_AT,
         )
 
@@ -290,7 +296,7 @@ class PlayStoreQueryTests(unittest.TestCase):
         }
 
         play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
-        row = row_dict(play_store.get_play(connection, ACCOUNT_ID, "play-canonical"))
+        row = row_dict(get_play_row(connection, ACCOUNT_ID, "play-canonical"))
 
         self.assertEqual(row["raw"], json.dumps(play, sort_keys=True, separators=(",", ":")))
         self.assertEqual(row["performance_scores"], '{"aMetric":1,"zMetric":2}')
