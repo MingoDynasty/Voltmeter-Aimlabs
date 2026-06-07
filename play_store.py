@@ -98,7 +98,7 @@ def connect(db_path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
 
 def initialize_schema(connection: sqlite3.Connection) -> None:
     connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-    connection.executescript("""
+    schema_sql = """
         CREATE TABLE IF NOT EXISTS plays (
           account_id         TEXT NOT NULL,
           id                 TEXT NOT NULL,
@@ -130,7 +130,8 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
           api_total_count       INTEGER,
           updated_at            TEXT NOT NULL
         );
-        """)
+        """
+    connection.executescript(schema_sql)
 
 
 def upsert_plays(
@@ -191,13 +192,14 @@ def list_plays_by_account(
     offset: int = 0,
 ) -> list[sqlite3.Row]:
     limit_clause, limit_params = _limit_clause(limit, offset)
+    query = """
+        SELECT * FROM plays
+        WHERE account_id = ?
+        ORDER BY ended_at DESC, id DESC
+        """
     return list(
         connection.execute(
-            """
-            SELECT * FROM plays
-            WHERE account_id = ?
-            ORDER BY ended_at DESC, id DESC
-            """ + limit_clause,
+            query + limit_clause,
             (account_id, *limit_params),
         )
     )
@@ -212,13 +214,14 @@ def list_plays_by_task(
     offset: int = 0,
 ) -> list[sqlite3.Row]:
     limit_clause, limit_params = _limit_clause(limit, offset)
+    query = """
+        SELECT * FROM plays
+        WHERE account_id = ? AND task_id = ?
+        ORDER BY ended_at DESC, id DESC
+        """
     return list(
         connection.execute(
-            """
-            SELECT * FROM plays
-            WHERE account_id = ? AND task_id = ?
-            ORDER BY ended_at DESC, id DESC
-            """ + limit_clause,
+            query + limit_clause,
             (account_id, task_id, *limit_params),
         )
     )
@@ -233,23 +236,25 @@ def list_recent_plays(
 ) -> list[sqlite3.Row]:
     limit_clause, limit_params = _limit_clause(limit, offset)
     if account_id is None:
+        query = """
+            SELECT * FROM plays
+            ORDER BY ended_at DESC, account_id, id DESC
+            """
         return list(
             connection.execute(
-                """
-                SELECT * FROM plays
-                ORDER BY ended_at DESC, account_id, id DESC
-                """ + limit_clause,
+                query + limit_clause,
                 limit_params,
             )
         )
 
+    query = """
+        SELECT * FROM plays
+        WHERE account_id = ?
+        ORDER BY ended_at DESC, id DESC
+        """
     return list(
         connection.execute(
-            """
-            SELECT * FROM plays
-            WHERE account_id = ?
-            ORDER BY ended_at DESC, id DESC
-            """ + limit_clause,
+            query + limit_clause,
             (account_id, *limit_params),
         )
     )
