@@ -210,6 +210,16 @@ def fetch_session_json(session: str, timeout: float = 20.0) -> dict:
         raise RuntimeError(f"session route returned non-JSON: {body[:200]}")
 
 
+class SessionRefreshError(RuntimeError):
+    """The session cookie is valid but aimlabs.com could not refresh its access token.
+
+    NextAuth signals this with an ``accessTokenError`` (e.g. "RefreshAccessTokenError")
+    on a 200 /api/auth/session response that still carries ``user``/``expires`` but no
+    ``accessToken`` -- the upstream OAuth refresh token was revoked. This is distinct
+    from a missing/expired *session*: re-login (not just waiting) is the remedy.
+    """
+
+
 def fetch_bearer_from_session(session: str, timeout: float = 20.0) -> str:
     """Exchange an aimlabs.com NextAuth session cookie for a fresh access token.
 
@@ -219,14 +229,24 @@ def fetch_bearer_from_session(session: str, timeout: float = 20.0) -> str:
         "...session-token.0=...; ...session-token.1=..." or a custom name),
         which is sent verbatim.
 
-    Returns the access token string. Raises RuntimeError if the session route
-    doesn't return one (cookie expired/invalid, or the site stopped exposing
-    accessToken to its frontend).
+    Returns the access token string. Raises SessionRefreshError if the session is
+    valid but its access token can't be refreshed (re-login required), or a plain
+    RuntimeError if the session route returns no token for any other reason (cookie
+    expired/invalid, or the site stopped exposing accessToken to its frontend).
     """
     data = fetch_session_json(session, timeout=timeout)
 
     token = data.get("accessToken")
     if not token:
+        access_token_error = data.get("accessTokenError")
+        if access_token_error:
+            raise SessionRefreshError(
+                "aimlabs.com accepted the session but returned no access token "
+                f"(accessTokenError={access_token_error!r}) -- the upstream refresh "
+                "token was revoked (commonly by logging in again elsewhere). "
+                "Re-login to mint a new one. "
+                f"keys seen: {sorted(data.keys())}"
+            )
         raise RuntimeError(
             "no accessToken in /api/auth/session response -- session cookie is "
             "likely expired/invalid (re-capture from the browser), or the site "
@@ -747,6 +767,9 @@ def resolve_authorization(
 
     Returns (authorization, reason):
       - ("Bearer ...", "ok")        a usable credential was obtained
+      - (None, "refresh_failed")    the session is valid but aimlabs couldn't
+                                    refresh an access token (re-login required);
+                                    no raw token was available as a fallback
       - (None, "expired")           a session cookie exists but the route
                                     rejected it (expired/invalid) and no raw
                                     token was available as a fallback
@@ -759,6 +782,7 @@ def resolve_authorization(
     token = explicit_token or os.environ.get("AIMLAB_TOKEN")
 
     session_failed = False
+    refresh_failed = False
     if session:
         try:
             bearer = fetch_bearer_from_session(session, timeout=timeout)
@@ -768,11 +792,14 @@ def resolve_authorization(
         except RuntimeError as e:
             print(f"auth: session route failed ({e})", file=sys.stderr)
             session_failed = True
+            refresh_failed = isinstance(e, SessionRefreshError)
             if token:
                 print("auth: falling back to AIMLAB_TOKEN", file=sys.stderr)
 
     if token:
         return f"Bearer {token}", "ok"
+    if refresh_failed:
+        return None, "refresh_failed"
     return None, ("expired" if session_failed else "absent")
 
 
@@ -807,8 +834,14 @@ def resolve_auth_or_login(args: Any) -> Optional[str]:
     if authz:
         return authz
 
-    why = ("your Aim Lab session has expired" if reason == "expired"
-           else "no Aim Lab credential found")
+    if reason == "refresh_failed":
+        why = ("aimlabs.com couldn't refresh your access token -- your login's "
+               "refresh token was revoked (often from logging in again elsewhere); "
+               "re-login to fix it")
+    elif reason == "expired":
+        why = "your Aim Lab session has expired"
+    else:
+        why = "no Aim Lab credential found"
 
     if args.no_login or not _gui_likely_available():
         suffix = " (--no-login is set)" if args.no_login else ""
