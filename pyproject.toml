@@ -5,11 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "voltmeter-aimlabs"
 version = "0.1.0"
-requires-python = ">=3.9"
+requires-python = ">=3.14"
 license = "AGPL-3.0-only"
 dependencies = [
     "requests>=2.32",
-    "tomli>=2.0; python_version < '3.11'",
     "tzdata>=2024.1; platform_system == 'Windows'",
 ]
 
@@ -24,7 +23,7 @@ dev = [
 
 [tool.black]
 line-length = 120
-target-version = ["py39"]
+target-version = ["py314"]
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -44,7 +43,7 @@ disable = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py314"
 
 [tool.setuptools]
 py-modules = [
