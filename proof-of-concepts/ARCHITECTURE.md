@@ -177,6 +177,13 @@ On a normal run the script resolves auth in this order (see
 3. **`AIMLAB_TOKEN`** (fallback) — a raw bearer pasted in directly. Lasts ~1h,
    then 401s. Used only if the session route fails or no session is set.
 
+> **Relationship to the production pipeline** (`RUN_HISTORY_ARCHITECTURE.md`, which
+> depends on this doc): production `sync` uses **only the session-cookie path (2)** —
+> it must re-mint bearers across long backfills, which a raw bearer can't do. The
+> **raw-bearer options (1, 3) are POC/debug conveniences, not part of production
+> `sync`**, and the production CLI never accepts a literal secret on the command line
+> (it uses `$AIMLAB_SESSION` / `.env` / `--session-file`).
+
 `resolve_authorization` returns a `(authorization, reason)` pair where `reason`
 is `ok` / `expired` (a session cookie exists but the route rejected it) /
 `absent` (no credential at all). The `reason` drives the login UX below.

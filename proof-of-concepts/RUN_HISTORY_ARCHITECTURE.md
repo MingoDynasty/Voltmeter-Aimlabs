@@ -1,6 +1,6 @@
 # Voltmeter-Aimlabs — Run-History Pipeline: Design
 
-**Status:** Draft for review — **rev 6** (incorporates [`DESIGN_REVIEW.md`](DESIGN_REVIEW.md) + [`DESIGN_REVIEW_v2.md`](DESIGN_REVIEW_v2.md) + [`DESIGN_REVIEW_v3.md`](DESIGN_REVIEW_v3.md) + round-4 & round-5 general findings)
+**Status:** Draft for review — **rev 9** (incorporates [`DESIGN_REVIEW.md`](DESIGN_REVIEW.md) + [`DESIGN_REVIEW_v2.md`](DESIGN_REVIEW_v2.md) + [`DESIGN_REVIEW_v3.md`](DESIGN_REVIEW_v3.md) + round-4 → round-8 general findings)
 **Date:** 2026-06-06
 **Author:** MingoDynasty
 **Audience:** senior engineers; one will likely implement this.
@@ -118,8 +118,13 @@ Full detail in [`ARCHITECTURE.md`](ARCHITECTURE.md). What this pipeline relies o
   — long backfills require the session cookie so the **401 re-mint** (§8.4) can work.
 - **`report` and other offline commands never resolve auth, never touch the network, never
   trigger login** (§10, §11).
-- `sync` may auto-login in an interactive desktop context, but **`--no-login` is the default
-  for any scheduled/unattended run.**
+- **`sync` never opens a login window (review round-8 #1).** It resolves the credential from
+  file/env channels only (`--session-file` / `$AIMLAB_SESSION` / `.env`); if none is present **or
+  it's expired** (`RefreshAccessTokenError`), it **fails with "run `voltmeter login`"** — it does
+  not pop a browser. `login` is the *only* command that opens the interactive window. This makes
+  the missing-credential and expired-credential paths consistent (both → "run `login`," matching
+  §8.4's terminal-re-login rule) and makes unattended/scheduled the natural default — so there is
+  no `--no-login` flag and no interactive-desktop detection in `sync`.
 
 The implementation assumes `get_bearer()` returns a fresh bearer (minting from the session
 cookie as needed) and can **re-mint mid-run on a 401** (§8.4).
@@ -280,9 +285,10 @@ CREATE INDEX idx_plays_acct_date      ON plays(account_id, ended_at DESC);      
 
 CREATE TABLE sync_state (
   account_id            TEXT PRIMARY KEY,  -- stable anthicId (NEVER a username, §11)
-  resume_cursor         TEXT,              -- Relay endCursor of last committed page (resume)
+  resume_cursor         TEXT,              -- Relay endCursor; BACKFILLING-only, NULL in steady state (§8.1/§8.2)
   backfill_anchor_id    TEXT,              -- newest id seen when the first backfill began (§8.2)
-  backfill_phase        TEXT NOT NULL,     -- BACKFILLING | TOP_SWEEP | COMPLETE — durable phase (§8.2)
+  backfill_phase        TEXT NOT NULL      -- durable phase (§8.2)
+      CHECK (backfill_phase IN ('BACKFILLING','TOP_SWEEP','COMPLETE')),
   newest_id             TEXT,              -- high-water mark for incremental sync
   newest_ended_at       TEXT,
   api_total_count       INTEGER,           -- finalized freshest-top totalCount; drives drift signal (§8.1/§8.3)
@@ -336,20 +342,22 @@ projection column stale.
 
 Reverse-chronological stream + immutable play `id` ⇒ fetch newest-first, stop at known data:
 
+This is the steady-state (`COMPLETE`-phase) path. It **always restarts from the top** of the
+stream — it does *not* use `resume_cursor` (that's a `BACKFILLING`-only artifact, §8.2):
+
 ```
-high_water_id = sync_state.newest_id      # None on first run
+high_water_id = sync_state.newest_id      # the completed-sync high-water from last run
 run_top_id = run_top_ended_at = None      # captured from THIS run's first NON-EMPTY page
 run_top_total_count = None                # totalCount as seen at the TOP of this run
 seen_known = False
-for page_index, page in enumerate(pages, newest → older, following endCursor):
+for page in pages(newest → older, following endCursor, from the TOP):   # NOT from resume_cursor
     if page and run_top_id is None:       # first row we actually see this run
         run_top_id, run_top_ended_at = page[0].id, page[0].ended_at
         run_top_total_count = page.totalCount
-    BEGIN TRANSACTION                     # page-ingest + PROGRESS checkpoint are atomic (§8.2)
+    BEGIN TRANSACTION
       for node in page: upsert(node)      # INSERT OR IGNORE; re-seeing is a no-op
       if any node.id == high_water_id: seen_known = True
-      write sync_state(resume_cursor=endCursor, updated_at)   # PROGRESS only — not totals/high-water
-    COMMIT
+    COMMIT                                # no resume_cursor write in steady state
     if seen_known: break                  # finish the page first, THEN stop
     if not pageInfo.hasNextPage: break
 
@@ -359,31 +367,45 @@ finalize:
         newest_id, newest_ended_at = run_top_id, run_top_ended_at
         api_total_count = run_top_total_count
     # else (empty stream): newest_id = NULL, api_total_count = 0  (see "Empty stream" below)
-    clear resume_cursor; run drift check (§8.3)
-    # backfill_phase transitions (BACKFILLING → TOP_SWEEP → COMPLETE) are owned by §8.2.
-    # An incremental run (already COMPLETE) only updates high-water/totalCount above.
-    # On first backfill, defer high-water/totalCount to the SWEEP's top (§8.2).
+    run drift check (§8.3)
 ```
 
-- **`resume_cursor` ≠ `newest_id` ≠ `api_total_count`.** `resume_cursor` is a *progress
-  checkpoint* (written every page). `newest_id` and `api_total_count` are *completed-sync* values
-  **captured from the top of the stream and finalized only at the end** — never written per page.
-  If `newest_id` advanced per page it would drift *downward* and a later run would early-break too
-  early; if `api_total_count` were a stale mid-run page value it would **false-warn** the §8.3
-  drift check once newer plays land (review round-4 #4). Both follow the same rule: *capture at
-  top, finalize from the freshest top observation.*
+- **`resume_cursor` is `BACKFILLING`-only; incremental restarts from the top (review round-6 #1).**
+  In steady state we *don't* persist mid-run progress: a run restarts from the top each time, walks
+  down to `high_water_id`, and finalizes `newest_id`/`api_total_count` only on safe completion. So a
+  **crash mid-incremental simply discards the in-memory run-top** — the next run re-reads the true
+  top and re-finalizes; `newest_id` never advanced, nothing is lost, and there's no orphaned cursor.
+  This is correct *because* the incremental walk is cheap (O(new plays)) and idempotent. Writing
+  `resume_cursor` here would create exactly the ambiguity the reviewer flagged — a cursor pointing
+  mid-stream with the run-top values gone. `resume_cursor` therefore exists **only** for the
+  expensive `BACKFILLING` walk (§8.2); it is cleared at backfill completion and stays NULL.
+- **`newest_id` and `api_total_count` are *completed-sync* values** — captured from the top and
+  finalized only at the end, never per page. If `newest_id` advanced per page it would drift
+  *downward* and a later run would early-break too early; if `api_total_count` were a stale mid-run
+  value it would **false-warn** the §8.3 drift check (review round-4 #4). Rule: *capture at top,
+  finalize from the freshest top observation.*
 - **Empty stream (per review v3 #1).** A new account, or any zero-result state, returns an
   **empty first page** — the `run_top` capture must guard against indexing `page[0]`. On an
   empty stream: insert no rows, set `newest_id = NULL`, `newest_ended_at = NULL`,
   `api_total_count = 0`, set `backfill_phase = COMPLETE`, and the report renders "no runs found."
-  A subsequent run simply starts fresh from the top (high-water is NULL) — cheap, since the
-  stream is empty/small. **`page_size` must be validated `≥ 1`** (`first: 0` returns HTTP 500,
-  §5.1).
+  A subsequent run re-checks from the top; if it now finds plays, that's an **initial backfill**
+  (see §8.2 — the backfill trigger keys off `newest_id IS NULL`, not the phase). **`page_size`
+  must be validated `≥ 1`** (`first: 0` returns HTTP 500, §5.1).
 - **Finish the page before breaking** — a page can mix new + cached; breaking mid-page on the
   first cached id would skip newer plays after it.
 - **Cost is O(new plays)** — a daily sync walks one or two pages and stops.
 
 ### 8.2 Resumable backfill & sync state machine (per review blocker #2)
+
+**What triggers an initial backfill (review round-8 #4): `newest_id IS NULL`,** evaluated at sync
+start — *not* the phase. This unifies "brand-new account's first sync" and "an account that was
+empty and later gained plays" — both have `newest_id IS NULL`, and both should get the full
+backfill (resumability + the mid-walk-additions top sweep). So:
+- `newest_id IS NULL` + **empty** first page → no-op, stay `COMPLETE` (idle, §8.1).
+- `newest_id IS NULL` + **non-empty** first page → **initial backfill**: set `BACKFILLING`, record
+  `backfill_anchor_id`, walk, top sweep, finalize. (A prior empty run leaves `phase = COMPLETE`;
+  this transition `COMPLETE → BACKFILLING` is valid and expected.)
+- `newest_id` set → incremental (§8.1).
 
 The first backfill of a large account (~2,000 pages at 100k plays) is the only expensive op.
 
@@ -391,11 +413,15 @@ The first backfill of a large account (~2,000 pages at 100k plays) is the only e
 can't tell "still walking old pages" from "old walk done, top sweep not yet run" — both are
 `0` — so a crash between them is ambiguous. Use an explicit, persisted enum with three states:
 
-| `backfill_phase` | meaning | a fresh run does |
-|---|---|---|
-| `BACKFILLING` | walking old pages toward the end | resume from `resume_cursor` (§8.1) |
-| `TOP_SWEEP` | old-page walk done; sweep not yet finalized | (re)run the top sweep |
-| `COMPLETE` | steady state | normal incremental sync (§8.1) |
+| `backfill_phase` | meaning | a fresh run does | uses `resume_cursor`? |
+|---|---|---|---|
+| `BACKFILLING` | walking old pages toward the end | resume from `resume_cursor` | **yes** — the only phase that does |
+| `TOP_SWEEP` | old-page walk done; sweep not yet finalized | (re)run the top sweep, from the top | no — restart-from-top |
+| `COMPLETE` | steady state | incremental sync from the top (§8.1) | no — restart-from-top |
+
+`resume_cursor` is meaningful **only in `BACKFILLING`** (the one walk expensive enough to be worth
+resuming); it's cleared at completion and NULL otherwise. `TOP_SWEEP` and `COMPLETE` are bounded
+and idempotent, so they always restart from the top and a crash just re-runs them (review round-6 #1).
 
 Transitions, each committed in its own transaction so recovery is unambiguous:
 
@@ -449,13 +475,15 @@ Per-play facts are immutable. Three things can drift, each surfaced by a cheap w
 ### 8.4 Auth refresh, rate limiting & late writes
 
 - **Bearer re-mint on 401:** a long backfill can exceed the ~1 h bearer lifetime. On a 401
-  mid-pagination, re-mint from the session cookie (§4) and continue from `resume_cursor`.
-  **Requires session-cookie auth** (a raw bearer can't re-mint). Daily syncs never hit this.
+  mid-pagination, re-mint from the session cookie (§4) and continue. **Requires session-cookie
+  auth** (a raw bearer can't re-mint). Daily syncs never hit this.
   **But re-mint can fail terminally:** if the session route returns `RefreshAccessTokenError`
   (§4), the refresh token is dead and no bearer can be minted — the sync must **stop and surface
-  "re-login required"** (resume state is already checkpointed in `resume_cursor`, so a later run
-  resumes after the user re-logs in), **not** retry-loop. So an unattended backfill can pause on
-  a wall only a human `login` clears.
+  "re-login required,"** **not** retry-loop. After the user re-logs in, the next run resumes
+  **per phase (review round-8 #2):** `BACKFILLING` resumes from `resume_cursor`; `TOP_SWEEP` and
+  `COMPLETE` (incremental) restart from the top (idempotent, §8.1/§8.2) — there is no
+  `resume_cursor` to rely on outside `BACKFILLING`. So an unattended backfill pauses on a wall
+  only a human `login` clears, then continues from where its phase left off.
 - **Rate limiting / transient errors:** exponential backoff on **HTTP 429 and transient 5xx**
   — this is an **M2 requirement** (the large-backfill path *is* M2), mock-tested (§13).
 - **Late/out-of-order writes:** the algorithm assumes append-only, stable ordering. If violated
@@ -567,9 +595,9 @@ threshold (delta-vs-noise or OLS slope with CI) — not a gut read. See §16.
 state, not "what to do this run"). The POC's ~18 flags collapse to ~4 subcommands + 2 globals.
 
 ```
-voltmeter sync [--full] [--report] [--no-login] [--session VALUE]
+voltmeter sync [--full] [--report] [--session-file PATH]
                             # incremental sync; --full = status reconcile (§8.3, +--show-deleted);
-                            # --report prints a report after; auth flags below
+                            # --report prints a report after. Never opens a login window (§4).
 voltmeter login [--timeout SECONDS]
                             # the ONLY command that opens the interactive login window -> .env
 voltmeter report            # OFFLINE ONLY: runs table + stats from the store. Never auths/networks/logs in.
@@ -577,14 +605,27 @@ voltmeter refresh-catalog   # rebuild the scenario projection (§9)
    globals: --config PATH, --verbose
 ```
 
-**`sync` auth flags & defaults (review round-5 #3):**
-- **default:** resolve the credential from `$AIMLAB_SESSION`/`.env`/config; auto-open the login
-  window **only when an interactive desktop is detected** (the POC's `_gui_likely_available`).
-- **`--no-login`:** never open the window — if no valid credential, fail with "run `voltmeter
-  login`". **This is the recommended default for scheduled/unattended runs** (cron, the future
-  headless companion).
-- **`--session VALUE`:** **debug-only** credential override (bypasses `.env`/config; short-run,
-  can't re-mint — §4). Not for normal use.
+**`sync` auth model (review round-5 #3, round-6 #2, round-8 #1):**
+- **`sync` never opens a login window (§4).** It resolves the credential from file/env channels
+  only; if none/expired, it **fails with "run `voltmeter login`"** (no popup). So there's no
+  `--no-login` flag and no interactive-desktop detection — unattended is the natural default, and
+  `login` is the sole window-opener.
+- **No literal credential on the command line (review round-7 #1).** The session cookie is the
+  ~30-day "logged in as you" secret; a literal `--session VALUE` would leak it into shell history,
+  `ps`/`/proc/PID/cmdline`, and CI logs — contradicting the README and auth doc §8. Inline env
+  (`AIMLAB_SESSION=… voltmeter …`) leaks identically. So the cookie comes **only** from file/env:
+  `$AIMLAB_SESSION` (exported via a profile/secrets manager) or `.env` (`chmod 600`).
+- **`--session-file PATH`:** the sanctioned override — a **path**, never the secret. File
+  contract (review round-8 #3): the file holds a **session cookie**, read as the *first non-empty
+  line, whitespace-trimmed* — the same value `$AIMLAB_SESSION` would hold (a full cookie string
+  containing `session-token` is also accepted, for parity with the POC); it is **not** a
+  `KEY=value` line (that's `.env`) and **not** a `Cookie:` header. It re-mints normally (it's a
+  session cookie). On POSIX, **warn (don't fail)** if the file is group/world-readable
+  (`mode & 0o077`), mirroring the `chmod 600` `login` sets. The value is **never logged** — only
+  the path, plus a "loaded session from PATH" line.
+- **No raw-bearer flag for `sync`.** A raw bearer can't re-mint and so can't survive a backfill
+  (§8.4), which defeats `sync`'s purpose — so it isn't offered. A one-off raw-bearer path is a
+  POC/debug convenience only (auth doc §5), never part of production `sync`.
 
 **Report invariant (per review):** `report` (and `sync --report`'s reporting half) read
 **only** from the store — no network, no auth, no login, ever. Only `sync` does I/O.
@@ -635,8 +676,9 @@ Detail in auth doc §8; pipeline-relevant points:
 - **Local-only.** Session cookie and bearer never leave the machine.
 - **Secret ≠ config.** The session cookie's canonical home is the **`AIMLAB_SESSION` env var,
   seeded from a gitignored `.env`** (`login` writes it, `chmod 600` on POSIX). Identifiers live
-  in `config.toml` (`[aimlabs].user_id`). Precedence: `--session` > `$AIMLAB_SESSION` > `.env` >
-  `config.toml` legacy `session_cookie`.
+  in `config.toml` (`[aimlabs].user_id`). Precedence: `--session-file PATH` > `$AIMLAB_SESSION` >
+  `.env` > `config.toml` legacy `session_cookie`. **The secret never appears as a literal CLI
+  argument** (§11, review round-7 #1) — only file/env channels.
   - **Note (review v3 #2):** the *pipeline's* auth uses `AIMLAB_SESSION`. The **currently
     shipped** `aimlab_scores` tool legitimately reads `[aimlabs].session_cookie` and the
     `AIMLABS_COOKIE` env var (`aimlab_scores.py:265`) — those are **not** dead and must **not**
@@ -644,7 +686,8 @@ Detail in auth doc §8; pipeline-relevant points:
     onto the unified `AIMLAB_SESSION` scheme is an **M6 task** (when the pipeline replaces/extends
     that tool), not a pre-implementation edit — see [`DESIGN_PUSHBACK_v3.md`](DESIGN_PUSHBACK_v3.md) #2.
 - **Auth policy** is production-specific — see §4 (session canonical for sync; bearer
-  debug-only; report never auths; `--no-login` default for unattended).
+  debug-only; report never auths; **`sync` never opens a login window** — fails with "run
+  `login`" instead, so unattended is the default).
 - **`.gitignore` — DONE.** The repo `.gitignore` now ignores `.env`, `.env.*`, `*.token`,
   `*.cookie`, `*_history.json`, `data/`, `*.db`, `*.sqlite*`, and `config.toml` (committed with
   the POC). Reviewers: still never commit a real history dump or a populated `.env`.
@@ -665,18 +708,24 @@ injected into `history_sync`/`aimlabs_history` so the interesting logic tests wi
   plays arriving mid-backfill** (anchor + top sweep), **401 re-mint**, **`RefreshAccessTokenError`
   → terminal "re-login required" (no retry-loop, §4/§8.4)**, **429/5xx backoff**, and
   **cursor-rejection → top restart**. **High-water semantics (§8.1):** a 3-page incremental
-  where pages 2–3 are older → `newest_id` stays page-1's top after completion; a crash after the
-  page-2 checkpoint → resume uses `resume_cursor` but does *not* advance `newest_id` to page 2;
-  a first backfill + top sweep → `newest_id` is the true top **and `api_total_count` is the
-  *sweep's* count (not a mid-backfill value)** only after the sweep (§8.2/round-4 #4).
+  where pages 2–3 are older → `newest_id` stays page-1's top after completion (finalized once, not
+  per page); a **`BACKFILLING` crash after the page-2 checkpoint** → resume from `resume_cursor`,
+  `newest_id` not advanced; a first backfill + top sweep → `newest_id` is the true top **and
+  `api_total_count` is the *sweep's* count (not a mid-backfill value)** only after the sweep
+  (§8.2/round-4 #4).
   **`backfill_phase` recovery (§8.2/round-5 #1):** crash after the old-page walk but before the
   sweep → phase persisted as `TOP_SWEEP` → next run runs the sweep (not a mis-resume of old
   pages); crash *during* the sweep → still `TOP_SWEEP` → re-running the sweep is idempotent;
-  phase flips to `COMPLETE` only after the sweep finalizes. **Empty stream (§8.1):** empty first
-  page → no rows, `newest_id = NULL`, `api_total_count = 0`,
-  backfill marked complete, no index error; plus `page_size < 1` is rejected by config
-  validation. (Live data is single-page, so multi-page behavior has no real-data coverage — it
-  *must* be mock-tested.)
+  phase flips to `COMPLETE` only after the sweep finalizes. **Incremental restart-from-top
+  (§8.1/round-6 #1):** a crash mid-incremental (phase `COMPLETE`) → next run restarts from the top,
+  writes no `resume_cursor`, and `newest_id` is unchanged until safe completion (no orphaned cursor,
+  no lost run-top). **Empty stream (§8.1):** empty first page → no rows, `newest_id = NULL`,
+  `api_total_count = 0`, `backfill_phase = COMPLETE`, no index error; plus `page_size < 1` is
+  rejected by config validation. **Empty-then-nonempty (§8.2/round-8 #4):** a run after an empty
+  one that *does* find plays → `newest_id IS NULL` triggers a full initial backfill (`COMPLETE →
+  BACKFILLING`, anchor, top sweep), not a bare incremental. **`backfill_phase` CHECK** rejects any
+  out-of-enum value (§7). (Live data is single-page, so multi-page behavior has no real-data
+  coverage — it *must* be mock-tested.)
 - **`scenario_catalog`:** union across small `s1/s2/s3` fixtures; product-surface fields;
   unknown handling; duplicate-`task_id` policy; never-group-by-name.
 - **`history_report`:** rolling median/max correctness; per-`task_id` bucketing; "other" footer;
@@ -684,7 +733,10 @@ injected into `history_sync`/`aimlabs_history` so the interesting logic tests wi
   **empty store → "no runs found"** renders cleanly (§8.1).
 - **`history_sync` contamination check:** mock the aggregate `count(task_mode=42,
   is_practice=true)` → `0` (silent) and `>0` (warns) (§8.3).
-- **`aimlabs_auth`:** port the POC's mock tests (session-route exchange, `.env` precedence).
+- **`aimlabs_auth`:** port the POC's mock tests (session-route exchange, `.env` precedence);
+  **`sync` never opens a window** — missing/expired credential → exit with "run `voltmeter login`"
+  (no popup, §4); **`--session-file`** reads the cookie per the §11 contract and **warns on
+  loose POSIX permissions** without logging the value.
 - **Fixtures must be synthetic/sanitized** — never commit a real account dump.
 
 ---
@@ -707,7 +759,7 @@ no practice; no `is_practice` column); only the non-blocking cursor-expiry check
 | # | Milestone | Acceptance criteria |
 |---|---|---|
 | **M1** | **Store** | `play_store.py` with the §7 schema (`account_id`, `raw` canonical, `first_fetched_at`/`last_seen_at`, `user_version`) at `data/aimlabs.db`; both indexes (incl. `idx_plays_acct_date`); **explicit + tested upsert semantics** (incremental insert-only/byte-identical; `--full` re-derives projection from `raw` + drift warning) per §7.1; **canonical JSON serialization** (sorted-keys/compact) with a key-order-variance fixture proving no false drift (§7.1); synthetic fixtures only. |
-| **M2a** | **Core incremental sync** | `aimlabs_history.py` (stateless) + `history_sync.py`: newest→older pagination, finish-page-then-break, one-page overlap (§8.1); **transactional page-ingest + progress checkpoint**; **`resume_cursor` vs `newest_id` separation** (§8.1); **empty-first-page path** (no rows, `newest_id`/`api_total_count` set, `page_size ≥ 1` validation, §8.1); `totalCount` drift signal (§8.3); **resume/re-run safely after local interruption** (idempotent upsert + `resume_cursor`). Mock-page tests. Second run touches ≤1–2 pages, 0 new rows. |
+| **M2a** | **Core incremental sync** | `aimlabs_history.py` (stateless) + `history_sync.py`: newest→older pagination from the top, finish-page-then-break, one-page overlap (§8.1); **atomic page-ingest**; **high-water captured-at-top, finalized-at-completion (not per page), no `resume_cursor` in steady state** (§8.1/round-6 #1); **empty-first-page path** (no rows, `newest_id`/`api_total_count` set, `page_size ≥ 1` validation, §8.1); `totalCount` drift signal (§8.3); **crash mid-incremental → restart-from-top, idempotent** (no orphaned cursor). Mock-page tests. Second run touches ≤1–2 pages, 0 new rows. |
 | **M2b** | **Sync resilience** | First-backfill state machine with the durable **`backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`, §8.2): resume + **new-plays-mid-backfill** (anchor + post-backfill top sweep on *every* initial backfill); **crash-before-sweep and crash-during-sweep tests** (phase persisted, sweep re-run idempotent); **401 re-mint (session-cookie auth)**; **429/5xx backoff**; **cursor-*rejection* → top-restart fallback** (distinct from M2a's local-interruption resume). All mock-tested. *(M2 split per [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #3.)* |
 | **M3** | **Scenario catalog** | `scenario_catalog.py`: union of all `resources/aimlabs/*.json` → catalog records incl. **`benchmark_alias`/`benchmark_name`/`family`/`season`/`is_active`/`has_leaderboards`** (§9), not just name/season; rebuildable via `refresh-catalog`; **duplicate-`task_id` policy defined**; unknowns retained + reportable; resolver interface ready for a future API source. |
 | **M4** | **Runs table + basic stats** | `history_report.py` + `report` command: reverse-chron table, per-`task_id` PB/median/rolling stats; **offline-only (no auth/network)**; scoped by `report_family` (default `all`) + "other" footer; **non-APPROVED excluded by default with a visible note**; **timezone labeled**; **JSON output** included if a dashboard/test consumer exists, else console-only with JSON fast-follow. |
@@ -715,6 +767,22 @@ no practice; no `is_practice` column); only the non-blocking cursor-expiry check
 | **M6** | **Decommission the POC** | After M1–M4 ship, retire `proof-of-concepts/` history scripts; auth/config unified through `aimlabs_auth`/`config`. Reconcile **`README.md` + `config.example.toml`** onto the unified scheme (`[aimlabs].user_id`, `AIMLAB_SESSION`, `report_family` default); retire `AIMLABS_COOKIE`/`session_cookie` from user-facing docs **only once the shipped tool no longer needs them** (review v3 #2). |
 
 Order: **M1 → M2a → M2b → M3 → M4 → M6** (§5.1 validation done). M4 can begin once M1+M3 exist.
+
+**Milestones cut across sections** (they are *build* units, not the doc's *section* numbers — one
+milestone implements parts of several sections, each its own gate-green PR):
+
+| Milestone | New module(s) | Implements sections | Depends on |
+|---|---|---|---|
+| **M1** Store | `play_store.py` | §7 schema + §7.1 mutability/serialization | — (foundation) |
+| **M2a** Core sync | `aimlabs_history.py`, `history_sync.py`, `aimlabs_auth.py` | §8.1, §8.3, §4 (credential resolution) | M1 |
+| **M2b** Resilience | (extends M2a modules) | §8.2 (phase machine), §8.4 (re-mint/backoff) | M2a |
+| **M3** Catalog | `scenario_catalog.py` | §9 | M1 (parallel to M2) |
+| **M4** Report | `history_report.py`, `cli.py` | §10, §11 | M1 + M3 |
+| **M6** Decommission | — | §12/§14 doc reconciliation; retire POC | M1–M4 |
+
+So the critical path is **M1 → M2a → M2b**, with **M3 parallelizable** after M1 and **M4** joining
+once M1+M3 land. §13 (testing) and §15 (decisions) are cross-cutting — every milestone adds its
+slice of tests. The §1–§3 / §5 / §17 sections are background/context, not build work.
 
 ---
 
@@ -734,7 +802,7 @@ Order: **M1 → M2a → M2b → M3 → M4 → M6** (§5.1 validation done). M4 c
 | 10 | **Build into the package**, gate-green per PR; `.gitignore` hardening **done**. | 12, 14 |
 | 11 | **History scope = all mode-42 plays = benchmark plays.** Live-verified `mode 42 ⇒ 0 practice` (0/919); no `is_practice` column; cheap aggregate contamination warning as backstop. | 5.1, 8.3 |
 | 12 | **M2 split into M2a (core) / M2b (resilience).** | 14 |
-| 13 | **`resume_cursor` (progress checkpoint) is separate from `newest_id` *and* `api_total_count`** — the latter two are captured at the top and finalized from the freshest top observation (top sweep), never per-page. | 8.1, 8.2 |
+| 13 | **`resume_cursor` is `BACKFILLING`-only** (incremental + top-sweep restart-from-top, idempotent); `newest_id`/`api_total_count` are captured at the top and finalized from the freshest top observation, never per-page. | 8.1, 8.2 |
 | 14 | **Default report scope `report_family = all`** (all Voltaic Aimlabs S1+S2+S3); `valorant` restricts to S1. | 10.1 |
 | 15 | **Auth: `RefreshAccessTokenError` is a terminal "re-login required" state** (cookie identity vs token-minting lifetimes are decoupled); re-mint stops, doesn't retry-loop. | 4, 8.4 |
 | 16 | **Empty stream handled** — empty first page ⇒ no rows, `newest_id = NULL`, `api_total_count = 0`, `backfill_phase = COMPLETE`; `page_size` validated ≥ 1. | 8.1 |
@@ -742,9 +810,11 @@ Order: **M1 → M2a → M2b → M3 → M4 → M6** (§5.1 validation done). M4 c
 | 18 | **`config.toml` schema pinned** — `[aimlabs]` / `[storage]` / `[sync]` / `[report]`, flattened `section_key`; one layout, not implementer's choice. | 11 |
 | 19 | **`page_size` default 50, bounds 1–200**; cursor loop tolerates server capping (politeness knob, not correctness). | 8.2, 11 |
 | 20 | **User-release is gated on doc/config reconciliation** (M6) — a milestone being code-complete ≠ user-release-complete. | 14 |
-| 21 | **Durable `backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`) replaces the `backfill_complete` boolean — crash-before/during-sweep is unambiguous. | 7, 8.2 |
+| 21 | **Durable `backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`, guarded by a DB `CHECK`) replaces the `backfill_complete` boolean — crash-before/during-sweep is unambiguous. | 7, 8.2 |
 | 22 | **`user_id` (anthicId) required; `username` dropped** — storage/state always keyed by stable anthicId, never the mutable username. | 7, 11 |
-| 23 | **`sync` auth flags pinned** — `--no-login` (recommended for unattended), `--session` (debug-only); auto-login only when an interactive desktop is detected. | 4, 11 |
+| 23 | **`sync` never opens a login window** — missing/expired credential → fail "run `voltmeter login`" (consistent with §8.4); `login` is the sole window-opener. No `--no-login`, no auto-login, no interactive detection. | 4, 11 |
+| 24 | **`--session-file PATH` is the only credential override** — a path, never a literal secret; bare-cookie file contract; warn on loose POSIX perms; value never logged. | 11, 12 |
+| 25 | **Initial backfill triggers off `newest_id IS NULL`** (not the phase) — unifies new-account and empty-then-nonempty; both get the full backfill + top sweep. | 8.2 |
 
 ---
 
