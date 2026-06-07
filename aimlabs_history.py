@@ -56,6 +56,18 @@ class AimlabsUnauthorizedError(AimlabsHistoryError):
     """Raised when the history endpoint rejects the supplied credential."""
 
 
+class AimlabsTransientHistoryError(AimlabsHistoryError):
+    """Raised for retryable history endpoint failures."""
+
+    def __init__(self, status_code: int, body_text: str) -> None:
+        self.status_code = status_code
+        super().__init__(f"history request HTTP {status_code}: {body_text[:200]}")
+
+
+class AimlabsCursorRejectedError(AimlabsHistoryError):
+    """Raised when the API rejects a stored Relay cursor."""
+
+
 @dataclass(frozen=True)
 class HistoryPage:
     plays: tuple[dict[str, Any], ...]
@@ -118,6 +130,8 @@ def fetch_history_page(  # pylint: disable=too-many-arguments
     status_code, body_text = sender(ENDPOINT, payload, headers, timeout)
     if status_code == 401:
         raise AimlabsUnauthorizedError("history request was unauthenticated; run `voltmeter login`.")
+    if status_code == 429 or 500 <= status_code <= 599:
+        raise AimlabsTransientHistoryError(status_code, body_text)
     if status_code != 200:
         raise AimlabsHistoryError(f"history request HTTP {status_code}: {body_text[:200]}")
     return parse_history_page(body_text)
@@ -133,7 +147,10 @@ def parse_history_page(body_text: str) -> HistoryPage:
         raise AimlabsHistoryError("history response must be a JSON object.")
     errors = payload.get("errors")
     if errors:
-        raise AimlabsHistoryError("graphql error: " + json.dumps(errors, sort_keys=True)[:300])
+        error_text = json.dumps(errors, sort_keys=True)
+        if _looks_like_cursor_rejection(error_text):
+            raise AimlabsCursorRejectedError("graphql cursor rejected: " + error_text[:300])
+        raise AimlabsHistoryError("graphql error: " + error_text[:300])
 
     plays_block = _plays_block(payload)
     total_count = plays_block.get("totalCount")
@@ -215,3 +232,12 @@ def _authorization_header(bearer: str) -> str:
     if bearer.startswith("Bearer "):
         return bearer
     return f"Bearer {bearer}"
+
+
+def _looks_like_cursor_rejection(error_text: str) -> bool:
+    normalized_error = error_text.lower()
+    mentions_cursor = ("cursor" in normalized_error) or ("after" in normalized_error)
+    mentions_rejection = any(
+        rejection_word in normalized_error for rejection_word in ("invalid", "expired", "malformed", "rejected", "bad")
+    )
+    return mentions_cursor and mentions_rejection

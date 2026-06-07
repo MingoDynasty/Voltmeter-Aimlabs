@@ -146,29 +146,78 @@ def upsert_plays(
         raise PlayStoreError("account_id is required.")
 
     effective_seen_at = seen_at or _utc_now_text()
+    with connection:
+        result = _upsert_plays_in_transaction(
+            connection,
+            account_id,
+            raw_plays,
+            full=full,
+            seen_at=effective_seen_at,
+        )
+
+    _emit_field_drift_warnings(result.drift_warnings)
+    return result
+
+
+def upsert_plays_and_save_sync_state(
+    connection: sqlite3.Connection,
+    account_id: str,
+    raw_plays: Iterable[Mapping[str, Any]],
+    sync_state: SyncState,
+    *,
+    seen_at: Optional[str] = None,
+) -> UpsertResult:
+    """Atomically ingest a page and checkpoint sync state."""
+    if not account_id:
+        raise PlayStoreError("account_id is required.")
+    if sync_state.account_id != account_id:
+        raise PlayStoreError("sync_state.account_id must match account_id.")
+
+    effective_seen_at = seen_at or _utc_now_text()
+    _validate_sync_state(sync_state)
+    with connection:
+        result = _upsert_plays_in_transaction(
+            connection,
+            account_id,
+            raw_plays,
+            full=False,
+            seen_at=effective_seen_at,
+        )
+        _save_sync_state_in_transaction(connection, sync_state)
+
+    _emit_field_drift_warnings(result.drift_warnings)
+    return result
+
+
+def _upsert_plays_in_transaction(
+    connection: sqlite3.Connection,
+    account_id: str,
+    raw_plays: Iterable[Mapping[str, Any]],
+    *,
+    full: bool,
+    seen_at: str,
+) -> UpsertResult:
     inserted = 0
     updated = 0
     skipped = 0
     drift_warnings: list[FieldDriftWarning] = []
 
-    with connection:
-        for raw_play in raw_plays:
-            play_projection = _project_play(account_id, raw_play, effective_seen_at)
-            if full:
-                existing_play = get_play(connection, account_id, play_projection["id"])
-                if existing_play is None:
-                    _insert_play_incremental(connection, play_projection)
-                    inserted += 1
-                else:
-                    drift_warnings.extend(_find_field_drifts(existing_play, play_projection))
-                    _update_play_from_raw(connection, play_projection)
-                    updated += 1
-            elif _insert_play_incremental(connection, play_projection):
+    for raw_play in raw_plays:
+        play_projection = _project_play(account_id, raw_play, seen_at)
+        if full:
+            existing_play = get_play(connection, account_id, play_projection["id"])
+            if existing_play is None:
+                _insert_play_incremental(connection, play_projection)
                 inserted += 1
             else:
-                skipped += 1
+                drift_warnings.extend(_find_field_drifts(existing_play, play_projection))
+                _update_play_from_raw(connection, play_projection)
+                updated += 1
+        elif _insert_play_incremental(connection, play_projection):
+            inserted += 1
+        else:
+            skipped += 1
 
-    _emit_field_drift_warnings(drift_warnings)
     return UpsertResult(
         inserted=inserted,
         updated=updated,
@@ -284,39 +333,43 @@ def get_sync_state(connection: sqlite3.Connection, account_id: str) -> Optional[
 def save_sync_state(connection: sqlite3.Connection, sync_state: SyncState) -> None:
     _validate_sync_state(sync_state)
     with connection:
-        connection.execute(
-            """
-            INSERT INTO sync_state (
-                account_id,
-                resume_cursor,
-                backfill_anchor_id,
-                backfill_phase,
-                newest_id,
-                newest_ended_at,
-                api_total_count,
-                updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(account_id) DO UPDATE SET
-                resume_cursor = excluded.resume_cursor,
-                backfill_anchor_id = excluded.backfill_anchor_id,
-                backfill_phase = excluded.backfill_phase,
-                newest_id = excluded.newest_id,
-                newest_ended_at = excluded.newest_ended_at,
-                api_total_count = excluded.api_total_count,
-                updated_at = excluded.updated_at
-            """,
-            (
-                sync_state.account_id,
-                sync_state.resume_cursor,
-                sync_state.backfill_anchor_id,
-                sync_state.backfill_phase,
-                sync_state.newest_id,
-                sync_state.newest_ended_at,
-                sync_state.api_total_count,
-                sync_state.updated_at,
-            ),
+        _save_sync_state_in_transaction(connection, sync_state)
+
+
+def _save_sync_state_in_transaction(connection: sqlite3.Connection, sync_state: SyncState) -> None:
+    connection.execute(
+        """
+        INSERT INTO sync_state (
+            account_id,
+            resume_cursor,
+            backfill_anchor_id,
+            backfill_phase,
+            newest_id,
+            newest_ended_at,
+            api_total_count,
+            updated_at
         )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(account_id) DO UPDATE SET
+            resume_cursor = excluded.resume_cursor,
+            backfill_anchor_id = excluded.backfill_anchor_id,
+            backfill_phase = excluded.backfill_phase,
+            newest_id = excluded.newest_id,
+            newest_ended_at = excluded.newest_ended_at,
+            api_total_count = excluded.api_total_count,
+            updated_at = excluded.updated_at
+        """,
+        (
+            sync_state.account_id,
+            sync_state.resume_cursor,
+            sync_state.backfill_anchor_id,
+            sync_state.backfill_phase,
+            sync_state.newest_id,
+            sync_state.newest_ended_at,
+            sync_state.api_total_count,
+            sync_state.updated_at,
+        ),
+    )
 
 
 def _resolve_db_path(db_path: Optional[Union[str, Path]]) -> Union[str, Path]:
