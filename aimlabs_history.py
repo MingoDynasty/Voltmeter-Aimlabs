@@ -235,6 +235,7 @@ def _authorization_header(bearer: str) -> str:
 
 
 def _looks_like_cursor_rejection(error_text: str) -> bool:
+    # GraphQL does not expose a typed cursor-expiry code here, so this is a best-effort classifier.
     normalized_error = error_text.lower()
     mentions_cursor = ("cursor" in normalized_error) or ("after" in normalized_error)
     mentions_rejection = any(
