@@ -1,0 +1,946 @@
+{
+    "url": "https://app.voltaic.gg/api/v1/kovaaks/benchmarks/kovaaks_s3",
+    "alias": "kovaaks_s3",
+    "name": "Voltaic KovaaK's Benchmarks",
+    "season": "3",
+    "description": null,
+    "icon_url": "https://cdn.voltaic.gg/benchmark-icons/kvkss3.png",
+    "color": "#ed4800",
+    "author": "Voltaic",
+    "has_leaderboards": false,
+    "is_active": true,
+    "scenarios":
+    [
+        {
+            "id": 203,
+            "name": "Pasu Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        40,
+                        50,
+                        56,
+                        66,
+                        75
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "605",
+            "subcategory_id": 1
+        },
+        {
+            "id": 204,
+            "name": "B180 Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        52,
+                        61,
+                        70,
+                        77,
+                        86
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "405",
+            "subcategory_id": 1
+        },
+        {
+            "id": 205,
+            "name": "Popcorn Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        100,
+                        150,
+                        200,
+                        250,
+                        310
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "833",
+            "subcategory_id": 1
+        },
+        {
+            "id": 218,
+            "name": "Pasu Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        68,
+                        76,
+                        85,
+                        95,
+                        105,
+                        111
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "6",
+            "subcategory_id": 1
+        },
+        {
+            "id": 219,
+            "name": "B180 Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        78,
+                        88,
+                        98,
+                        108,
+                        115,
+                        123
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "9",
+            "subcategory_id": 1
+        },
+        {
+            "id": 220,
+            "name": "Popcorn Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        220,
+                        260,
+                        320,
+                        390,
+                        440,
+                        450
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "8",
+            "subcategory_id": 1
+        },
+        {
+            "id": 221,
+            "name": "ww3t Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        83,
+                        93,
+                        103,
+                        113,
+                        123
+                    ]
+                },
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        130,
+                        138,
+                        148,
+                        160,
+                        170,
+                        172
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "68",
+            "subcategory_id": 2
+        },
+        {
+            "id": 222,
+            "name": "1w4ts Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        70,
+                        82,
+                        91,
+                        100,
+                        110
+                    ]
+                },
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        115,
+                        120,
+                        130,
+                        142,
+                        152,
+                        156
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "319",
+            "subcategory_id": 2
+        },
+        {
+            "id": 223,
+            "name": "6 Sphere Hipfire Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        95,
+                        108,
+                        120,
+                        132,
+                        142
+                    ]
+                },
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        152,
+                        160,
+                        175,
+                        192,
+                        210,
+                        213
+                    ]
+                }
+            ],
+            "category_id": 1,
+            "leaderboard_id": "108",
+            "subcategory_id": 2
+        },
+        {
+            "id": 206,
+            "name": "Smoothbot Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        1700,
+                        2100,
+                        2400,
+                        2800,
+                        3100
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "370",
+            "subcategory_id": 3
+        },
+        {
+            "id": 207,
+            "name": "Air Angelic 4 Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        1800,
+                        2200,
+                        2600,
+                        3000,
+                        3300
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "42",
+            "subcategory_id": 3
+        },
+        {
+            "id": 208,
+            "name": "PGTI Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        700,
+                        1000,
+                        1300,
+                        1600,
+                        1900
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "510",
+            "subcategory_id": 3
+        },
+        {
+            "id": 224,
+            "name": "Smoothbot Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        2600,
+                        2900,
+                        3400,
+                        3800,
+                        4000,
+                        4134
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "300",
+            "subcategory_id": 3
+        },
+        {
+            "id": 225,
+            "name": "Air Angelic 4 Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        2700,
+                        3000,
+                        3400,
+                        3900,
+                        4100,
+                        4226
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "30",
+            "subcategory_id": 3
+        },
+        {
+            "id": 226,
+            "name": "PGTI Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        1100,
+                        1400,
+                        1800,
+                        2200,
+                        2500,
+                        2588
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "99",
+            "subcategory_id": 3
+        },
+        {
+            "id": 209,
+            "name": "FuglaaXYZ Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        7500,
+                        8500,
+                        10000,
+                        12000,
+                        14000
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "603",
+            "subcategory_id": 4
+        },
+        {
+            "id": 210,
+            "name": "Ground Plaza Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        835,
+                        845,
+                        855,
+                        870,
+                        880
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "520",
+            "subcategory_id": 4
+        },
+        {
+            "id": 211,
+            "name": "Air Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        775,
+                        800,
+                        825,
+                        852,
+                        865
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "568",
+            "subcategory_id": 4
+        },
+        {
+            "id": 227,
+            "name": "FuglaaXYZ Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        11300,
+                        12500,
+                        13800,
+                        15200,
+                        16000,
+                        16840
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "363",
+            "subcategory_id": 4
+        },
+        {
+            "id": 228,
+            "name": "Ground Plaza Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        862,
+                        870,
+                        880,
+                        888,
+                        894,
+                        896
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "316",
+            "subcategory_id": 4
+        },
+        {
+            "id": 229,
+            "name": "Air Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        850,
+                        860,
+                        872,
+                        883,
+                        887,
+                        891
+                    ]
+                }
+            ],
+            "category_id": 2,
+            "leaderboard_id": "29",
+            "subcategory_id": 4
+        },
+        {
+            "id": 212,
+            "name": "patTS Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        65,
+                        80,
+                        85,
+                        91,
+                        98
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "538",
+            "subcategory_id": 5
+        },
+        {
+            "id": 213,
+            "name": "psalmTS Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        50,
+                        58,
+                        67,
+                        76,
+                        85
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "960",
+            "subcategory_id": 5
+        },
+        {
+            "id": 214,
+            "name": "voxTS Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        74,
+                        82,
+                        90,
+                        100,
+                        109
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "577",
+            "subcategory_id": 5
+        },
+        {
+            "id": 230,
+            "name": "patTS Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        91,
+                        97,
+                        103,
+                        110,
+                        116,
+                        119
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "464",
+            "subcategory_id": 5
+        },
+        {
+            "id": 231,
+            "name": "psalmTS Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        85,
+                        90,
+                        98,
+                        107,
+                        114,
+                        118
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "1114",
+            "subcategory_id": 5
+        },
+        {
+            "id": 232,
+            "name": "voxTS Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        102,
+                        110,
+                        118,
+                        125,
+                        131,
+                        133
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "26",
+            "subcategory_id": 5
+        },
+        {
+            "id": 215,
+            "name": "kinTS Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        45,
+                        54,
+                        60,
+                        66,
+                        72
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "542",
+            "subcategory_id": 6
+        },
+        {
+            "id": 216,
+            "name": "B180T Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        40,
+                        51,
+                        60,
+                        69,
+                        77
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "543",
+            "subcategory_id": 6
+        },
+        {
+            "id": 217,
+            "name": "Smoothbot TS Voltaic Easy",
+            "tiers":
+            [
+                {
+                    "tier_id": 3,
+                    "thresholds":
+                    [
+                        35,
+                        42,
+                        46,
+                        50,
+                        54
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "868",
+            "subcategory_id": 6
+        },
+        {
+            "id": 233,
+            "name": "kinTS Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        65,
+                        72,
+                        79,
+                        84,
+                        88,
+                        91
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "604",
+            "subcategory_id": 6
+        },
+        {
+            "id": 234,
+            "name": "B180T Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        64,
+                        70,
+                        78,
+                        85,
+                        92,
+                        96
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "947",
+            "subcategory_id": 6
+        },
+        {
+            "id": 235,
+            "name": "Smoothbot TS Voltaic",
+            "tiers":
+            [
+                {
+                    "tier_id": 4,
+                    "thresholds":
+                    [
+                        50,
+                        55,
+                        60,
+                        65,
+                        70,
+                        71
+                    ]
+                }
+            ],
+            "category_id": 3,
+            "leaderboard_id": "596",
+            "subcategory_id": 6
+        }
+    ],
+    "tiers":
+    [
+        {
+            "sharecode": "KovaaKsFlickingFastCashdrop",
+            "benchmark_api_id": 624,
+            "id": 3,
+            "name": "Intermediate",
+            "color": "#ffab54"
+        },
+        {
+            "sharecode": "KovaaKsFlashingFarFinisher",
+            "benchmark_api_id": 625,
+            "id": 4,
+            "name": "Advanced",
+            "color": "#fc596f"
+        }
+    ],
+    "ranks":
+    [
+        {
+            "name": "bronze",
+            "color": "#ff9900",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_2_Bronze.svg",
+            "energy_threshold": 200,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/bronze_zjk7ws.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_2_Bronze_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/bronze-complete_zyvf0g.svg"
+        },
+        {
+            "name": "silver",
+            "color": "#afbfcd",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_3_Silver.svg",
+            "energy_threshold": 300,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/silver_rniwde.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_3_Silver_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/silver-complete_rgpu8h.svg"
+        },
+        {
+            "name": "gold",
+            "color": "#cab148",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_4_Gold.svg",
+            "energy_threshold": 400,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/gold_wbezjr.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_4_Gold_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/gold-complete_k2keat.svg"
+        },
+        {
+            "name": "platinum",
+            "color": "#2fcfc2",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_5_Platinum.svg",
+            "energy_threshold": 500,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/platinum_ed8opn.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_5_Platinum_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/platinum-complete_nzzl2j.svg"
+        },
+        {
+            "name": "diamond",
+            "color": "#88d3e4",
+            "tier_id": 3,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_6_Diamond.svg",
+            "energy_threshold": 600,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/diamond_m7mgg6.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_6_Diamond_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/diamond-complete_tbe6xt.svg"
+        },
+        {
+            "name": "jade",
+            "color": "#85fa85",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_7_Jade.svg",
+            "energy_threshold": 700,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/jade_vk0ymm.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_7_Jade_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/jade-complete_vsmsa9.svg"
+        },
+        {
+            "name": "master",
+            "color": "#ec44ca",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_8_Master.svg",
+            "energy_threshold": 800,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/master_h7mqrx.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_8_Master_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/master-complete_j3akea.svg"
+        },
+        {
+            "name": "grandmaster",
+            "color": "#ffd700",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_9_Grandmaster.svg",
+            "energy_threshold": 900,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/grandmaster_uxldhb.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_9_Grandmaster_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/grandmaster-complete_zfl780.svg"
+        },
+        {
+            "name": "nova",
+            "color": "#BEA0F9",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_10_Nova.svg",
+            "energy_threshold": 1000,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/nova_o0hfir.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_10_Nova_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/nova-complete_a7puhy.svg"
+        },
+        {
+            "name": "astra",
+            "color": "#ff2262",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_11_Astra.svg",
+            "energy_threshold": 1100,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/astra_thmf54.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_11_Astra_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/astra-complete_ambbsr.svg"
+        },
+        {
+            "name": "celestial",
+            "color": "#24ddd8",
+            "tier_id": 4,
+            "icon_url": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_12_Celestial.svg",
+            "energy_threshold": 1200,
+            "icon_url_complex": "https://cdn.voltaic.gg/rank-icons/complex/celestial_hs5lc0.svg",
+            "icon_url_complete": "https://cdn.voltaic.gg/rank-icons/scaled/Simple_standard_all-scaled_12_Celestial_Complete.svg",
+            "icon_url_complex_complete": "https://cdn.voltaic.gg/rank-icons/complex/complete/celestial-complete_nwhvqo.svg"
+        }
+    ],
+    "categories":
+    [
+        {
+            "id": 1,
+            "name": "clicking",
+            "color": "#e53535",
+            "subcategories":
+            [
+                {
+                    "id": 1,
+                    "name": "dynamic",
+                    "color": "#E9C452"
+                },
+                {
+                    "id": 2,
+                    "name": "static",
+                    "color": "#FF5A47"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "tracking",
+            "color": "#2663ce",
+            "subcategories":
+            [
+                {
+                    "id": 3,
+                    "name": "precise",
+                    "color": "#61C0E0"
+                },
+                {
+                    "id": 4,
+                    "name": "reactive",
+                    "color": "#8bb7ff"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "name": "switching",
+            "color": "#7844d9",
+            "subcategories":
+            [
+                {
+                    "id": 5,
+                    "name": "speed",
+                    "color": "#8E6BFF"
+                },
+                {
+                    "id": 6,
+                    "name": "evasive",
+                    "color": "#6B77FF"
+                }
+            ]
+        }
+    ]
+}
