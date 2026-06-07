@@ -97,9 +97,8 @@ def connect(db_path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
 
 
 def initialize_schema(connection: sqlite3.Connection) -> None:
+    connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     connection.executescript("""
-        PRAGMA user_version = 1;
-
         CREATE TABLE IF NOT EXISTS plays (
           account_id         TEXT NOT NULL,
           id                 TEXT NOT NULL,

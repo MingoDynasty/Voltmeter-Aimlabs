@@ -228,6 +228,31 @@ class PlayStoreUpsertTests(unittest.TestCase):
         )
 
 
+class PlayStoreValidationTests(unittest.TestCase):
+    def test_missing_play_id_raises_store_error(self) -> None:
+        connection = play_store.connect(":memory:")
+        play = synthetic_play()
+        del play["id"]
+
+        with self.assertRaisesRegex(play_store.PlayStoreError, "id is required"):
+            play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
+
+    def test_bool_duration_raises_store_error(self) -> None:
+        connection = play_store.connect(":memory:")
+        play = synthetic_play()
+        play["manifest"]["playDuration"] = True
+
+        with self.assertRaisesRegex(play_store.PlayStoreError, "manifest.playDuration"):
+            play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
+
+    def test_invalid_performance_scores_json_text_raises_store_error(self) -> None:
+        connection = play_store.connect(":memory:")
+        play = synthetic_play(performance_scores="{not json")
+
+        with self.assertRaisesRegex(play_store.PlayStoreError, "performanceScores"):
+            play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
+
+
 class PlayStoreQueryTests(unittest.TestCase):
     def test_queries_return_account_task_and_recent_views(self) -> None:
         connection = play_store.connect(":memory:")

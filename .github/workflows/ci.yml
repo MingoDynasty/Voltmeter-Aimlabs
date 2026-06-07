@@ -29,8 +29,10 @@ jobs:
           benchmark_constants.py
           config.py
           main.py
+          play_store.py
           stopwatch.py
           voltaic_benchmarks.py
+          tests/test_play_store.py
           tests/test_voltaic_benchmarks.py
           tests/test_aimlab_scores.py
           tests/test_aimlabs_client.py
@@ -45,6 +47,7 @@ jobs:
           benchmark_constants.py
           config.py
           main.py
+          play_store.py
           stopwatch.py
           voltaic_benchmarks.py
 
@@ -56,6 +59,7 @@ jobs:
           benchmark_constants.py
           config.py
           main.py
+          play_store.py
           stopwatch.py
           voltaic_benchmarks.py
           tests
@@ -71,6 +75,7 @@ jobs:
           benchmark_constants.py
           config.py
           main.py
+          play_store.py
           stopwatch.py
           voltaic_benchmarks.py
 
