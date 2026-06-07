@@ -9,20 +9,20 @@ Commits made by Codex must use:
 - Name: `Codex`
 - Email: `codex@openai.com`
 
-Before committing, verify the effective identity:
+Use per-commit identity overrides by default:
+
+```powershell
+git -c user.name=Codex -c user.email=codex@openai.com commit -m "..."
+```
+
+If a different commit path is used, verify the effective identity first:
 
 ```powershell
 git config --show-origin --get user.name
 git config --show-origin --get user.email
 ```
 
-If needed, set repo-local config before committing:
-
-```powershell
-git config user.name Codex
-git config user.email codex@openai.com
-```
-
+Repo-local config is acceptable in a dedicated Codex worktree, but avoid changing shared worktree config unless the user asks for it.
 Do not commit Codex-authored work as the repo owner or the user's global Git identity.
 
 ## Git Workflow
@@ -35,17 +35,17 @@ Do not commit Codex-authored work as the repo owner or the user's global Git ide
 
 ## Validation
 
-Use the `uv` workflow where possible:
+Use the `uv` workflow where possible. Prefer CI-equivalent file scopes or touched-file scopes for tools that do not need to scan the full repo:
 
 ```powershell
 uv run pytest
-uv run black --check <touched files>
-uv run mypy .
-uv run pylint <touched files>
+uv run black --check <CI file list or touched files>
+uv run mypy <CI source file list or touched source files>
+uv run pylint <CI source file list or touched source files>
 uv run ruff check .
 ```
 
-Known caveat: full-repo `uv run black --check .` may report existing untouched proof-of-concept files. Do not format unrelated POC files unless that is explicitly in scope.
+Known caveat: full-repo local checks may report existing untouched proof-of-concept noise that CI does not check. Do not fix or format unrelated POC files unless that is explicitly in scope. `ruff check .` is currently full-repo in CI.
 
 ## Coding Standards
 
