@@ -52,6 +52,7 @@ py-modules = [
     "benchmark_constants",
     "config",
     "main",
+    "play_store",
     "stopwatch",
     "voltaic_benchmarks",
 ]
