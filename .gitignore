@@ -1,8 +1,31 @@
+# --- Secrets / credentials: NEVER commit ---
+# Session cookie / bearer tokens are "logged in as you" credentials.
+.env
+.env.*
+!.env.example
+*.token
+*.cookie
+
+# --- Local data store & cached API responses (personal account data) ---
+data/
+*.db
+*.sqlite
+*.sqlite3
+# Ad-hoc history dumps written by the POC (--out / --json). Personal play data;
+# some also embed the account's anthicId. The curated review sample is
+# force-included below.
+*_history.json
+proof-of-concepts/all_plays.json
+
+# --- Project config (may hold a session_cookie) ---
 config.toml
+
+# --- Tooling / caches ---
 .idea/
 __pycache__/
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
 .uv-cache/
 .venv/
 *.egg-info/
