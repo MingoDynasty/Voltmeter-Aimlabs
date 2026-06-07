@@ -21,9 +21,21 @@ gitignored `session_cookie` config value or the `AIMLABS_COOKIE` environment
 variable over passing a cookie through `--header`, because command-line secrets
 can be exposed in shell history or process lists.
 
-For now this is source-checkout tooling. Run the CLI from the repository root
-with `python aimlab_scores.py`; packaged/installed distribution is intentionally
-not supported until the bundled benchmark resources are moved into package data.
+This project requires **Python 3.14+**. The recommended way to run it is with
+[uv](https://docs.astral.sh/uv/), which reads `requires-python` / `.python-version`
+and provisions a matching interpreter automatically, so no manual Python install
+is needed:
+
+```bash
+uv run aimlab_scores.py
+```
+
+If you prefer your own interpreter, make sure it is Python 3.14 or newer (older
+versions fail at startup with a syntax/import error) and run the CLI from the
+repository root with `python aimlab_scores.py`.
+
+Packaged/installed distribution is intentionally not supported until the bundled
+benchmark resources are moved into package data.
 
 ## Example Output
 
