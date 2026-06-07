@@ -138,7 +138,7 @@ def _records_from_resource_file(path: Path) -> tuple[ScenarioCatalogRecord, ...]
         raise ScenarioCatalogError(f"Scenario resource {path} must contain a JSON object.")
     try:
         return _records_from_resource(resource_data)
-    except (KeyError, TypeError) as error:
+    except (KeyError, TypeError, ValueError) as error:
         raise ScenarioCatalogError(f"Malformed scenario resource {path}: {error}") from error
 
 

@@ -172,6 +172,24 @@ class ScenarioCatalogTests(unittest.TestCase):
             ):
                 refresh_catalog(resource_dir)
 
+    def test_unknown_family_alias_raises_catalog_error_with_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            resource_dir = Path(temp_dir)
+            _write_resource(
+                resource_dir,
+                "mystery_s1.json",
+                alias="mystery_s1",
+                benchmark_name="Mystery Benchmarks",
+                season="1",
+                scenarios=[_scenario("VT Mystery Novice", "mystery-task")],
+            )
+
+            with self.assertRaisesRegex(
+                ScenarioCatalogError,
+                r"Malformed scenario resource .*mystery_s1\.json.*Unknown benchmark family",
+            ):
+                refresh_catalog(resource_dir)
+
 
 def _write_resource(
     resource_dir: Path,
