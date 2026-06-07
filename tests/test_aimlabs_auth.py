@@ -1,18 +1,44 @@
+import io
+import json
+from types import SimpleNamespace
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from aimlabs_auth import (
     AimlabsAuthError,
     ReloginRequiredError,
+    fetch_session_json,
     get_bearer_from_session,
     load_dotenv_values,
+    read_session_cookie_file,
     resolve_session_cookie,
 )
 from config import AppConfig
 
 
 class AimlabsAuthTests(unittest.TestCase):
+    def test_session_file_warns_on_loose_posix_permissions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            session_path = Path(temp_dir) / "session.cookie"
+            session_path.write_text("file-cookie\n", encoding="utf-8")
+            warning_stream = io.StringIO()
+
+            with (
+                patch("aimlabs_auth.os.name", "posix"),
+                patch.object(
+                    Path,
+                    "stat",
+                    return_value=SimpleNamespace(st_mode=0o100644),
+                ),
+            ):
+                session_cookie = read_session_cookie_file(session_path, warning_stream=warning_stream)
+
+        self.assertEqual(session_cookie, "file-cookie")
+        self.assertIn("group/world-readable", warning_stream.getvalue())
+        self.assertIn("session.cookie", warning_stream.getvalue())
+
     def test_session_file_takes_precedence_and_reads_first_non_empty_line(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             session_path = Path(temp_dir) / "session.cookie"
@@ -57,6 +83,31 @@ class AimlabsAuthTests(unittest.TestCase):
         self.assertEqual(values["AIMLAB_SESSION"], "dotenv-cookie")
         self.assertEqual(values["EMPTY"], "")
         self.assertNotIn("BROKEN", values)
+
+    def test_fetch_session_json_sends_full_cookie_header_verbatim(self) -> None:
+        full_cookie = "__Secure-next-auth.session-token.0=abc; __Secure-next-auth.session-token.1=def"
+        requests = []
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def read(self) -> bytes:
+                return json.dumps({"accessToken": "fresh-token"}).encode("utf-8")
+
+        def fake_urlopen(request, timeout: float):
+            requests.append((request, timeout))
+            return FakeResponse()
+
+        with patch("aimlabs_auth.urllib.request.urlopen", fake_urlopen):
+            payload = fetch_session_json(full_cookie, timeout=12)
+
+        self.assertEqual(payload["accessToken"], "fresh-token")
+        self.assertEqual(requests[0][0].get_header("Cookie"), full_cookie)
+        self.assertEqual(requests[0][1], 12)
 
     def test_missing_session_raises_login_message(self) -> None:
         with self.assertRaisesRegex(AimlabsAuthError, "voltmeter login"):

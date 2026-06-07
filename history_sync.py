@@ -39,7 +39,6 @@ class IncrementalSyncResult:  # pylint: disable=too-many-instance-attributes
     pages_fetched: int
     inserted: int
     skipped: int
-    updated: int
     newest_id: Optional[str]
     newest_ended_at: Optional[str]
     api_total_count: int
@@ -77,7 +76,6 @@ def sync_incremental(  # pylint: disable=too-many-arguments,too-many-locals
     pages_fetched = 0
     inserted = 0
     skipped = 0
-    updated = 0
 
     while True:
         page = fetch_page(after=after, page_size=effective_page_size)
@@ -91,7 +89,6 @@ def sync_incremental(  # pylint: disable=too-many-arguments,too-many-locals
         upsert_result = play_store.upsert_plays(connection, account_id, raw_plays, seen_at=sync_timestamp)
         inserted += upsert_result.inserted
         skipped += upsert_result.skipped
-        updated += upsert_result.updated
 
         if high_water_id is not None and _page_contains_play_id(raw_plays, high_water_id):
             stopped_on_high_water = True
@@ -126,7 +123,6 @@ def sync_incremental(  # pylint: disable=too-many-arguments,too-many-locals
         pages_fetched=pages_fetched,
         inserted=inserted,
         skipped=skipped,
-        updated=updated,
         newest_id=run_top_id,
         newest_ended_at=run_top_ended_at,
         api_total_count=finalized_total_count,
