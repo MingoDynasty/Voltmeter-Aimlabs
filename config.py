@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import importlib
 from pathlib import Path
+import tomllib
 from typing import Any, Optional, Union
 
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("config.toml")
@@ -54,20 +54,9 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
 
 def _load_toml(config_path: Path) -> dict[str, Any]:
     try:
-        toml_library = importlib.import_module("tomllib")
-    except ModuleNotFoundError:
-        try:
-            toml_library = importlib.import_module("tomli")
-        except ModuleNotFoundError:
-            raise ConfigError(
-                "TOML support requires Python 3.11+ or the tomli package. "
-                "Install project dependencies, then try again."
-            ) from None
-
-    try:
         with config_path.open("rb") as config_file:
-            config_data = toml_library.load(config_file)
-    except toml_library.TOMLDecodeError as error:
+            config_data = tomllib.load(config_file)
+    except tomllib.TOMLDecodeError as error:
         raise ConfigError(f"Could not parse {config_path}: {error}") from error
 
     if not isinstance(config_data, dict):
