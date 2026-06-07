@@ -1,0 +1,217 @@
+"""Stateless Aimlabs history page fetching and parsing."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+import json
+from typing import Any, Optional
+import urllib.error
+import urllib.request
+
+from aimlabs_client import BASE_HEADERS, ENDPOINT
+from benchmark_constants import DEFAULT_TASK_MODE
+
+DEFAULT_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 200
+
+RUN_HISTORY_QUERY = """
+query RunHistory($filter: PlayFilterInput, $first: Int, $anthicId: String, $after: String) {
+  aimlabProfile(anthicId: $anthicId) {
+    plays(filter: $filter, first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        startCursor
+        endCursor
+      }
+      totalCount
+      edges {
+        node {
+          id
+          appId
+          endedAt
+          task {
+            id
+          }
+          score
+          manifest {
+            playDuration
+            pauseDuration
+          }
+          performanceScores
+          gridshieldStatus
+        }
+      }
+    }
+  }
+}
+"""
+
+
+class AimlabsHistoryError(RuntimeError):
+    """Raised when an Aimlabs history page cannot be fetched or parsed."""
+
+
+class AimlabsUnauthorizedError(AimlabsHistoryError):
+    """Raised when the history endpoint rejects the supplied credential."""
+
+
+@dataclass(frozen=True)
+class HistoryPage:
+    plays: tuple[dict[str, Any], ...]
+    total_count: int
+    has_next_page: bool
+    end_cursor: Optional[str]
+
+
+PostJson = Callable[[str, dict[str, Any], dict[str, str], float], tuple[int, str]]
+
+
+def validate_page_size(page_size: int) -> int:
+    if isinstance(page_size, bool) or not isinstance(page_size, int):
+        raise ValueError("page_size must be an integer.")
+    if not 1 <= page_size <= MAX_PAGE_SIZE:
+        raise ValueError(f"page_size must be between 1 and {MAX_PAGE_SIZE}.")
+    return page_size
+
+
+def build_history_payload(
+    account_id: str,
+    *,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    after: Optional[str] = None,
+    mode: int = DEFAULT_TASK_MODE,
+) -> dict[str, Any]:
+    if not account_id:
+        raise AimlabsHistoryError("account_id is required.")
+    if isinstance(mode, bool) or not isinstance(mode, int):
+        raise AimlabsHistoryError("mode must be an integer.")
+
+    variables: dict[str, Any] = {
+        "anthicId": account_id,
+        "filter": {"mode": mode},
+        "first": validate_page_size(page_size),
+    }
+    if after is not None:
+        variables["after"] = after
+    return {
+        "operationName": "RunHistory",
+        "query": RUN_HISTORY_QUERY,
+        "variables": variables,
+    }
+
+
+def fetch_history_page(  # pylint: disable=too-many-arguments
+    account_id: str,
+    bearer: str,
+    *,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    after: Optional[str] = None,
+    mode: int = DEFAULT_TASK_MODE,
+    timeout: float = 20.0,
+    post_json: Optional[PostJson] = None,
+) -> HistoryPage:
+    payload = build_history_payload(account_id, page_size=page_size, after=after, mode=mode)
+    headers = dict(BASE_HEADERS)
+    headers["Authorization"] = _authorization_header(bearer)
+    sender = _post_json if post_json is None else post_json
+    status_code, body_text = sender(ENDPOINT, payload, headers, timeout)
+    if status_code == 401:
+        raise AimlabsUnauthorizedError("history request was unauthenticated; run `voltmeter login`.")
+    if status_code != 200:
+        raise AimlabsHistoryError(f"history request HTTP {status_code}: {body_text[:200]}")
+    return parse_history_page(body_text)
+
+
+def parse_history_page(body_text: str) -> HistoryPage:
+    try:
+        payload = json.loads(body_text)
+    except json.JSONDecodeError as error:
+        raise AimlabsHistoryError(f"history response was non-JSON: {body_text[:200]}") from error
+
+    if not isinstance(payload, Mapping):
+        raise AimlabsHistoryError("history response must be a JSON object.")
+    errors = payload.get("errors")
+    if errors:
+        raise AimlabsHistoryError("graphql error: " + json.dumps(errors, sort_keys=True)[:300])
+
+    plays_block = _plays_block(payload)
+    total_count = plays_block.get("totalCount")
+    if isinstance(total_count, bool) or not isinstance(total_count, int):
+        raise AimlabsHistoryError("plays.totalCount must be an integer.")
+
+    page_info_value = plays_block.get("pageInfo")
+    page_info = page_info_value if isinstance(page_info_value, Mapping) else {}
+    has_next_page = bool(page_info.get("hasNextPage"))
+    end_cursor = _optional_text(page_info.get("endCursor"), "pageInfo.endCursor")
+    if has_next_page and end_cursor is None:
+        raise AimlabsHistoryError("pageInfo.endCursor is required when hasNextPage is true.")
+
+    edges_value = plays_block.get("edges") or []
+    if not isinstance(edges_value, list):
+        raise AimlabsHistoryError("plays.edges must be a list.")
+
+    plays = []
+    for edge in edges_value:
+        if not isinstance(edge, Mapping):
+            raise AimlabsHistoryError("each play edge must be an object.")
+        node = edge.get("node")
+        if node is None:
+            continue
+        if not isinstance(node, Mapping):
+            raise AimlabsHistoryError("each play edge node must be an object.")
+        plays.append(dict(node))
+
+    return HistoryPage(
+        plays=tuple(plays),
+        total_count=total_count,
+        has_next_page=has_next_page,
+        end_cursor=end_cursor,
+    )
+
+
+def _post_json(  # pylint: disable=import-outside-toplevel
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    timeout: float,
+) -> tuple[int, str]:
+    body = json.dumps(payload).encode("utf-8")
+    try:
+        import requests  # type: ignore
+
+        response = requests.post(url, data=body, headers=headers, timeout=timeout)
+        return response.status_code, response.text
+    except ImportError:
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return response.getcode(), response.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as error:
+            return error.code, error.read().decode("utf-8", "replace")
+
+
+def _plays_block(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    try:
+        data = payload["data"]
+        profile = data["aimlabProfile"]
+        plays_block = profile["plays"]
+    except (KeyError, TypeError) as error:
+        raise AimlabsHistoryError("unexpected history response shape.") from error
+    if not isinstance(plays_block, Mapping):
+        raise AimlabsHistoryError("history response plays block must be an object.")
+    return plays_block
+
+
+def _optional_text(value: Any, field_name: str) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise AimlabsHistoryError(f"{field_name} must be a string when present.")
+    return value
+
+
+def _authorization_header(bearer: str) -> str:
+    if bearer.startswith("Bearer "):
+        return bearer
+    return f"Bearer {bearer}"

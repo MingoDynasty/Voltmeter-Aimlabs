@@ -48,9 +48,12 @@ target-version = "py314"
 [tool.setuptools]
 py-modules = [
     "aimlab_scores",
+    "aimlabs_auth",
     "aimlabs_client",
+    "aimlabs_history",
     "benchmark_constants",
     "config",
+    "history_sync",
     "main",
     "play_store",
     "stopwatch",

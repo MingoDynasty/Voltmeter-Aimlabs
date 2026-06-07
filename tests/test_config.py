@@ -14,6 +14,10 @@ class ConfigTests(unittest.TestCase):
 
         self.assertIsNone(config.aimlabs_user_id)
         self.assertIsNone(config.aimlabs_session_cookie)
+        self.assertIsNone(config.storage_db_path)
+        self.assertEqual(config.sync_page_size, 50)
+        self.assertEqual(config.sync_request_delay_seconds, 0.25)
+        self.assertEqual(config.sync_request_timeout_seconds, 20.0)
 
     def test_bad_aimlabs_type_raises_config_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -43,6 +47,34 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEqual(config.aimlabs_user_id, "ABCDEF1234567890")
         self.assertEqual(config.aimlabs_session_cookie, "cookie-value")
+
+    def test_valid_storage_and_sync_config_loads_pinned_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text(
+                "[storage]\n"
+                'db_path = "custom/aimlabs.db"\n'
+                "[sync]\n"
+                "page_size = 100\n"
+                "request_delay_seconds = 0.5\n"
+                "request_timeout_seconds = 30\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(config_path)
+
+        self.assertEqual(config.storage_db_path, "custom/aimlabs.db")
+        self.assertEqual(config.sync_page_size, 100)
+        self.assertEqual(config.sync_request_delay_seconds, 0.5)
+        self.assertEqual(config.sync_request_timeout_seconds, 30.0)
+
+    def test_sync_page_size_out_of_bounds_raises_config_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text("[sync]\npage_size = 0\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ConfigError, "page_size"):
+                load_config(config_path)
 
 
 if __name__ == "__main__":
