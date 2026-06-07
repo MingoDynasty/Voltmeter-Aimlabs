@@ -136,7 +136,10 @@ def _records_from_resource_file(path: Path) -> tuple[ScenarioCatalogRecord, ...]
         raise ScenarioCatalogError(f"Could not parse scenario resource {path}: {error}") from error
     if not isinstance(resource_data, dict):
         raise ScenarioCatalogError(f"Scenario resource {path} must contain a JSON object.")
-    return _records_from_resource(resource_data)
+    try:
+        return _records_from_resource(resource_data)
+    except (KeyError, TypeError) as error:
+        raise ScenarioCatalogError(f"Malformed scenario resource {path}: {error}") from error
 
 
 def _records_from_resource(resource_data: dict) -> tuple[ScenarioCatalogRecord, ...]:
@@ -242,7 +245,7 @@ def _display_name(resource_name: str, difficulty: str) -> str:
 def _derive_family(resource_data: dict) -> str:
     alias = resource_data["alias"]
     season = str(resource_data["season"])
-    if alias.startswith("valorant_") or (alias == "valorant_s1" and season == "1"):
+    if alias.startswith("valorant_"):
         return "valorant"
     if alias.startswith("aimlabs_"):
         return "aimlabs"

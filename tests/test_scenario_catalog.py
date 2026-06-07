@@ -3,10 +3,33 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scenario_catalog import UNKNOWN_SCENARIO_NAME, refresh_catalog
+import scenario_catalog
+from scenario_catalog import ScenarioCatalogError, UNKNOWN_SCENARIO_NAME, refresh_catalog
 
 
 class ScenarioCatalogTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        scenario_catalog.load_catalog.cache_clear()
+
+    def test_load_catalog_caches_bundled_catalog(self) -> None:
+        first_catalog = scenario_catalog.load_catalog()
+        second_catalog = scenario_catalog.load_catalog()
+
+        self.assertIs(first_catalog, second_catalog)
+        self.assertTrue(first_catalog.records_for_task_id("CsLevel.Lowgravity56.VT Float.RSM6A6"))
+
+    def test_module_resolve_task_ids_uses_cached_catalog_and_retains_unknown(self) -> None:
+        resolved_records = scenario_catalog.resolve_task_ids(
+            [
+                "CsLevel.Lowgravity56.VT Float.RSM6A6",
+                "missing-task",
+            ]
+        )
+
+        self.assertTrue(resolved_records["CsLevel.Lowgravity56.VT Float.RSM6A6"][0].is_known)
+        self.assertFalse(resolved_records["missing-task"][0].is_known)
+        self.assertEqual(resolved_records["missing-task"][0].name, UNKNOWN_SCENARIO_NAME)
+
     def test_bundled_catalog_carries_product_surface_fields(self) -> None:
         catalog = refresh_catalog()
 
@@ -138,6 +161,16 @@ class ScenarioCatalogTests(unittest.TestCase):
         records = catalog.records_for_task_id("multi-tier-task")
         self.assertEqual([record.difficulty for record in records], ["novice", "intermediate"])
         self.assertEqual(catalog.duplicate_task_ids, ())
+
+    def test_malformed_resource_shape_raises_catalog_error_with_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            resource_dir = Path(temp_dir)
+            (resource_dir / "aimlabs_s2.json").write_text(json.dumps({"alias": "aimlabs_s2"}), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ScenarioCatalogError, r"Malformed scenario resource .*aimlabs_s2\.json.*categories"
+            ):
+                refresh_catalog(resource_dir)
 
 
 def _write_resource(
