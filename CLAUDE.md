@@ -35,23 +35,25 @@ criteria, **§15** = settled decisions (do not relitigate).
 is the user's account).
 
 **Workflow — one PR per milestone, off `main`:**
-1. **Brief.** Claude writes a scoped handoff brief for the milestone (format/example:
-   `proof-of-concepts/M1_BRIEF.md`). Scope = that milestone only.
-2. **Implement.** Codex implements against the brief + design §14. (Ideally Codex commits under
-   a distinct identity, e.g. `Codex`, so the three actors are distinguishable — configured on
-   Codex's side.)
-3. **Review.** Claude reviews the PR against `proof-of-concepts/REVIEW_CHECKLIST.md` — CI-green
+1. **Implement.** Codex implements directly against design **§14** (acceptance criteria) +
+   **§15** (settled decisions) — the design *is* the spec; no separate handoff brief is needed.
+   (Codex commits under its own identity so the three actors stay distinguishable.)
+2. **Review.** Claude reviews the PR against `proof-of-concepts/REVIEW_CHECKLIST.md` — CI-green
    is the floor, not the bar; verify the hard-case tests actually exist.
-4. **Merge.** The user merges after Claude's LGTM, then the next milestone starts.
+3. **Merge.** The user merges after Claude's LGTM, then the next milestone starts.
 
 **Order:** `M1 → M2a → M2b → M3 (∥ after M1) → M4 → M6`. Review+merge each before the next
 builds on it (serialize the critical path; M3 may run parallel to M2). CI gate =
 mypy/pytest/pylint/ruff; new modules → add to `[tool.setuptools] py-modules`; **fixtures
 synthetic only** (never a real account dump).
 
-**Status — update this when a milestone merges** (source of truth for "done" = merged PRs on `main`):
-- Design: **rev 9** complete (8 review rounds). · M0 live-validation: ✅ done. · `.gitignore`: ✅ done.
-- **M1** store: ⬜ not started (next) · **M2a** ⬜ · **M2b** ⬜ · **M3** ⬜ · **M4** ⬜ · **M6** ⬜
-- (When finalizing the design — dereferencing pass — see `RUN_HISTORY_ARCHITECTURE.md` status
-  header history; the `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` and `M1_BRIEF`/`REVIEW_CHECKLIST` docs
-  live under `proof-of-concepts/` and may relocate with the design.)
+**Status — RECONCILE against merged PRs at the start of EACH chat** (`gh pr list --state merged`);
+GitHub is the source of truth, this line is only a cache — refresh it first, then update it here
+when a milestone merges (don't rely on it being current when you arrive):
+- Design: **rev 9** complete. · M0 live-validation: ✅. · `.gitignore`: ✅.
+- **M1** store ✅ (#7) · **M2a** ✅ (#10) · **M2b** ✅ (#12) · **M3** ✅ (#13) ·
+  **M4** ⬜ runs table + `report` (**next**) · **M5** ⬜ trend (deferred) · **M6** ⬜ decommission
+- _Last reconciled: 2026-06-08 (Claude Code)._
+- (`M1_BRIEF.md` is vestigial — briefs were dropped; design §14 is the spec. The
+  `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` trail + `REVIEW_CHECKLIST` live under `proof-of-concepts/`
+  and may relocate at finalization.)
