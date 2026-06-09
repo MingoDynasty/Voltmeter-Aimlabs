@@ -1,5 +1,9 @@
 """Scenario catalog metadata projection for Voltaic Aimlabs resources."""
 
+# The resource-parsing helpers below intentionally mirror benchmark_constants.py,
+# which the design keeps as-is until the M6 decommission pass.
+# pylint: disable=duplicate-code
+
 from __future__ import annotations
 
 import json
