@@ -101,7 +101,7 @@ class CliReportTests(unittest.TestCase):
         self.assertIn("1 non-APPROVED run excluded", default_stdout)
         self.assertEqual(override_exit_code, 0)
         self.assertIn("9999", override_stdout)
-        self.assertIn("[PENDING]", override_stdout)
+        self.assertIn("PENDING", override_stdout)
 
     def test_verbose_reports_loaded_play_count_to_stderr(self) -> None:
         _seed_store(

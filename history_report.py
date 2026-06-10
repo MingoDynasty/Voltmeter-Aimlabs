@@ -216,21 +216,33 @@ def _status_note(report: HistoryReport) -> Optional[str]:
 
 
 def _render_runs_table(table_rows: Sequence[ReportPlay], display_tz: Optional[tzinfo]) -> list[str]:
-    headers = ("Date", "Scenario", "Score", "Scenario Stats")
+    """One column per performance metric: the union of keys across the rendered plays."""
+    metric_keys = _metric_keys(table_rows)
+    show_status = any(play.gridshield_status != APPROVED_STATUS for play in table_rows)
+    headers = ["Date", "Scenario", "Score", *metric_keys]
+    if show_status:
+        headers.append("Status")
     rows = []
     for play in table_rows:
-        stats_text = _format_performance_scores(play.performance_scores)
-        if play.gridshield_status != APPROVED_STATUS:
-            stats_text = f"{stats_text} [{play.gridshield_status or 'UNKNOWN STATUS'}]"
-        rows.append(
-            (
-                _format_timestamp(play.ended_at_utc, display_tz),
-                play.scenario_name,
-                _format_score(play.score),
-                stats_text,
-            )
-        )
+        metrics = play.performance_scores if isinstance(play.performance_scores, Mapping) else {}
+        row = [
+            _format_timestamp(play.ended_at_utc, display_tz),
+            play.scenario_name,
+            _format_score(play.score),
+        ]
+        row.extend(_format_stat_value(metrics[key]) if key in metrics else "-" for key in metric_keys)
+        if show_status:
+            row.append(play.gridshield_status or "UNKNOWN")
+        rows.append(row)
     return _format_table(headers, rows)
+
+
+def _metric_keys(table_rows: Sequence[ReportPlay]) -> list[str]:
+    keys: set[str] = set()
+    for play in table_rows:
+        if isinstance(play.performance_scores, Mapping):
+            keys.update(play.performance_scores.keys())
+    return sorted(keys)
 
 
 def _render_task_summaries(report: HistoryReport, display_tz: Optional[tzinfo]) -> list[str]:
@@ -310,15 +322,6 @@ def _format_score(value: Optional[float]) -> str:
     if value == int(value):
         return str(int(value))
     return f"{value:.1f}"
-
-
-def _format_performance_scores(performance_scores: Any) -> str:
-    if performance_scores is None:
-        return "-"
-    if isinstance(performance_scores, Mapping):
-        parts = [f"{key}={_format_stat_value(value)}" for key, value in sorted(performance_scores.items())]
-        return ", ".join(parts) if parts else "-"
-    return json.dumps(performance_scores, sort_keys=True, separators=(",", ":"))
 
 
 def _format_stat_value(value: Any) -> str:

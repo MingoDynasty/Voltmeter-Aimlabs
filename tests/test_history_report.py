@@ -43,6 +43,7 @@ class HistoryReportTests(unittest.TestCase):
         self.assertEqual(report.task_summaries[0].personal_best, 200)
         self.assertIn("1 non-APPROVED run excluded", text)
         self.assertNotIn("9999", text)
+        self.assertNotIn("Status", text)  # all rendered rows are APPROVED, so no Status column
 
     def test_include_all_statuses_override_includes_flagged_runs(self) -> None:
         rows = [
@@ -57,7 +58,8 @@ class HistoryReportTests(unittest.TestCase):
         self.assertEqual(report.excluded_non_approved_count, 0)
         self.assertEqual(report.task_summaries[0].personal_best, 9999)
         self.assertIn("including 1 non-APPROVED run", text)
-        self.assertIn("[PENDING]", text)
+        self.assertIn("Status", text)
+        self.assertIn("PENDING", text)
 
     def test_same_display_name_different_task_ids_bucketed_separately(self) -> None:
         rows = [
@@ -198,8 +200,15 @@ class HistoryReportTests(unittest.TestCase):
         report = build_report(rows, self.catalog)
         text = render_report(report, timezone_setting="UTC")
 
-        self.assertIn("accuracy=85.25, hitsTotal=120", text)
-        self.assertIn("timeOnTargetMs=5000", text)
+        header_line = next(line for line in text.splitlines() if line.startswith("Date"))
+        self.assertIn("accuracy", header_line)
+        self.assertIn("hitsTotal", header_line)
+        self.assertIn("timeOnTargetMs", header_line)
+        clicking_line = next(line for line in text.splitlines() if "85.25" in line)
+        self.assertIn("120", clicking_line)
+        self.assertTrue(clicking_line.endswith("-"))  # no timeOnTargetMs metric on the clicking play
+        tracking_line = next(line for line in text.splitlines() if "5000" in line)
+        self.assertIn("| -", tracking_line)  # no accuracy/hitsTotal metrics on the tracking play
 
     def test_table_rows_are_reverse_chronological(self) -> None:
         rows = [
