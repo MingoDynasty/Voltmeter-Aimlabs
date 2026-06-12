@@ -1,9 +1,5 @@
 """Scenario catalog metadata projection for Voltaic Aimlabs resources."""
 
-# The resource-parsing helpers below intentionally mirror benchmark_constants.py,
-# which the design keeps as-is until the M6 decommission pass.
-# pylint: disable=duplicate-code
-
 from __future__ import annotations
 
 import json
@@ -11,6 +7,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+
+from voltaic_benchmarks import category_maps, difficulty_maps, lookup_label, tier_difficulty
 
 DEFAULT_RESOURCE_DIR = Path(__file__).resolve().parent / "resources" / "aimlabs"
 DEFAULT_TASK_MODE = 42
@@ -147,17 +145,12 @@ def _records_from_resource_file(path: Path) -> tuple[ScenarioCatalogRecord, ...]
 
 
 def _records_from_resource(resource_data: dict) -> tuple[ScenarioCatalogRecord, ...]:
-    categories_by_id, subcategories_by_id = _category_maps(resource_data)
-    difficulties_by_tier_id = _difficulty_maps(resource_data)
+    categories_by_id, subcategories_by_id = category_maps(resource_data)
+    difficulties_by_tier_id = difficulty_maps(resource_data)
     records: list[ScenarioCatalogRecord] = []
     for resource_scenario in resource_data["scenarios"]:
         for tier in resource_scenario["tiers"]:
-            tier_id = tier["tier_id"]
-            difficulty = difficulties_by_tier_id.get(tier_id)
-            if difficulty is None:
-                raise ValueError(
-                    f"Unknown tier_id {tier_id!r} for scenario {resource_scenario.get('name', '<unnamed>')!r}."
-                )
+            difficulty = tier_difficulty(difficulties_by_tier_id, tier, resource_scenario)
             records.append(
                 _scenario_record(
                     resource_data,
@@ -187,8 +180,8 @@ def _scenario_record(
         task_id=task_id,
         weapon_id=weapon_id,
         name=_display_name(resource_scenario["name"], difficulty),
-        category=_lookup_label(categories_by_id, "category", resource_scenario),
-        sub=_lookup_label(subcategories_by_id, "subcategory", resource_scenario),
+        category=lookup_label(categories_by_id, "category", resource_scenario),
+        sub=lookup_label(subcategories_by_id, "subcategory", resource_scenario),
         difficulty=difficulty,
         season=str(resource_data["season"]),
         benchmark_alias=resource_data["alias"],
@@ -197,38 +190,6 @@ def _scenario_record(
         is_active=bool(resource_data["is_active"]),
         has_leaderboards=bool(resource_data["has_leaderboards"]),
     )
-
-
-def _category_maps(resource_data: dict) -> tuple[dict[int, str], dict[int, str]]:
-    categories_by_id = {}
-    subcategories_by_id = {}
-    for category in resource_data["categories"]:
-        categories_by_id[category["id"]] = _label(category["name"])
-        for subcategory in category["subcategories"]:
-            subcategories_by_id[subcategory["id"]] = _label(subcategory["name"])
-    return categories_by_id, subcategories_by_id
-
-
-def _difficulty_maps(resource_data: dict) -> dict[int, str]:
-    difficulties_by_tier_id = {}
-    for tier in resource_data["tiers"]:
-        difficulty = tier["name"].lower()
-        difficulties_by_tier_id[tier["id"]] = difficulty
-    return difficulties_by_tier_id
-
-
-def _lookup_label(labels_by_id: dict[int, str], label_type: str, resource_scenario: dict) -> str:
-    label_id = resource_scenario[f"{label_type}_id"]
-    label = labels_by_id.get(label_id)
-    if label is None:
-        raise ValueError(
-            f"Unknown {label_type}_id {label_id!r} for scenario {resource_scenario.get('name', '<unnamed>')!r}."
-        )
-    return label
-
-
-def _label(name: str) -> str:
-    return name[:1].upper() + name[1:]
 
 
 def _display_name(resource_name: str, difficulty: str) -> str:

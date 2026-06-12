@@ -31,6 +31,52 @@ def load_valorant_s1() -> dict:
     return resource_data
 
 
+def _label(name: str) -> str:
+    return name[:1].upper() + name[1:]
+
+
+def category_maps(resource_data: dict) -> tuple[dict[int, str], dict[int, str]]:
+    """Map category and subcategory ids to display labels for a benchmark resource."""
+    categories_by_id = {}
+    subcategories_by_id = {}
+    for category in resource_data["categories"]:
+        categories_by_id[category["id"]] = _label(category["name"])
+        for subcategory in category["subcategories"]:
+            subcategories_by_id[subcategory["id"]] = _label(subcategory["name"])
+    return categories_by_id, subcategories_by_id
+
+
+def difficulty_maps(resource_data: dict, *, allowed_difficulties: Optional[tuple[str, ...]] = None) -> dict[int, str]:
+    """Map tier ids to lowercase difficulty names, validated against an allowed set when given."""
+    difficulties_by_tier_id = {}
+    for tier in resource_data["tiers"]:
+        difficulty = tier["name"].lower()
+        if allowed_difficulties is not None and difficulty not in allowed_difficulties:
+            raise ValueError(f"Unknown difficulty {difficulty!r} for tier id {tier['id']!r}.")
+        difficulties_by_tier_id[tier["id"]] = difficulty
+    return difficulties_by_tier_id
+
+
+def lookup_label(labels_by_id: dict[int, str], label_type: str, resource_scenario: dict) -> str:
+    """Resolve a scenario's category/subcategory id to its label, raising on unknown ids."""
+    label_id = resource_scenario[f"{label_type}_id"]
+    label = labels_by_id.get(label_id)
+    if label is None:
+        raise ValueError(
+            f"Unknown {label_type}_id {label_id!r} for scenario {resource_scenario.get('name', '<unnamed>')!r}."
+        )
+    return label
+
+
+def tier_difficulty(difficulties_by_tier_id: dict[int, str], tier: dict, resource_scenario: dict) -> str:
+    """Resolve a scenario tier's difficulty, raising on unknown tier ids."""
+    tier_id = tier["tier_id"]
+    difficulty = difficulties_by_tier_id.get(tier_id)
+    if difficulty is None:
+        raise ValueError(f"Unknown tier_id {tier_id!r} for scenario {resource_scenario.get('name', '<unnamed>')!r}.")
+    return difficulty
+
+
 @lru_cache(maxsize=1)
 def _ranks_by_tier() -> dict[int, list[dict]]:
     ranks_by_tier: dict[int, list[dict]] = {}
