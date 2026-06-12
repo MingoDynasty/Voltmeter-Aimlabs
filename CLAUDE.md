@@ -57,6 +57,10 @@ when a milestone merges (don't rely on it being current when you arrive):
   **M4** ✅ runs table + `report` (#15) · **M5** ⬜ trend (deferred) ·
   **M6** ⬜ decommission (**next**)
 - _Last reconciled: 2026-06-12 (Claude Code)._
-- (`M1_BRIEF.md` is vestigial — briefs were dropped; design §14 is the spec. The
-  `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` trail + `REVIEW_CHECKLIST` live under `proof-of-concepts/`
-  and may relocate at finalization.)
+- (`M1_BRIEF.md` was vestigial — briefs were dropped; design §14 is the spec — and was deleted
+  2026-06-12; recoverable from git history. The `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` trail stays
+  until finalization: the design doc cites it inline for decision provenance, so do **not**
+  delete it while the spec is active. **Docs finalization, after M6 merges:** promote
+  `RUN_HISTORY_ARCHITECTURE.md` to `docs/`, fold `REVIEW_CHECKLIST.md` into
+  `CODING_STANDARDS.md`, delete the review/pushback trail (git history preserves it), and
+  decide `ARCHITECTURE.md`'s fate alongside the PoC scripts it documents.)
