@@ -12,6 +12,9 @@ dependencies = [
     "tzdata>=2024.1; platform_system == 'Windows'",
 ]
 
+[project.scripts]
+voltmeter = "cli:main"
+
 [project.optional-dependencies]
 dev = [
     "black>=26.5.1",
@@ -52,7 +55,9 @@ py-modules = [
     "aimlabs_client",
     "aimlabs_history",
     "benchmark_constants",
+    "cli",
     "config",
+    "history_report",
     "history_sync",
     "main",
     "play_store",

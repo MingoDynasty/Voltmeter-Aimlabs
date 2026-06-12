@@ -18,6 +18,10 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.sync_page_size, 50)
         self.assertEqual(config.sync_request_delay_seconds, 0.25)
         self.assertEqual(config.sync_request_timeout_seconds, 20.0)
+        self.assertEqual(config.report_family, "all")
+        self.assertEqual(config.report_timezone, "local")
+        self.assertEqual(config.report_rolling_median_window, 10)
+        self.assertEqual(config.report_rolling_max_window, 25)
 
     def test_bad_aimlabs_type_raises_config_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -74,6 +78,57 @@ class ConfigTests(unittest.TestCase):
             config_path.write_text("[sync]\npage_size = 0\n", encoding="utf-8")
 
             with self.assertRaisesRegex(ConfigError, "page_size"):
+                load_config(config_path)
+
+    def test_valid_report_config_loads_pinned_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text(
+                "[report]\n"
+                'family = "valorant"\n'
+                'timezone = "America/Los_Angeles"\n'
+                "rolling_median_window = 5\n"
+                "rolling_max_window = 50\n",
+                encoding="utf-8",
+            )
+
+            config = load_config(config_path)
+
+        self.assertEqual(config.report_family, "valorant")
+        self.assertEqual(config.report_timezone, "America/Los_Angeles")
+        self.assertEqual(config.report_rolling_median_window, 5)
+        self.assertEqual(config.report_rolling_max_window, 50)
+
+    def test_report_family_outside_allowed_values_raises_config_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text('[report]\nfamily = "kovaaks"\n', encoding="utf-8")
+
+            with self.assertRaisesRegex(ConfigError, r"\[report\].family"):
+                load_config(config_path)
+
+    def test_report_timezone_not_resolvable_raises_config_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text('[report]\ntimezone = "Not/AZone"\n', encoding="utf-8")
+
+            with self.assertRaisesRegex(ConfigError, r"\[report\].timezone"):
+                load_config(config_path)
+
+    def test_report_rolling_window_non_positive_raises_config_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text("[report]\nrolling_median_window = 0\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ConfigError, r"\[report\].rolling_median_window"):
+                load_config(config_path)
+
+    def test_report_rolling_window_non_integer_raises_config_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text("[report]\nrolling_max_window = true\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ConfigError, r"\[report\].rolling_max_window"):
                 load_config(config_path)
 
 
