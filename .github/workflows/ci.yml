@@ -25,29 +25,47 @@ jobs:
         run: >
           python -m py_compile
           aimlab_scores.py
+          aimlabs_auth.py
           aimlabs_client.py
+          aimlabs_history.py
           benchmark_constants.py
+          cli.py
           config.py
+          history_report.py
+          history_sync.py
           main.py
           play_store.py
+          scenario_catalog.py
           stopwatch.py
           voltaic_benchmarks.py
-          tests/test_play_store.py
-          tests/test_voltaic_benchmarks.py
           tests/test_aimlab_scores.py
+          tests/test_aimlabs_auth.py
           tests/test_aimlabs_client.py
+          tests/test_aimlabs_history.py
           tests/test_benchmark_constants.py
+          tests/test_cli.py
           tests/test_config.py
+          tests/test_history_report.py
+          tests/test_history_sync.py
+          tests/test_play_store.py
+          tests/test_scenario_catalog.py
+          tests/test_voltaic_benchmarks.py
 
       - name: Type check
         run: >
           python -m mypy
           aimlab_scores.py
+          aimlabs_auth.py
           aimlabs_client.py
+          aimlabs_history.py
           benchmark_constants.py
+          cli.py
           config.py
+          history_report.py
+          history_sync.py
           main.py
           play_store.py
+          scenario_catalog.py
           stopwatch.py
           voltaic_benchmarks.py
 
@@ -55,11 +73,17 @@ jobs:
         run: >
           python -m black --check
           aimlab_scores.py
+          aimlabs_auth.py
           aimlabs_client.py
+          aimlabs_history.py
           benchmark_constants.py
+          cli.py
           config.py
+          history_report.py
+          history_sync.py
           main.py
           play_store.py
+          scenario_catalog.py
           stopwatch.py
           voltaic_benchmarks.py
           tests
@@ -71,11 +95,17 @@ jobs:
         run: >
           python -m pylint
           aimlab_scores.py
+          aimlabs_auth.py
           aimlabs_client.py
+          aimlabs_history.py
           benchmark_constants.py
+          cli.py
           config.py
+          history_report.py
+          history_sync.py
           main.py
           play_store.py
+          scenario_catalog.py
           stopwatch.py
           voltaic_benchmarks.py
 
