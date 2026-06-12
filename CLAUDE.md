@@ -15,7 +15,8 @@ so the user can distinguish their own GitHub activity from Claude's.
   git -c user.name="Claude Code" -c user.email="noreply@anthropic.com" commit -m "…"
   ```
 
-  Keep ending commit messages with: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+  Keep ending commit messages with a co-author trailer naming the current model, e.g.
+  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 
 - **Pull requests:** `gh` is authenticated as the repo owner (`MingoDynasty`), so the PR's
   GitHub "opened by" actor will be the owner — this **cannot** be changed via `gh`. Mark the
@@ -50,10 +51,12 @@ synthetic only** (never a real account dump).
 **Status — RECONCILE against merged PRs at the start of EACH chat** (`gh pr list --state merged`);
 GitHub is the source of truth, this line is only a cache — refresh it first, then update it here
 when a milestone merges (don't rely on it being current when you arrive):
-- Design: **rev 9** complete. · M0 live-validation: ✅. · `.gitignore`: ✅.
+- Design: **rev 9** complete. · M0 live-validation: ✅. · `.gitignore`: ✅. ·
+  CI file lists cover the pipeline modules: ✅ (#16).
 - **M1** store ✅ (#7) · **M2a** ✅ (#10) · **M2b** ✅ (#12) · **M3** ✅ (#13) ·
-  **M4** ⬜ runs table + `report` (**next**) · **M5** ⬜ trend (deferred) · **M6** ⬜ decommission
-- _Last reconciled: 2026-06-08 (Claude Code)._
+  **M4** ✅ runs table + `report` (#15) · **M5** ⬜ trend (deferred) ·
+  **M6** ⬜ decommission (**next**)
+- _Last reconciled: 2026-06-12 (Claude Code)._
 - (`M1_BRIEF.md` is vestigial — briefs were dropped; design §14 is the spec. The
   `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` trail + `REVIEW_CHECKLIST` live under `proof-of-concepts/`
   and may relocate at finalization.)
