@@ -48,6 +48,34 @@ class TotalCountDriftWarning:
 
 
 @dataclass(frozen=True)
+class DeletedPlaysWarning:
+    account_id: str
+    play_ids: tuple[str, ...]
+
+    @property
+    def message(self) -> str:
+        listed_ids = ", ".join(self.play_ids)
+        return (
+            "deleted upstream: "
+            f"account {self.account_id} has {len(self.play_ids)} local plays "
+            f"no longer present upstream: {listed_ids}"
+        )
+
+
+@dataclass(frozen=True)
+class FullSyncResult:  # pylint: disable=too-many-instance-attributes
+    pages_fetched: int
+    inserted: int
+    updated: int
+    newest_id: Optional[str]
+    newest_ended_at: Optional[str]
+    api_total_count: int
+    drift_warnings: tuple[TotalCountDriftWarning, ...]
+    field_drift_warnings: tuple[play_store.FieldDriftWarning, ...]
+    deleted_warning: Optional[DeletedPlaysWarning]
+
+
+@dataclass(frozen=True)
 class IncrementalSyncResult:  # pylint: disable=too-many-instance-attributes
     pages_fetched: int
     inserted: int
@@ -139,6 +167,120 @@ def sync_incremental(  # pylint: disable=too-many-locals
         sync_timestamp,
         warning_stream,
     )
+
+
+def sync_full(  # pylint: disable=too-many-locals
+    connection: Any,
+    account_id: str,
+    fetch_page: PageFetcher,
+    *,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    seen_at: Optional[str] = None,
+    now_func: Optional[NowFunc] = None,
+    warning_stream: TextIO = sys.stderr,
+    refresh_auth: Optional[AuthRefresher] = None,
+    sleep_func: SleepFunc = time.sleep,
+    retry_delays: Sequence[float] = DEFAULT_RETRY_DELAYS,
+    collect_deleted: bool = False,
+) -> FullSyncResult:
+    """Walk the whole stream from the top, re-deriving every projection from raw (§8.3).
+
+    No checkpoints are written mid-walk — ``resume_cursor`` is ``BACKFILLING``-only
+    (decision 13), so a crashed ``--full`` leaves the previous sync state intact and
+    is simply re-run. State is finalized once, from the top observation, on completion.
+    """
+    if not account_id:
+        raise ValueError("account_id is required.")
+    effective_page_size = validate_page_size(page_size)
+    timestamp_func = _utc_now_text if now_func is None else now_func
+    sync_timestamp = seen_at or timestamp_func()
+    fetch_context = FetchContext(
+        fetch_page=fetch_page,
+        page_size=effective_page_size,
+        refresh_auth=refresh_auth,
+        sleep_func=sleep_func,
+        retry_delays=retry_delays,
+    )
+
+    pages_fetched = 0
+    inserted = 0
+    updated = 0
+    top_id: Optional[str] = None
+    top_ended_at: Optional[str] = None
+    top_total_count: Optional[int] = None
+    field_drift_warnings: list[play_store.FieldDriftWarning] = []
+    upstream_play_ids: set[str] = set()
+    after: Optional[str] = None
+
+    while True:
+        page = _fetch_page_with_resilience(fetch_context, after=after)
+        pages_fetched += 1
+        raw_plays = list(page.plays)
+        if raw_plays and top_id is None:
+            top_id = _required_play_text(raw_plays[0], "id")
+            top_ended_at = _required_play_text(raw_plays[0], "endedAt")
+            top_total_count = page.total_count
+
+        upsert_result = play_store.upsert_plays(connection, account_id, raw_plays, full=True, seen_at=sync_timestamp)
+        inserted += upsert_result.inserted
+        updated += upsert_result.updated
+        field_drift_warnings.extend(upsert_result.drift_warnings)
+        if collect_deleted:
+            upstream_play_ids.update(_required_play_text(raw_play, "id") for raw_play in raw_plays)
+
+        if not page.has_next_page:
+            break
+        after = page.end_cursor
+
+    finalized_total_count = top_total_count if top_total_count is not None else 0
+    play_store.save_sync_state(
+        connection,
+        play_store.SyncState(
+            account_id=account_id,
+            resume_cursor=None,
+            backfill_anchor_id=None,
+            backfill_phase=play_store.COMPLETE,
+            newest_id=top_id,
+            newest_ended_at=top_ended_at,
+            api_total_count=finalized_total_count,
+            updated_at=sync_timestamp,
+        ),
+    )
+    drift_warnings = _total_count_drift_warnings(
+        connection,
+        account_id,
+        finalized_total_count,
+        warning_stream,
+    )
+    deleted_warning = None
+    if collect_deleted:
+        deleted_warning = _deleted_plays_warning(connection, account_id, upstream_play_ids, warning_stream)
+    return FullSyncResult(
+        pages_fetched=pages_fetched,
+        inserted=inserted,
+        updated=updated,
+        newest_id=top_id,
+        newest_ended_at=top_ended_at,
+        api_total_count=finalized_total_count,
+        drift_warnings=drift_warnings,
+        field_drift_warnings=tuple(field_drift_warnings),
+        deleted_warning=deleted_warning,
+    )
+
+
+def _deleted_plays_warning(
+    connection: Any,
+    account_id: str,
+    upstream_play_ids: set[str],
+    warning_stream: TextIO,
+) -> Optional[DeletedPlaysWarning]:
+    stored_play_ids = {row["id"] for row in play_store.list_plays_by_account(connection, account_id)}
+    deleted_play_ids = tuple(sorted(stored_play_ids - upstream_play_ids))
+    if not deleted_play_ids:
+        return None
+    warning = DeletedPlaysWarning(account_id=account_id, play_ids=deleted_play_ids)
+    print(warning.message, file=warning_stream)
+    return warning
 
 
 @dataclass(frozen=True)
@@ -576,8 +718,11 @@ __all__ = [
     "DEFAULT_PAGE_SIZE",
     "MAX_PAGE_SIZE",
     "DEFAULT_RETRY_DELAYS",
+    "DeletedPlaysWarning",
+    "FullSyncResult",
     "IncrementalSyncResult",
     "PageFetcher",
     "TotalCountDriftWarning",
+    "sync_full",
     "sync_incremental",
 ]

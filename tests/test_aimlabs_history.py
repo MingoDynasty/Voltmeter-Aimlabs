@@ -8,8 +8,11 @@ from aimlabs_history import (
     AimlabsTransientHistoryError,
     AimlabsUnauthorizedError,
     build_history_payload,
+    build_practice_contamination_payload,
     fetch_history_page,
+    fetch_practice_contamination_count,
     parse_history_page,
+    parse_practice_contamination_count,
     validate_page_size,
 )
 
@@ -126,6 +129,74 @@ class AimlabsHistoryTests(unittest.TestCase):
 
             with self.assertRaises(AimlabsTransientHistoryError):
                 fetch_history_page(ACCOUNT_ID, "fresh-token", post_json=fake_post)
+
+
+def contamination_body(count: int) -> str:
+    return json.dumps({"data": {"aimlab": {"plays_agg": {"aggregate": {"count": count}}}}})
+
+
+class PracticeContaminationTests(unittest.TestCase):
+    def test_payload_filters_practice_plays_by_task_mode(self) -> None:
+        payload = build_practice_contamination_payload(ACCOUNT_ID)
+
+        self.assertEqual(
+            payload["variables"]["where"],
+            {
+                "user_id": {"_eq": ACCOUNT_ID},
+                # The aggregate's mode field is task_mode, not the history filter's mode.
+                "task_mode": {"_eq": 42},
+                "is_practice": {"_eq": True},
+            },
+        )
+        # count only — the aggregate's max{} 500s on an empty result set (§5.2).
+        self.assertIn("count", payload["query"])
+        self.assertNotIn("max", payload["query"])
+        self.assertNotIn("avg", payload["query"])
+
+    def test_fetch_sends_bearer_and_parses_count(self) -> None:
+        requests = []
+
+        def fake_post(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
+            requests.append((url, payload, headers, timeout))
+            return 200, contamination_body(7)
+
+        practice_count = fetch_practice_contamination_count(
+            ACCOUNT_ID,
+            "fresh-token",
+            timeout=12,
+            post_json=fake_post,
+        )
+
+        self.assertEqual(practice_count, 7)
+        self.assertEqual(requests[0][2]["Authorization"], "Bearer fresh-token")
+        self.assertEqual(requests[0][3], 12)
+
+    def test_fetch_maps_http_statuses_to_domain_errors(self) -> None:
+        status_expectations = (
+            (401, AimlabsUnauthorizedError),
+            (429, AimlabsTransientHistoryError),
+            (503, AimlabsTransientHistoryError),
+            (404, AimlabsHistoryError),
+        )
+        for status_code, expected_error in status_expectations:
+
+            def fake_post(_url: str, _payload: dict, _headers: dict, _timeout: float) -> tuple[int, str]:
+                return status_code, "{}"
+
+            with self.assertRaises(expected_error):
+                fetch_practice_contamination_count(ACCOUNT_ID, "fresh-token", post_json=fake_post)
+
+    def test_parse_rejects_errors_and_malformed_shapes(self) -> None:
+        with self.assertRaisesRegex(AimlabsHistoryError, "graphql error"):
+            parse_practice_contamination_count(json.dumps({"errors": [{"message": "bad"}]}))
+        with self.assertRaisesRegex(AimlabsHistoryError, "unexpected aggregate response shape"):
+            parse_practice_contamination_count(json.dumps({"data": {}}))
+        with self.assertRaisesRegex(AimlabsHistoryError, "count must be an integer"):
+            parse_practice_contamination_count(
+                json.dumps({"data": {"aimlab": {"plays_agg": {"aggregate": {"count": "7"}}}}})
+            )
+        with self.assertRaisesRegex(AimlabsHistoryError, "non-JSON"):
+            parse_practice_contamination_count("not json")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,54 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfoNotFoundError
 
 import aimlab_scores
+from config import AppConfig
+
+
+class AuthHeaderPrecedenceTests(unittest.TestCase):
+    def test_unified_aimlab_session_wins_over_legacy_channels(self) -> None:
+        headers = aimlab_scores._auth_headers_from_config(
+            AppConfig(aimlabs_session_cookie="config-cookie"),
+            env={"AIMLAB_SESSION": "unified-token", "AIMLABS_COOKIE": "legacy-cookie"},
+            dotenv_path=None,
+        )
+
+        self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=unified-token"})
+
+    def test_dotenv_aimlab_session_wins_over_legacy_env_cookie(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dotenv_path = Path(temp_dir) / ".env"
+            dotenv_path.write_text('AIMLAB_SESSION="dotenv-token"\n', encoding="utf-8")
+
+            headers = aimlab_scores._auth_headers_from_config(
+                AppConfig(),
+                env={"AIMLABS_COOKIE": "legacy-cookie"},
+                dotenv_path=dotenv_path,
+            )
+
+        self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=dotenv-token"})
+
+    def test_legacy_env_cookie_still_works_alone(self) -> None:
+        headers = aimlab_scores._auth_headers_from_config(
+            AppConfig(),
+            env={"AIMLABS_COOKIE": "legacy-cookie"},
+            dotenv_path=None,
+        )
+
+        self.assertEqual(headers, {"Cookie": "legacy-cookie"})
+
+    def test_legacy_config_cookie_still_works_alone(self) -> None:
+        headers = aimlab_scores._auth_headers_from_config(
+            AppConfig(aimlabs_session_cookie="config-cookie"),
+            env={},
+            dotenv_path=None,
+        )
+
+        self.assertEqual(headers, {"Cookie": "config-cookie"})
+
+    def test_no_channels_yields_no_auth_headers(self) -> None:
+        headers = aimlab_scores._auth_headers_from_config(AppConfig(), env={}, dotenv_path=None)
+
+        self.assertEqual(headers, {})
 
 
 class AimlabScoresTests(unittest.TestCase):

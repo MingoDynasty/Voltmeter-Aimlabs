@@ -15,6 +15,20 @@ from benchmark_constants import DEFAULT_TASK_MODE
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
 
+# Practice-contamination check (design §5.2/§8.3): count only — the aggregate's
+# max{} 500s on an empty result set, and its mode field is task_mode (not mode).
+PRACTICE_CONTAMINATION_QUERY = """
+query taskPlaysAgg($where: AimlabPlayWhere!) {
+  aimlab {
+    plays_agg(where: $where) {
+      aggregate {
+        count
+      }
+    }
+  }
+}
+"""
+
 RUN_HISTORY_QUERY = """
 query RunHistory($filter: PlayFilterInput, $first: Int, $anthicId: String, $after: String) {
   aimlabProfile(anthicId: $anthicId) {
@@ -135,6 +149,71 @@ def fetch_history_page(  # pylint: disable=too-many-arguments
     if status_code != 200:
         raise AimlabsHistoryError(f"history request HTTP {status_code}: {body_text[:200]}")
     return parse_history_page(body_text)
+
+
+def build_practice_contamination_payload(account_id: str, *, mode: int = DEFAULT_TASK_MODE) -> dict[str, Any]:
+    if not account_id:
+        raise AimlabsHistoryError("account_id is required.")
+    if isinstance(mode, bool) or not isinstance(mode, int):
+        raise AimlabsHistoryError("mode must be an integer.")
+    return {
+        "operationName": "taskPlaysAgg",
+        "query": PRACTICE_CONTAMINATION_QUERY,
+        "variables": {
+            "where": {
+                "user_id": {"_eq": account_id},
+                "task_mode": {"_eq": mode},
+                "is_practice": {"_eq": True},
+            },
+        },
+    }
+
+
+def fetch_practice_contamination_count(  # pylint: disable=too-many-arguments
+    account_id: str,
+    bearer: str,
+    *,
+    mode: int = DEFAULT_TASK_MODE,
+    timeout: float = 20.0,
+    post_json: Optional[PostJson] = None,
+) -> int:
+    """Count practice plays in the mode stream via the aggregate endpoint (§8.3 safety net)."""
+    payload = build_practice_contamination_payload(account_id, mode=mode)
+    headers = dict(BASE_HEADERS)
+    headers["Authorization"] = _authorization_header(bearer)
+    sender = _post_json if post_json is None else post_json
+    status_code, body_text = sender(ENDPOINT, payload, headers, timeout)
+    if status_code == 401:
+        raise AimlabsUnauthorizedError("aggregate request was unauthenticated; run `voltmeter login`.")
+    if status_code == 429 or 500 <= status_code <= 599:
+        raise AimlabsTransientHistoryError(status_code, body_text)
+    if status_code != 200:
+        raise AimlabsHistoryError(f"aggregate request HTTP {status_code}: {body_text[:200]}")
+    return parse_practice_contamination_count(body_text)
+
+
+def parse_practice_contamination_count(body_text: str) -> int:
+    try:
+        payload = json.loads(body_text)
+    except json.JSONDecodeError as error:
+        raise AimlabsHistoryError(f"aggregate response was non-JSON: {body_text[:200]}") from error
+
+    if not isinstance(payload, Mapping):
+        raise AimlabsHistoryError("aggregate response must be a JSON object.")
+    errors = payload.get("errors")
+    if errors:
+        raise AimlabsHistoryError("graphql error: " + json.dumps(errors, sort_keys=True)[:300])
+
+    try:
+        aggregate = payload["data"]["aimlab"]["plays_agg"]["aggregate"]
+    except (KeyError, TypeError) as error:
+        raise AimlabsHistoryError("unexpected aggregate response shape.") from error
+    if not isinstance(aggregate, Mapping):
+        raise AimlabsHistoryError("aggregate block must be an object.")
+    count = aggregate.get("count")
+    if isinstance(count, bool) or not isinstance(count, int):
+        raise AimlabsHistoryError("aggregate count must be an integer.")
+    return count
 
 
 def parse_history_page(body_text: str) -> HistoryPage:

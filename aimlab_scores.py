@@ -12,6 +12,7 @@ key is fetched for each difficulty where it appears.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from datetime import datetime, timezone, tzinfo
 from functools import lru_cache
 import json
@@ -21,9 +22,10 @@ import re
 import sys
 from tempfile import NamedTemporaryFile
 import time
-from typing import Optional
+from typing import Optional, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import aimlabs_auth
 from aimlabs_client import fetch_all_scores, fetch_one
 from benchmark_constants import (
     BENCHMARKS,
@@ -261,8 +263,25 @@ def _parse_extra_headers(header_texts: list[str]) -> dict:
     return extra_headers
 
 
-def _auth_headers_from_config(app_config: AppConfig) -> dict:
-    session_cookie = os.environ.get("AIMLABS_COOKIE") or app_config.aimlabs_session_cookie
+def _auth_headers_from_config(
+    app_config: AppConfig,
+    *,
+    env: Optional[Mapping[str, str]] = None,
+    dotenv_path: Optional[Union[str, Path]] = ".env",
+) -> dict:
+    """Resolve the Cookie header, preferring the unified AIMLAB_SESSION channels.
+
+    Precedence: $AIMLAB_SESSION / .env (via aimlabs_auth) > legacy $AIMLABS_COOKIE >
+    legacy [aimlabs].session_cookie. The legacy channels stay functional until M6b
+    retires them from the user-facing docs (design decision 7).
+    """
+    environment = os.environ if env is None else env
+    try:
+        resolved_session = aimlabs_auth.resolve_session_cookie(env=environment, dotenv_path=dotenv_path)
+        return {"Cookie": aimlabs_auth.session_cookie_header(resolved_session.session_cookie)}
+    except aimlabs_auth.AimlabsAuthError:
+        pass
+    session_cookie = environment.get("AIMLABS_COOKIE") or app_config.aimlabs_session_cookie
     if session_cookie:
         return {"Cookie": session_cookie}
     return {}
