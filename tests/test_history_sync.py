@@ -12,7 +12,7 @@ from aimlabs_history import (
     HistoryPage,
 )
 import play_store
-from history_sync import sync_incremental
+from history_sync import sync_full, sync_incremental
 
 ACCOUNT_ID = "anthic-account-a"
 SEEN_AT = "2026-06-06T10:00:00.000Z"
@@ -520,6 +520,159 @@ class HistorySyncTests(unittest.TestCase):
         self.assertIn("totalCount drift", stderr.getvalue())
         self.assertEqual(result.drift_warnings[0].stored_count, 3)
         self.assertEqual(result.drift_warnings[0].api_total_count, 2)
+
+
+class FullSyncTests(unittest.TestCase):
+    def test_full_walk_re_derives_projection_and_warns_on_stable_field_drift(self) -> None:
+        connection = play_store.connect(":memory:")
+        stored_flagged = synthetic_play("play-flagged", ended_at="2026-06-06T01:00:00.000Z")
+        stored_rescored = synthetic_play("play-rescored", ended_at="2026-06-06T02:00:00.000Z")
+        play_store.upsert_plays(connection, ACCOUNT_ID, [stored_flagged, stored_rescored], seen_at=SEEN_AT)
+        save_complete_state(connection, newest_id="play-rescored", api_total_count=2)
+
+        upstream_flagged = dict(stored_flagged, gridshieldStatus="FLAGGED")
+        upstream_rescored = dict(stored_rescored, score=2000.0)
+        upstream_new = synthetic_play("play-new", ended_at="2026-06-06T03:00:00.000Z")
+        fetcher = FakePageFetcher(
+            [
+                history_page([upstream_new, upstream_rescored], total_count=3, has_next_page=True, end_cursor="c1"),
+                history_page([upstream_flagged], total_count=3),
+            ]
+        )
+
+        stderr = io.StringIO()
+        result = sync_full(connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=stderr)
+        state = require_state(connection)
+
+        self.assertEqual(fetcher.calls, [(None, 50), ("c1", 50)])
+        self.assertEqual(result.pages_fetched, 2)
+        self.assertEqual(result.inserted, 1)
+        self.assertEqual(result.updated, 2)
+        # The status flip is the point of --full: re-derived silently, no drift warning.
+        flagged_row = play_store.get_play(connection, ACCOUNT_ID, "play-flagged")
+        assert flagged_row is not None
+        self.assertEqual(flagged_row["gridshield_status"], "FLAGGED")
+        # A stable-projection field changing upstream is drift and must warn.
+        self.assertEqual(len(result.field_drift_warnings), 1)
+        self.assertEqual(result.field_drift_warnings[0].field_name, "score")
+        self.assertEqual(result.field_drift_warnings[0].play_id, "play-rescored")
+        # State is finalized once, from the top observation.
+        self.assertEqual(state.backfill_phase, play_store.COMPLETE)
+        self.assertEqual(state.newest_id, "play-new")
+        self.assertEqual(state.newest_ended_at, "2026-06-06T03:00:00.000Z")
+        self.assertEqual(state.api_total_count, 3)
+        self.assertIsNone(state.resume_cursor)
+        self.assertEqual(result.drift_warnings, ())
+
+    def test_full_show_deleted_names_local_plays_missing_upstream(self) -> None:
+        connection = play_store.connect(":memory:")
+        kept_play = synthetic_play("play-kept", ended_at="2026-06-06T02:00:00.000Z")
+        gone_play = synthetic_play("play-gone", ended_at="2026-06-06T01:00:00.000Z")
+        play_store.upsert_plays(connection, ACCOUNT_ID, [kept_play, gone_play], seen_at=SEEN_AT)
+        fetcher = FakePageFetcher([history_page([kept_play], total_count=1)])
+
+        stderr = io.StringIO()
+        result = sync_full(
+            connection,
+            ACCOUNT_ID,
+            fetcher,
+            seen_at=SEEN_AT,
+            warning_stream=stderr,
+            collect_deleted=True,
+        )
+
+        assert result.deleted_warning is not None
+        self.assertEqual(result.deleted_warning.play_ids, ("play-gone",))
+        self.assertIn("play-gone", stderr.getvalue())
+        self.assertIn("no longer present upstream", stderr.getvalue())
+        # The cheap count drift signal fires alongside the precise set-diff.
+        self.assertEqual(len(result.drift_warnings), 1)
+
+    def test_full_without_show_deleted_skips_set_diff(self) -> None:
+        connection = play_store.connect(":memory:")
+        kept_play = synthetic_play("play-kept", ended_at="2026-06-06T02:00:00.000Z")
+        gone_play = synthetic_play("play-gone", ended_at="2026-06-06T01:00:00.000Z")
+        play_store.upsert_plays(connection, ACCOUNT_ID, [kept_play, gone_play], seen_at=SEEN_AT)
+        fetcher = FakePageFetcher([history_page([kept_play], total_count=1)])
+
+        result = sync_full(connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=io.StringIO())
+
+        self.assertIsNone(result.deleted_warning)
+
+    def test_crash_mid_full_leaves_previous_state_for_plain_rerun(self) -> None:
+        connection = play_store.connect(":memory:")
+        play_store.upsert_plays(
+            connection,
+            ACCOUNT_ID,
+            [synthetic_play("play-known", ended_at="2026-06-06T01:00:00.000Z")],
+            seen_at=SEEN_AT,
+        )
+        save_complete_state(connection, newest_id="play-known")
+        first_page_play = synthetic_play("play-new", ended_at="2026-06-06T02:00:00.000Z")
+        fetcher = FakePageFetcher(
+            [
+                history_page([first_page_play], total_count=2, has_next_page=True, end_cursor="c1"),
+                RuntimeError("synthetic crash"),
+            ]
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "synthetic crash"):
+            sync_full(connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=io.StringIO())
+        state_after_crash = require_state(connection)
+
+        # No checkpoint was written: resume_cursor stays BACKFILLING-only (decision 13),
+        # the previous finalized state is untouched, and a plain re-run recovers.
+        self.assertEqual(state_after_crash.backfill_phase, play_store.COMPLETE)
+        self.assertEqual(state_after_crash.newest_id, "play-known")
+        self.assertIsNone(state_after_crash.resume_cursor)
+        self.assertEqual(state_after_crash.updated_at, SEEN_AT)
+
+    def test_full_empty_stream_finalizes_complete_empty_state(self) -> None:
+        connection = play_store.connect(":memory:")
+        fetcher = FakePageFetcher([history_page([], total_count=0)])
+
+        stderr = io.StringIO()
+        result = sync_full(
+            connection,
+            ACCOUNT_ID,
+            fetcher,
+            seen_at=SEEN_AT,
+            warning_stream=stderr,
+            collect_deleted=True,
+        )
+        state = require_state(connection)
+
+        self.assertEqual(result.inserted, 0)
+        self.assertEqual(result.updated, 0)
+        self.assertIsNone(result.newest_id)
+        self.assertEqual(result.api_total_count, 0)
+        self.assertIsNone(result.deleted_warning)
+        self.assertEqual(state.backfill_phase, play_store.COMPLETE)
+        self.assertIsNone(state.newest_id)
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_full_unauthorized_page_refreshes_auth_and_retries_once(self) -> None:
+        connection = play_store.connect(":memory:")
+        refresh_calls: list[str] = []
+        fetcher = FakePageFetcher(
+            [
+                AimlabsUnauthorizedError("expired bearer"),
+                history_page([], total_count=0),
+            ]
+        )
+
+        result = sync_full(
+            connection,
+            ACCOUNT_ID,
+            fetcher,
+            seen_at=SEEN_AT,
+            warning_stream=io.StringIO(),
+            refresh_auth=lambda: refresh_calls.append("refresh"),
+        )
+
+        self.assertEqual(fetcher.calls, [(None, 50), (None, 50)])
+        self.assertEqual(refresh_calls, ["refresh"])
+        self.assertEqual(result.pages_fetched, 1)
 
 
 if __name__ == "__main__":

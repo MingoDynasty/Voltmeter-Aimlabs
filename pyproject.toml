@@ -16,6 +16,9 @@ dependencies = [
 voltmeter = "cli:main"
 
 [project.optional-dependencies]
+# `voltmeter login` opens an embedded browser via pywebview; everything else
+# works without it (the CLI prints an install hint when it is missing).
+login = ["pywebview>=5"]
 dev = [
     "black>=26.5.1",
     "mypy>=2.1.0",
