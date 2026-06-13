@@ -795,7 +795,7 @@ slice of tests. The §1–§3 / §5 / §17 sections are background/context, not 
 | 4 | **Timestamps ISO-8601 UTC verbatim**; display-time conversion only; reports label the TZ. | 7, 10 |
 | 5 | **Single-account product, account-stamped storage.** | 7 |
 | 6 | **Scenario metadata = separate, rebuildable, multi-source projection** carrying product-surface fields; store-all, analyze-Voltaic. | 9 |
-| 7 | **Credentials: `AIMLAB_SESSION` in `.env`; account id `[aimlabs].user_id` in `config.toml`** (userId == anthicId, confirmed). Session canonical for sync; report never auths. The shipped tool's legacy `session_cookie`/`AIMLABS_COOKIE` channels were **removed at M6b** (no users pre-release), so all auth flows through `AIMLAB_SESSION`. | 4, 12 |
+| 7 | **Credentials: `AIMLAB_SESSION` in `.env`; account id `[aimlabs].user_id` in `config.toml`** (userId == anthicId, confirmed). Session canonical for sync; report never auths. The shipped tool's legacy `session_cookie`/`AIMLABS_COOKIE` channels were **removed at M6b** (no users pre-release), so credential resolution flows through `AIMLAB_SESSION` (the `aimlab_scores --header` debug passthrough aside). | 4, 12 |
 | 8 | **Analysis simple now**; **non-APPROVED excluded from stats by default**, visible note, override available. | 10 |
 | 9 | **CLI = verbs only; config = `config.toml`**; `report` is offline-only. | 11 |
 | 10 | **Build into the package**, gate-green per PR; `.gitignore` hardening **done**. | 12, 14 |
