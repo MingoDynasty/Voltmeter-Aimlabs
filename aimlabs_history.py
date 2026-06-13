@@ -205,9 +205,21 @@ def parse_practice_contamination_count(body_text: str) -> int:
         raise AimlabsHistoryError("graphql error: " + json.dumps(errors, sort_keys=True)[:300])
 
     try:
-        aggregate = payload["data"]["aimlab"]["plays_agg"]["aggregate"]
+        plays_agg = payload["data"]["aimlab"]["plays_agg"]
     except (KeyError, TypeError) as error:
         raise AimlabsHistoryError("unexpected aggregate response shape.") from error
+
+    # The endpoint wraps plays_agg in a single-element array: [{"aggregate": {"count": N}}].
+    # An empty array means no matching plays -> count 0. A bare object form is also tolerated.
+    if isinstance(plays_agg, list):
+        if not plays_agg:
+            return 0
+        group = plays_agg[0]
+    else:
+        group = plays_agg
+    if not isinstance(group, Mapping):
+        raise AimlabsHistoryError("unexpected aggregate response shape.")
+    aggregate = group.get("aggregate")
     if not isinstance(aggregate, Mapping):
         raise AimlabsHistoryError("aggregate block must be an object.")
     count = aggregate.get("count")
