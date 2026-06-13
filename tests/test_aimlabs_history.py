@@ -132,7 +132,8 @@ class AimlabsHistoryTests(unittest.TestCase):
 
 
 def contamination_body(count: int) -> str:
-    return json.dumps({"data": {"aimlab": {"plays_agg": {"aggregate": {"count": count}}}}})
+    # The live endpoint wraps plays_agg in a single-element array.
+    return json.dumps({"data": {"aimlab": {"plays_agg": [{"aggregate": {"count": count}}]}}})
 
 
 class PracticeContaminationTests(unittest.TestCase):
@@ -197,6 +198,15 @@ class PracticeContaminationTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(AimlabsHistoryError, "non-JSON"):
             parse_practice_contamination_count("not json")
+
+    def test_parse_handles_array_wrapped_aggregate(self) -> None:
+        # The live endpoint returns plays_agg as a single-element array.
+        self.assertEqual(parse_practice_contamination_count(contamination_body(3)), 3)
+        # An empty array means no matching plays.
+        self.assertEqual(
+            parse_practice_contamination_count(json.dumps({"data": {"aimlab": {"plays_agg": []}}})),
+            0,
+        )
 
 
 if __name__ == "__main__":
