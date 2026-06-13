@@ -58,7 +58,7 @@ when a milestone merges (don't rely on it being current when you arrive):
   **M6a** ✅ CLI wiring — `sync`/`login`/`refresh-catalog`, `--full`, contamination check (#19) ·
   **M6b** ✅ decommission + docs reconciliation — PoC scripts retired, README/`config.example.toml`
   on `AIMLAB_SESSION`, legacy `AIMLABS_COOKIE`/`session_cookie` channels **removed** (no users
-  pre-release; user decision this chat), design docs relocated to `docs/` (this PR — pending merge)
+  pre-release; user decision this chat), design docs relocated to `docs/` (#22)
 - **M6b is the last milestone**; with it merged the pipeline build is complete (M5/trend deferred),
   and M4+M6a become user-release-complete (decision 20).
 - _M6 was split 2026-06-12 (user decision; supersedes the single-M6 row in design §14):
@@ -71,7 +71,7 @@ when a milestone merges (don't rely on it being current when you arrive):
   warnings to the caller's `warning_stream` (PR #20); and the **legacy `session_cookie`/`AIMLABS_COOKIE`
   channels** were **removed outright** in M6b (no users pre-release), which also resolved the design
   §4/§11-vs-§12 wording inconsistency by deletion (decision 7 updated)._
-- _Last reconciled: 2026-06-13 (Claude Code); M6b implemented this chat (pending merge)._
+- _Last reconciled: 2026-06-13 (Claude Code); M6b merged as #22 — pipeline build complete._
 - (`M1_BRIEF.md` was vestigial — briefs were dropped; design §14 is the spec — and was deleted
   2026-06-12; recoverable from git history. **Docs finalization — done in M6b:**
   `RUN_HISTORY_ARCHITECTURE.md` + `ARCHITECTURE.md` promoted to `docs/`; `REVIEW_CHECKLIST.md`
