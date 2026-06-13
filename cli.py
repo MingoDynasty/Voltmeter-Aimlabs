@@ -106,7 +106,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "refresh-catalog",
-        help="rebuild the scenario catalog from the bundled resources",
+        help="validate/rebuild the bundled scenario catalog and report duplicate task ids "
+        "(maintainer diagnostic; not required for normal use)",
         allow_abbrev=False,
     )
     return parser
