@@ -1,5 +1,13 @@
 # `aimlab_history.py` — architecture & handoff
 
+> **Status (M6b):** the `aimlab_history.py` proof-of-concept this document was written against has
+> been **retired**. Its behavior now lives in the package — login/session capture in
+> `aimlabs_auth.py` (`login_and_capture`), history pagination/parsing in `aimlabs_history.py` +
+> `history_sync.py`, and the `plays_agg` contamination check in
+> `aimlabs_history.fetch_practice_contamination_count`. This remains the **authentication design of
+> record** (the session→bearer model, the `RefreshAccessTokenError` terminal state, the
+> embedded-browser capture): read it for the *design*, and the package modules for the *current code*.
+
 > Self-contained handoff for an agent (or developer) with **no prior context**.
 > Explains what the script does, how data flows through it, and — in depth — the
 > authentication problem, why it exists, and how the script solves it. Assumes

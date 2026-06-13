@@ -29,7 +29,7 @@ so the user can distinguish their own GitHub activity from Claude's.
 
 The work is built over many chats (≈ a new chat per milestone). To stay consistent, every
 chat follows this and updates the status below. The **design/spec** is
-`proof-of-concepts/RUN_HISTORY_ARCHITECTURE.md` (rev 9): **§14** = milestones + acceptance
+`docs/RUN_HISTORY_ARCHITECTURE.md` (rev 9): **§14** = milestones + acceptance
 criteria, **§15** = settled decisions (do not relitigate).
 
 **Roles:** Codex implements · Claude reviews · the **user merges** (Claude never merges; `gh`
@@ -39,8 +39,8 @@ is the user's account).
 1. **Implement.** Codex implements directly against design **§14** (acceptance criteria) +
    **§15** (settled decisions) — the design *is* the spec; no separate handoff brief is needed.
    (Codex commits under its own identity so the three actors stay distinguishable.)
-2. **Review.** Claude reviews the PR against `proof-of-concepts/REVIEW_CHECKLIST.md` — CI-green
-   is the floor, not the bar; verify the hard-case tests actually exist.
+2. **Review.** Claude reviews the PR against the "Per-milestone PR review checklist" in
+   `CODING_STANDARDS.md` — CI-green is the floor, not the bar; verify the hard-case tests actually exist.
 3. **Merge.** The user merges after Claude's LGTM, then the next milestone starts.
 
 **Order:** `M1 → M2a → M2b → M3 (∥ after M1) → M4 → M6`. Review+merge each before the next
@@ -56,23 +56,24 @@ when a milestone merges (don't rely on it being current when you arrive):
 - **M1** store ✅ (#7) · **M2a** ✅ (#10) · **M2b** ✅ (#12) · **M3** ✅ (#13) ·
   **M4** ✅ runs table + `report` (#15) · **M5** ⬜ trend (deferred) ·
   **M6a** ✅ CLI wiring — `sync`/`login`/`refresh-catalog`, `--full`, contamination check (#19) ·
-  **M6b** ⬜ decommission + docs reconciliation (**next**)
+  **M6b** ✅ decommission + docs reconciliation — PoC scripts retired, README/`config.example.toml`
+  on `AIMLAB_SESSION`, legacy `AIMLABS_COOKIE`/`session_cookie` channels **removed** (no users
+  pre-release; user decision this chat), design docs relocated to `docs/` (this PR — pending merge)
+- **M6b is the last milestone**; with it merged the pipeline build is complete (M5/trend deferred),
+  and M4+M6a become user-release-complete (decision 20).
 - _M6 was split 2026-06-12 (user decision; supersedes the single-M6 row in design §14):
   **M6a** = wire the remaining CLI verbs + sync-side pieces, code only; **M6b** = retire
   `proof-of-concepts/` scripts, reconcile `README.md`/`config.example.toml` onto
   `AIMLAB_SESSION`, relocate the design docs. Also settled: `aimlab_scores.py` gets unified
   auth but keeps its own entry point (not folded into `voltmeter`). User-release-complete
   still requires M6b (decision 20)._
-- _M6a review (PR #19) left two deferred items to fold into later work: **P3** — route
-  `play_store` field-drift warnings to the caller's `warning_stream` (standalone follow-up,
-  PR #20, not M6b-gated); and the **legacy `session_cookie` fallback** — kept for now, with
-  the design §4/§11-vs-§12 wording inconsistency + the retire/deprecate decision to be settled
-  in M6b's doc pass (decision 7)._
-- _Last reconciled: 2026-06-13 (Claude Code)._
+- _M6a review (PR #19) deferred items — now resolved: **P3** routed `play_store` field-drift
+  warnings to the caller's `warning_stream` (PR #20); and the **legacy `session_cookie`/`AIMLABS_COOKIE`
+  channels** were **removed outright** in M6b (no users pre-release), which also resolved the design
+  §4/§11-vs-§12 wording inconsistency by deletion (decision 7 updated)._
+- _Last reconciled: 2026-06-13 (Claude Code); M6b implemented this chat (pending merge)._
 - (`M1_BRIEF.md` was vestigial — briefs were dropped; design §14 is the spec — and was deleted
-  2026-06-12; recoverable from git history. The `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` trail stays
-  until finalization: the design doc cites it inline for decision provenance, so do **not**
-  delete it while the spec is active. **Docs finalization, after M6 merges:** promote
-  `RUN_HISTORY_ARCHITECTURE.md` to `docs/`, fold `REVIEW_CHECKLIST.md` into
-  `CODING_STANDARDS.md`, delete the review/pushback trail (git history preserves it), and
-  decide `ARCHITECTURE.md`'s fate alongside the PoC scripts it documents.)
+  2026-06-12; recoverable from git history. **Docs finalization — done in M6b:**
+  `RUN_HISTORY_ARCHITECTURE.md` + `ARCHITECTURE.md` promoted to `docs/`; `REVIEW_CHECKLIST.md`
+  folded into `CODING_STANDARDS.md`; the `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` trail deleted
+  (git history preserves it) and its inline citations scrubbed from the spec.)
