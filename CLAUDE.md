@@ -55,7 +55,14 @@ when a milestone merges (don't rely on it being current when you arrive):
   CI file lists cover the pipeline modules: ✅ (#16).
 - **M1** store ✅ (#7) · **M2a** ✅ (#10) · **M2b** ✅ (#12) · **M3** ✅ (#13) ·
   **M4** ✅ runs table + `report` (#15) · **M5** ⬜ trend (deferred) ·
-  **M6** ⬜ decommission (**next**)
+  **M6a** ⬜ CLI wiring — `sync`/`login`/`refresh-catalog`, `--full`, contamination check
+  (PR open) · **M6b** ⬜ decommission + docs reconciliation (**next after M6a**)
+- _M6 was split 2026-06-12 (user decision; supersedes the single-M6 row in design §14):
+  **M6a** = wire the remaining CLI verbs + sync-side pieces, code only; **M6b** = retire
+  `proof-of-concepts/` scripts, reconcile `README.md`/`config.example.toml` onto
+  `AIMLAB_SESSION`, relocate the design docs. Also settled: `aimlab_scores.py` gets unified
+  auth but keeps its own entry point (not folded into `voltmeter`). User-release-complete
+  still requires M6b (decision 20)._
 - _Last reconciled: 2026-06-12 (Claude Code)._
 - (`M1_BRIEF.md` was vestigial — briefs were dropped; design §14 is the spec — and was deleted
   2026-06-12; recoverable from git history. The `DESIGN_REVIEW*`/`DESIGN_PUSHBACK*` trail stays
