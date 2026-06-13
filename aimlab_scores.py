@@ -33,7 +33,7 @@ from benchmark_constants import (
     DIFFICULTIES,
     get_scenarios,
 )
-from config import DEFAULT_CONFIG_PATH, AppConfig, ConfigError, load_config
+from config import DEFAULT_CONFIG_PATH, ConfigError, load_config
 from stopwatch import Stopwatch
 from voltaic_benchmarks import (
     BenchmarkResourceError,
@@ -264,27 +264,21 @@ def _parse_extra_headers(header_texts: list[str]) -> dict:
 
 
 def _auth_headers_from_config(
-    app_config: AppConfig,
     *,
     env: Optional[Mapping[str, str]] = None,
     dotenv_path: Optional[Union[str, Path]] = ".env",
 ) -> dict:
-    """Resolve the Cookie header, preferring the unified AIMLAB_SESSION channels.
+    """Resolve the Cookie header from the unified AIMLAB_SESSION channels.
 
-    Precedence: $AIMLAB_SESSION / .env (via aimlabs_auth) > legacy $AIMLABS_COOKIE >
-    legacy [aimlabs].session_cookie. The legacy channels stay functional until M6b
-    retires them from the user-facing docs (design decision 7).
+    Channels (via ``aimlabs_auth.resolve_session_cookie``): ``$AIMLAB_SESSION`` then
+    ``AIMLAB_SESSION`` in a repo-root ``.env``. Returns ``{}`` when no session is found.
     """
     environment = os.environ if env is None else env
     try:
         resolved_session = aimlabs_auth.resolve_session_cookie(env=environment, dotenv_path=dotenv_path)
-        return {"Cookie": aimlabs_auth.session_cookie_header(resolved_session.session_cookie)}
     except aimlabs_auth.AimlabsAuthError:
-        pass
-    session_cookie = environment.get("AIMLABS_COOKIE") or app_config.aimlabs_session_cookie
-    if session_cookie:
-        return {"Cookie": session_cookie}
-    return {}
+        return {}
+    return {"Cookie": aimlabs_auth.session_cookie_header(resolved_session.session_cookie)}
 
 
 def _warn_if_user_id_looks_unusual(user_id: str) -> None:
@@ -458,7 +452,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     extra_headers = _parse_extra_headers(args.header)
-    for header_key, header_value in _auth_headers_from_config(app_config).items():
+    for header_key, header_value in _auth_headers_from_config().items():
         extra_headers.setdefault(header_key, header_value)
     deadline_at = time.monotonic() + args.run_deadline if args.run_deadline is not None else None
 

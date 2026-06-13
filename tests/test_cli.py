@@ -144,7 +144,6 @@ class CliSyncTests(unittest.TestCase):
         env_patcher.start()
         self.addCleanup(env_patcher.stop)
         os.environ.pop("AIMLAB_SESSION", None)
-        os.environ.pop("AIMLABS_COOKIE", None)
         self.config_path = self._write_sync_config()
 
     def _write_sync_config(self, *, delay: float = 0.0, filename: str = "config.toml") -> Path:

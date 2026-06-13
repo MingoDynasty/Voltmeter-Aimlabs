@@ -45,7 +45,7 @@ uv run pylint <CI source file list or touched source files>
 uv run ruff check .
 ```
 
-Known caveat: full-repo local checks may report existing untouched proof-of-concept noise that CI does not check. Do not fix or format unrelated POC files unless that is explicitly in scope. `ruff check .` is currently full-repo in CI.
+`ruff check .` is full-repo in CI. The proof-of-concept Python scripts were retired in M6b, so full-repo checks no longer flag untouched POC noise; the remaining `proof-of-concepts/` contents are gitignored local data and are not linted.
 
 ## Coding Standards
 
@@ -73,8 +73,8 @@ Local conventions:
 
 ## Run-History Pipeline
 
-- Design source of truth: `proof-of-concepts/RUN_HISTORY_ARCHITECTURE.md`.
-- Review checklist: `proof-of-concepts/REVIEW_CHECKLIST.md`.
+- Design source of truth: `docs/RUN_HISTORY_ARCHITECTURE.md`.
+- Review checklist: the "Per-milestone PR review checklist" section of `CODING_STANDARDS.md`.
 - Keep PR scope to the current milestone.
 - Do not silently change settled decisions from the design doc; raise deviations for discussion.
 - Use mock-only/offline tests for history sync behavior. Live data is single-page, so multi-page, crash, retry, and cursor behavior must be synthetic.

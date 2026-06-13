@@ -19,7 +19,6 @@ class ConfigError(RuntimeError):
 @dataclass(frozen=True)
 class AppConfig:  # pylint: disable=too-many-instance-attributes
     aimlabs_user_id: Optional[str] = None
-    aimlabs_session_cookie: Optional[str] = None
     storage_db_path: Optional[str] = None
     sync_page_size: int = 50
     sync_request_delay_seconds: float = 0.25
@@ -51,17 +50,8 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
     else:
         aimlabs_user_id = user_id.strip() or None
 
-    session_cookie = aimlabs_config.get("session_cookie")
-    if session_cookie is None:
-        aimlabs_session_cookie = None
-    elif not isinstance(session_cookie, str):
-        raise ConfigError(f"{resolved_path} [aimlabs].session_cookie must be a string.")
-    else:
-        aimlabs_session_cookie = session_cookie.strip() or None
-
     return AppConfig(
         aimlabs_user_id=aimlabs_user_id,
-        aimlabs_session_cookie=aimlabs_session_cookie,
         storage_db_path=_optional_non_empty_string(storage_config, "db_path", resolved_path, "storage"),
         sync_page_size=_sync_page_size(sync_config, resolved_path),
         sync_request_delay_seconds=_optional_number(

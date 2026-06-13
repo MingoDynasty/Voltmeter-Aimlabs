@@ -1,6 +1,7 @@
 # Voltmeter-Aimlabs — Run-History Pipeline: Design
 
-**Status:** Draft for review — **rev 9** (incorporates [`DESIGN_REVIEW.md`](DESIGN_REVIEW.md) + [`DESIGN_REVIEW_v2.md`](DESIGN_REVIEW_v2.md) + [`DESIGN_REVIEW_v3.md`](DESIGN_REVIEW_v3.md) + round-4 → round-8 general findings)
+**Status:** Finalized — **rev 9** (incorporates three review rounds plus round-4 → round-8
+general findings; M1–M4 + M6 shipped, M5/trend deferred)
 **Date:** 2026-06-06
 **Author:** MingoDynasty
 **Audience:** senior engineers; one will likely implement this.
@@ -8,14 +9,11 @@
 [`ARCHITECTURE.md`](ARCHITECTURE.md), which covers **authentication** and is a dependency of
 this design (summarized in §4).
 
-> **Review status:** three review rounds ([`DESIGN_REVIEW.md`](DESIGN_REVIEW.md),
-> [`DESIGN_REVIEW_v2.md`](DESIGN_REVIEW_v2.md), [`DESIGN_REVIEW_v3.md`](DESIGN_REVIEW_v3.md))
-> are folded in. Points we pushed back on or qualified are in
-> [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) (round 1),
-> [`DESIGN_PUSHBACK_v2.md`](DESIGN_PUSHBACK_v2.md) (round-2 qualifications + the live-validation
-> hedges that informed rev 3), and [`DESIGN_PUSHBACK_v3.md`](DESIGN_PUSHBACK_v3.md) (round-3).
-> Validation numbers come from the author's own account (N=919, 2026-06-06) and are evidence,
-> not universal facts (§17). The §5.1 pre-M1 live validation is **done**.
+> **Review provenance:** three review rounds are folded into this rev; the points we pushed
+> back on or qualified were tracked in a separate review/pushback trail during design. That
+> trail was removed at finalization (M6b) and is preserved in git history. Validation numbers
+> come from the author's own account (N=919, 2026-06-06) and are evidence, not universal facts
+> (§17). The §5.1 pre-M1 live validation is **done**.
 
 ---
 
@@ -54,8 +52,8 @@ Domain primer for reviewers new to aim trainers:
 - **PB** — personal best (max score) on a scenario.
 - **anthicId / userId** — Aimlabs' stable per-account identifier. The profile query calls it
   `anthicId`; the leaderboard query calls it `userId`; **they are the same value** (confirmed).
-  Config: `[aimlabs].user_id` in `config.toml` (AppConfig attr `aimlabs_user_id`); §12,
-  [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #1, [`DESIGN_PUSHBACK_v3.md`](DESIGN_PUSHBACK_v3.md) #2.
+  Config: `[aimlabs].user_id` in `config.toml` (AppConfig attr `aimlabs_user_id`); §12
+  (design review rounds 1 and 3).
 - **gridshield** — Aimlabs' anti-cheat verdict on a play (`APPROVED`, or flagged).
 - **`taskMode`** — a play-mode discriminator. Voltaic benchmark plays are mode `42`.
 - **Relay cursor** — the pagination style the `plays` connection uses
@@ -194,9 +192,9 @@ Probing surfaced a capable aggregate endpoint distinct from the history connecti
 by `user_id`, `task_id`, `task_mode`, and `is_practice` (note: the aggregate's mode field is
 **`task_mode`**, vs the history filter's **`mode`**). It is **not** the sync source (no
 pagination, no per-play rows), but it's a cheap cross-check tool — used for the contamination
-check above, and available for count reconciliation. `aimlab_agg.py` already wraps it. One
-gotcha: its `max{}` aggregate **500s on an empty result set**, so contamination/edge queries
-should select `count` only.
+check above, and available for count reconciliation. The package wraps it in
+`aimlabs_history.fetch_practice_contamination_count`. One gotcha: its `max{}` aggregate **500s on
+an empty result set**, so contamination/edge queries should select `count` only.
 
 ---
 
@@ -254,7 +252,7 @@ and drift check), and averts a migration if multi-account ever matters.
 sorts lexicographically (the high-water mark and `ended_at DESC` indexes rely on this).
 **Never store local/naive time.** Timezone is a display concern only (§10).
 
-**Raw is canonical (per review + [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #6):** every play
+**Raw is canonical (per review):** every play
 stores its full raw node JSON. Every other column except our two metadata timestamps is a
 **pure projection of `raw`, re-derived whenever `raw` is written** — so "raw wins" is
 structural, not documentary (see §7.1). `mode`, `weapon_id`, and `is_practice` are not stored:
@@ -459,8 +457,8 @@ Per-play facts are immutable. Three things can drift, each surfaced by a cheap w
 - **Status** (`gridshield_status` flips) — refreshed by `sync --full`, which walks the stream
   and re-derives the projection from each play's latest `raw` (§7.1).
 - **Membership** (a play deleted upstream — not expected from Aimlabs). Detect via a **cheap
-  drift signal, not deletion detection** (per review; reasoning corrected in
-  [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #2): compare stored count to the **finalized**
+  drift signal, not deletion detection** (per review; reasoning corrected in design-review
+  round 1): compare stored count to the **finalized**
   `api_total_count` — the freshest top-of-stream value (§8.1/§8.2), *not* a mid-backfill page
   value, or it false-warns. `stored > api_total_count` ⇒ **warn** ("N local plays no longer
   upstream"). This is a signal, not proof; precise identification needs a full id set-diff,
@@ -638,7 +636,6 @@ round-4 #2):**
 ```toml
 [aimlabs]
 user_id = "…"                  # -> aimlabs_user_id  (REQUIRED; the stable anthicId == userId)
-# session_cookie = "…"         # -> aimlabs_session_cookie (legacy; prefer AIMLAB_SESSION in .env)
 
 [storage]
 db_path = "data/aimlabs.db"    # -> storage_db_path
@@ -677,14 +674,16 @@ Detail in auth doc §8; pipeline-relevant points:
 - **Secret ≠ config.** The session cookie's canonical home is the **`AIMLAB_SESSION` env var,
   seeded from a gitignored `.env`** (`login` writes it, `chmod 600` on POSIX). Identifiers live
   in `config.toml` (`[aimlabs].user_id`). Precedence: `--session-file PATH` > `$AIMLAB_SESSION` >
-  `.env` > `config.toml` legacy `session_cookie`. **The secret never appears as a literal CLI
-  argument** (§11, review round-7 #1) — only file/env channels.
-  - **Note (review v3 #2):** the *pipeline's* auth uses `AIMLAB_SESSION`. The **currently
-    shipped** `aimlab_scores` tool legitimately reads `[aimlabs].session_cookie` and the
-    `AIMLABS_COOKIE` env var (`aimlab_scores.py:265`) — those are **not** dead and must **not**
-    be stripped from the README/`config.example.toml` now. Reconciling the user-facing setup docs
-    onto the unified `AIMLAB_SESSION` scheme is an **M6 task** (when the pipeline replaces/extends
-    that tool), not a pre-implementation edit — see [`DESIGN_PUSHBACK_v3.md`](DESIGN_PUSHBACK_v3.md) #2.
+  `.env`. **The secret never appears as a literal CLI argument** (§11, review round-7 #1) — only
+  file/env channels.
+  - **Note (M6b):** both `voltmeter` and `aimlab_scores` resolve auth through these `AIMLAB_SESSION`
+    channels by default; the legacy `[aimlabs].session_cookie` config key and `AIMLABS_COOKIE` env
+    var the shipped `aimlab_scores` tool once accepted were **removed at M6b** (no users depended on
+    them pre-release), so the README/`config.example.toml` describe only the unified scheme. The
+    **no-literal-CLI-secret** rule above is a `voltmeter` property (decision 24); `aimlab_scores`
+    keeps a general `--header` debug passthrough that can carry or override a cookie (with a leak
+    warning in its `--help`) — that escape hatch is **outside** the pipeline's secret model, not a
+    contradiction of it.
 - **Auth policy** is production-specific — see §4 (session canonical for sync; bearer
   debug-only; report never auths; **`sync` never opens a login window** — fails with "run
   `login`" instead, so unattended is the default).
@@ -760,11 +759,11 @@ no practice; no `is_practice` column); only the non-blocking cursor-expiry check
 |---|---|---|
 | **M1** | **Store** | `play_store.py` with the §7 schema (`account_id`, `raw` canonical, `first_fetched_at`/`last_seen_at`, `user_version`) at `data/aimlabs.db`; both indexes (incl. `idx_plays_acct_date`); **explicit + tested upsert semantics** (incremental insert-only/byte-identical; `--full` re-derives projection from `raw` + drift warning) per §7.1; **canonical JSON serialization** (sorted-keys/compact) with a key-order-variance fixture proving no false drift (§7.1); synthetic fixtures only. |
 | **M2a** | **Core incremental sync** | `aimlabs_history.py` (stateless) + `history_sync.py`: newest→older pagination from the top, finish-page-then-break, one-page overlap (§8.1); **atomic page-ingest**; **high-water captured-at-top, finalized-at-completion (not per page), no `resume_cursor` in steady state** (§8.1/round-6 #1); **empty-first-page path** (no rows, `newest_id`/`api_total_count` set, `page_size ≥ 1` validation, §8.1); `totalCount` drift signal (§8.3); **crash mid-incremental → restart-from-top, idempotent** (no orphaned cursor). Mock-page tests. Second run touches ≤1–2 pages, 0 new rows. |
-| **M2b** | **Sync resilience** | First-backfill state machine with the durable **`backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`, §8.2): resume + **new-plays-mid-backfill** (anchor + post-backfill top sweep on *every* initial backfill); **crash-before-sweep and crash-during-sweep tests** (phase persisted, sweep re-run idempotent); **401 re-mint (session-cookie auth)**; **429/5xx backoff**; **cursor-*rejection* → top-restart fallback** (distinct from M2a's local-interruption resume). All mock-tested. *(M2 split per [`DESIGN_PUSHBACK.md`](DESIGN_PUSHBACK.md) #3.)* |
+| **M2b** | **Sync resilience** | First-backfill state machine with the durable **`backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`, §8.2): resume + **new-plays-mid-backfill** (anchor + post-backfill top sweep on *every* initial backfill); **crash-before-sweep and crash-during-sweep tests** (phase persisted, sweep re-run idempotent); **401 re-mint (session-cookie auth)**; **429/5xx backoff**; **cursor-*rejection* → top-restart fallback** (distinct from M2a's local-interruption resume). All mock-tested. *(M2 split per design review round 1.)* |
 | **M3** | **Scenario catalog** | `scenario_catalog.py`: union of all `resources/aimlabs/*.json` → catalog records incl. **`benchmark_alias`/`benchmark_name`/`family`/`season`/`is_active`/`has_leaderboards`** (§9), not just name/season; rebuildable via `refresh-catalog`; **duplicate-`task_id` policy defined**; unknowns retained + reportable; resolver interface ready for a future API source. |
 | **M4** | **Runs table + basic stats** | `history_report.py` + `report` command: reverse-chron table, per-`task_id` PB/median/rolling stats; **offline-only (no auth/network)**; scoped by `report_family` (default `all`) + "other" footer; **non-APPROVED excluded by default with a visible note**; **timezone labeled**; **JSON output** included if a dashboard/test consumer exists, else console-only with JSON fast-follow. |
 | **M5** | **(deferred)** trend / cold-score | Not near-term (§10.3, §16). |
-| **M6** | **Decommission the POC** | After M1–M4 ship, retire `proof-of-concepts/` history scripts; auth/config unified through `aimlabs_auth`/`config`. Reconcile **`README.md` + `config.example.toml`** onto the unified scheme (`[aimlabs].user_id`, `AIMLAB_SESSION`, `report_family` default); retire `AIMLABS_COOKIE`/`session_cookie` from user-facing docs **only once the shipped tool no longer needs them** (review v3 #2). |
+| **M6** | **Decommission the POC** | Split into **M6a** (CLI wiring — `sync`/`login`/`refresh-catalog`, unified `aimlab_scores` auth) and **M6b** (this milestone): retire the `proof-of-concepts/` history scripts; reconcile **`README.md` + `config.example.toml`** onto the unified scheme (`[aimlabs].user_id`, `AIMLAB_SESSION`, `report_family` default); relocate the design docs to `docs/`. The legacy `AIMLABS_COOKIE`/`session_cookie` channels were **removed outright** at M6b (no users pre-release), not merely dropped from docs. |
 
 Order: **M1 → M2a → M2b → M3 → M4 → M6** (§5.1 validation done). M4 can begin once M1+M3 exist.
 
@@ -796,7 +795,7 @@ slice of tests. The §1–§3 / §5 / §17 sections are background/context, not 
 | 4 | **Timestamps ISO-8601 UTC verbatim**; display-time conversion only; reports label the TZ. | 7, 10 |
 | 5 | **Single-account product, account-stamped storage.** | 7 |
 | 6 | **Scenario metadata = separate, rebuildable, multi-source projection** carrying product-surface fields; store-all, analyze-Voltaic. | 9 |
-| 7 | **Credentials: `AIMLAB_SESSION` in `.env`; account id `[aimlabs].user_id` in `config.toml`** (userId == anthicId, confirmed). Session canonical for sync; report never auths. Shipped tool's `session_cookie`/`AIMLABS_COOKIE` are live — reconcile at M6, not now. | 4, 12 |
+| 7 | **Credentials: `AIMLAB_SESSION` in `.env`; account id `[aimlabs].user_id` in `config.toml`** (userId == anthicId, confirmed). Session canonical for sync; report never auths. The shipped tool's legacy `session_cookie`/`AIMLABS_COOKIE` channels were **removed at M6b** (no users pre-release), so credential resolution flows through `AIMLAB_SESSION` (the `aimlab_scores --header` debug passthrough aside). | 4, 12 |
 | 8 | **Analysis simple now**; **non-APPROVED excluded from stats by default**, visible note, override available. | 10 |
 | 9 | **CLI = verbs only; config = `config.toml`**; `report` is offline-only. | 11 |
 | 10 | **Build into the package**, gate-green per PR; `.gitignore` hardening **done**. | 12, 14 |

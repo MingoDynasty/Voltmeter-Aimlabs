@@ -16,7 +16,6 @@ import urllib.error
 import urllib.request
 
 from aimlabs_client import BASE_HEADERS
-from config import AppConfig
 
 SESSION_URL = "https://aimlabs.com/api/auth/session"
 DEFAULT_SESSION_COOKIE = "__Secure-next-auth.session-token"
@@ -48,10 +47,13 @@ def resolve_session_cookie(
     session_file: Optional[Union[str, Path]] = None,
     env: Optional[Mapping[str, str]] = None,
     dotenv_path: Optional[Union[str, Path]] = ".env",
-    app_config: Optional[AppConfig] = None,
     warning_stream: TextIO = sys.stderr,
 ) -> ResolvedSession:
-    """Resolve the session cookie without opening a login window."""
+    """Resolve the session cookie without opening a login window.
+
+    Channels, in precedence order: ``--session-file`` (a path) > ``$AIMLAB_SESSION`` > a
+    repo-root ``.env``. The secret never appears as a literal CLI argument (design §11/§12).
+    """
     if session_file is not None:
         session_path = Path(session_file)
         session_cookie = read_session_cookie_file(session_path, warning_stream=warning_stream)
@@ -68,11 +70,6 @@ def resolve_session_cookie(
         if dotenv_cookie is not None:
             return ResolvedSession(session_cookie=dotenv_cookie, source=str(Path(dotenv_path)))
 
-    if app_config is not None:
-        config_cookie = _non_empty(app_config.aimlabs_session_cookie)
-        if config_cookie is not None:
-            return ResolvedSession(session_cookie=config_cookie, source="config.toml [aimlabs].session_cookie")
-
     raise AimlabsAuthError("no Aimlabs session cookie found; run `voltmeter login`.")
 
 
@@ -81,7 +78,6 @@ def resolve_bearer(  # pylint: disable=too-many-arguments
     session_file: Optional[Union[str, Path]] = None,
     env: Optional[Mapping[str, str]] = None,
     dotenv_path: Optional[Union[str, Path]] = ".env",
-    app_config: Optional[AppConfig] = None,
     timeout: float = 20.0,
     session_fetcher: Optional[SessionFetcher] = None,
     warning_stream: TextIO = sys.stderr,
@@ -91,7 +87,6 @@ def resolve_bearer(  # pylint: disable=too-many-arguments
         session_file=session_file,
         env=env,
         dotenv_path=dotenv_path,
-        app_config=app_config,
         warning_stream=warning_stream,
     )
     return get_bearer_from_session(

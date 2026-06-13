@@ -13,7 +13,6 @@ class ConfigTests(unittest.TestCase):
             config = load_config(config_path)
 
         self.assertIsNone(config.aimlabs_user_id)
-        self.assertIsNone(config.aimlabs_session_cookie)
         self.assertIsNone(config.storage_db_path)
         self.assertEqual(config.sync_page_size, 50)
         self.assertEqual(config.sync_request_delay_seconds, 0.25)
@@ -39,7 +38,20 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ConfigError):
                 load_config(config_path)
 
-    def test_valid_config_loads_user_id_and_session_cookie(self) -> None:
+    def test_valid_config_loads_user_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text(
+                '[aimlabs]\nuser_id = "ABCDEF1234567890"\n',
+                encoding="utf-8",
+            )
+
+            config = load_config(config_path)
+
+        self.assertEqual(config.aimlabs_user_id, "ABCDEF1234567890")
+
+    def test_legacy_session_cookie_key_is_ignored(self) -> None:
+        # The retired [aimlabs].session_cookie key (M6b) must not error — it is simply ignored.
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.toml"
             config_path.write_text(
@@ -50,7 +62,7 @@ class ConfigTests(unittest.TestCase):
             config = load_config(config_path)
 
         self.assertEqual(config.aimlabs_user_id, "ABCDEF1234567890")
-        self.assertEqual(config.aimlabs_session_cookie, "cookie-value")
+        self.assertFalse(hasattr(config, "aimlabs_session_cookie"))
 
     def test_valid_storage_and_sync_config_loads_pinned_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

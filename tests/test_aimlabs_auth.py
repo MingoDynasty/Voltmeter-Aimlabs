@@ -21,7 +21,6 @@ from aimlabs_auth import (
     resolve_session_cookie,
     write_env_var,
 )
-from config import AppConfig
 
 
 class AimlabsAuthTests(unittest.TestCase):
@@ -56,13 +55,12 @@ class AimlabsAuthTests(unittest.TestCase):
                 session_file=session_path,
                 env={"AIMLAB_SESSION": "env-cookie"},
                 dotenv_path=dotenv_path,
-                app_config=AppConfig(aimlabs_session_cookie="config-cookie"),
             )
 
         self.assertEqual(resolved.session_cookie, "file-cookie")
         self.assertEqual(resolved.source, str(session_path))
 
-    def test_env_takes_precedence_over_dotenv_and_legacy_config(self) -> None:
+    def test_env_takes_precedence_over_dotenv(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             dotenv_path = Path(temp_dir) / ".env"
             dotenv_path.write_text('AIMLAB_SESSION="dotenv-cookie"\n', encoding="utf-8")
@@ -70,7 +68,6 @@ class AimlabsAuthTests(unittest.TestCase):
             resolved = resolve_session_cookie(
                 env={"AIMLAB_SESSION": " env-cookie "},
                 dotenv_path=dotenv_path,
-                app_config=AppConfig(aimlabs_session_cookie="config-cookie"),
             )
 
         self.assertEqual(resolved.session_cookie, "env-cookie")
@@ -117,7 +114,7 @@ class AimlabsAuthTests(unittest.TestCase):
 
     def test_missing_session_raises_login_message(self) -> None:
         with self.assertRaisesRegex(AimlabsAuthError, "voltmeter login"):
-            resolve_session_cookie(env={}, dotenv_path=None, app_config=AppConfig())
+            resolve_session_cookie(env={}, dotenv_path=None)
 
     def test_bearer_exchange_uses_access_token(self) -> None:
         bearer = get_bearer_from_session(
