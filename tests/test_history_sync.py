@@ -556,6 +556,9 @@ class FullSyncTests(unittest.TestCase):
         self.assertEqual(len(result.field_drift_warnings), 1)
         self.assertEqual(result.field_drift_warnings[0].field_name, "score")
         self.assertEqual(result.field_drift_warnings[0].play_id, "play-rescored")
+        # The field-drift message reaches the caller's warning_stream, not bare sys.stderr.
+        self.assertIn("field drift", stderr.getvalue())
+        self.assertIn("play-rescored", stderr.getvalue())
         # State is finalized once, from the top observation.
         self.assertEqual(state.backfill_phase, play_store.COMPLETE)
         self.assertEqual(state.newest_id, "play-new")

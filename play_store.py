@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sqlite3
 import sys
-from typing import Any, Optional, Union
+from typing import Any, Optional, TextIO, Union
 
 SCHEMA_VERSION = 1
 DEFAULT_DB_PATH = Path(__file__).resolve().parent / "data" / "aimlabs.db"
@@ -134,13 +134,14 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(schema_sql)
 
 
-def upsert_plays(
+def upsert_plays(  # pylint: disable=too-many-arguments
     connection: sqlite3.Connection,
     account_id: str,
     raw_plays: Iterable[Mapping[str, Any]],
     *,
     full: bool = False,
     seen_at: Optional[str] = None,
+    warning_stream: Optional[TextIO] = None,
 ) -> UpsertResult:
     if not account_id:
         raise PlayStoreError("account_id is required.")
@@ -155,7 +156,10 @@ def upsert_plays(
             seen_at=effective_seen_at,
         )
 
-    _emit_field_drift_warnings(result.drift_warnings)
+    # Field drift only arises on the full=True re-derive path; the param lets a caller
+    # (e.g. history_sync) route those warnings to the same stream as its other warnings.
+    # Resolve sys.stderr at call time (not as a default) so it honors stream redirection.
+    _emit_field_drift_warnings(result.drift_warnings, sys.stderr if warning_stream is None else warning_stream)
     return result
 
 
@@ -185,7 +189,8 @@ def upsert_plays_and_save_sync_state(
         )
         _save_sync_state_in_transaction(connection, sync_state)
 
-    _emit_field_drift_warnings(result.drift_warnings)
+    # full=False here, so drift_warnings is always empty; sys.stderr is just a placeholder sink.
+    _emit_field_drift_warnings(result.drift_warnings, sys.stderr)
     return result
 
 
@@ -471,9 +476,10 @@ def _find_field_drifts(
 
 def _emit_field_drift_warnings(
     drift_warnings: Iterable[FieldDriftWarning],
+    warning_stream: TextIO,
 ) -> None:
     for drift_warning in drift_warnings:
-        print(drift_warning.message, file=sys.stderr)
+        print(drift_warning.message, file=warning_stream)
 
 
 def _required_text(value: Any, field_name: str) -> str:

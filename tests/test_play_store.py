@@ -190,6 +190,26 @@ class PlayStoreUpsertTests(unittest.TestCase):
         self.assertEqual(row["score"], 1300.0)
         self.assertEqual(row["performance_scores"], '{"hitsTotal":55,"shotsTotal":60}')
 
+    def test_full_rederive_field_drift_honors_explicit_warning_stream(self) -> None:
+        connection = play_store.connect(":memory:")
+        play_store.upsert_plays(connection, ACCOUNT_ID, [synthetic_play(score=1200)], seen_at=FETCHED_AT)
+
+        warning_stream = io.StringIO()
+        with patch("sys.stderr", new=io.StringIO()) as default_stderr:
+            play_store.upsert_plays(
+                connection,
+                ACCOUNT_ID,
+                [synthetic_play(score=1300)],
+                full=True,
+                seen_at=REFETCHED_AT,
+                warning_stream=warning_stream,
+            )
+
+        # The warning goes to the passed stream, not the process-wide sys.stderr.
+        self.assertIn("field drift", warning_stream.getvalue())
+        self.assertIn("play-1", warning_stream.getvalue())
+        self.assertEqual(default_stderr.getvalue(), "")
+
     def test_full_rederive_canonical_performance_scores_avoids_false_drift(self) -> None:
         connection = play_store.connect(":memory:")
         play_store.upsert_plays(
