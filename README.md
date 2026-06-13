@@ -21,9 +21,9 @@ This project requires **Python 3.14+**. The recommended way to run it is with
 and provisions a matching interpreter automatically, so no manual Python install
 is needed. Run the tools from a checkout of this repository.
 
-A pip-installed distribution is not yet fully supported: the `voltmeter` and
-`login` entry points exist, but the bundled benchmark resources are not packaged
-as package data, so run from the repository root (e.g. with `uv`) for now.
+A pip-installed distribution is not yet fully supported: the `voltmeter` entry
+point exists, but the bundled benchmark resources are not packaged as package
+data, so run from the repository root (e.g. with `uv`) for now.
 
 ## Configuration
 
@@ -141,9 +141,16 @@ Sources:
 
 ## Resources
 
-`resources/aimlabs/valorant_s1.json` is the active Voltaic VALORANT benchmark
-resource. `resources/kovaaks/kovaaks_s5.json` is reserved for possible future
-KovaaKs support and is not currently wired into the CLI.
+The `voltmeter` scenario catalog loads **every** `*.json` file under
+`resources/aimlabs/` — currently `valorant_s1.json`, `aimlabs_s2.json`, and
+`aimlabs_s3.json` — so all three are active for run-history matching.
+
+The `aimlab_scores.py` snapshot tool is narrower: it reads only
+`resources/aimlabs/valorant_s1.json` (the Voltaic VALORANT benchmark).
+
+The `resources/kovaaks/` files (`kovaaks_s3.json`, `kovaaks_s4.json`,
+`kovaaks_s5.json`) are reserved for possible future KovaaKs support and are not
+currently wired into either tool.
 
 ## License
 
