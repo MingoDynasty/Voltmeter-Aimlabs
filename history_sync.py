@@ -221,7 +221,14 @@ def sync_full(  # pylint: disable=too-many-locals
             top_ended_at = _required_play_text(raw_plays[0], "endedAt")
             top_total_count = page.total_count
 
-        upsert_result = play_store.upsert_plays(connection, account_id, raw_plays, full=True, seen_at=sync_timestamp)
+        upsert_result = play_store.upsert_plays(
+            connection,
+            account_id,
+            raw_plays,
+            full=True,
+            seen_at=sync_timestamp,
+            warning_stream=warning_stream,
+        )
         inserted += upsert_result.inserted
         updated += upsert_result.updated
         field_drift_warnings.extend(upsert_result.drift_warnings)
