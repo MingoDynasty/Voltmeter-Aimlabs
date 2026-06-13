@@ -676,11 +676,14 @@ Detail in auth doc §8; pipeline-relevant points:
   in `config.toml` (`[aimlabs].user_id`). Precedence: `--session-file PATH` > `$AIMLAB_SESSION` >
   `.env`. **The secret never appears as a literal CLI argument** (§11, review round-7 #1) — only
   file/env channels.
-  - **Note (M6b):** both `voltmeter` and `aimlab_scores` now resolve auth solely through these
-    `AIMLAB_SESSION` channels. The legacy `[aimlabs].session_cookie` config key and `AIMLABS_COOKIE`
-    env var that the shipped `aimlab_scores` tool once accepted were **removed at M6b** — no users
-    depended on them pre-release — so the README/`config.example.toml` describe only the unified
-    scheme.
+  - **Note (M6b):** both `voltmeter` and `aimlab_scores` resolve auth through these `AIMLAB_SESSION`
+    channels by default; the legacy `[aimlabs].session_cookie` config key and `AIMLABS_COOKIE` env
+    var the shipped `aimlab_scores` tool once accepted were **removed at M6b** (no users depended on
+    them pre-release), so the README/`config.example.toml` describe only the unified scheme. The
+    **no-literal-CLI-secret** rule above is a `voltmeter` property (decision 24); `aimlab_scores`
+    keeps a general `--header` debug passthrough that can carry or override a cookie (with a leak
+    warning in its `--help`) — that escape hatch is **outside** the pipeline's secret model, not a
+    contradiction of it.
 - **Auth policy** is production-specific — see §4 (session canonical for sync; bearer
   debug-only; report never auths; **`sync` never opens a login window** — fails with "run
   `login`" instead, so unattended is the default).

@@ -41,9 +41,9 @@ credential is **not** stored in `config.toml`; see [Authentication](#authenticat
 
 ## Authentication
 
-Both tools authenticate with an Aim Lab session cookie. It is stored locally as
-the `AIMLAB_SESSION` environment variable (or in a gitignored `.env`) and is
-never passed on the command line. Provide it in one of two ways:
+Both tools authenticate with an Aim Lab session cookie, stored locally as the
+`AIMLAB_SESSION` environment variable (or in a gitignored `.env`). Provide it in
+one of two ways:
 
 - **`voltmeter login`** opens an embedded browser; log in normally (MFA/captcha
   are handled natively) and it writes `AIMLAB_SESSION` to a gitignored `.env`.
@@ -53,11 +53,17 @@ never passed on the command line. Provide it in one of two ways:
   aimlabs.com, and copy `__Secure-next-auth.session-token` into `.env` as
   `AIMLAB_SESSION="…"`.
 
-`voltmeter sync` accepts `--session-file PATH` as the only override — a path to a
-file whose first line holds the cookie, never the secret itself. `sync` never
-opens a login window; if the credential is missing or expired it exits asking you
-to run `voltmeter login`. `voltmeter report` is fully offline and never touches
-authentication or the network.
+`voltmeter` never accepts the session cookie as a command-line argument: `voltmeter
+sync`'s only override is `--session-file PATH` — a path to a file whose first line
+holds the cookie, never the secret itself. `sync` never opens a login window; if the
+credential is missing or expired it exits asking you to run `voltmeter login`.
+`voltmeter report` is fully offline and never touches authentication or the network.
+
+`aimlab_scores.py` reads `AIMLAB_SESSION` automatically too, but additionally accepts
+a general `--header "Key: Value"` passthrough for debugging. Avoid passing a `Cookie:`
+or `Authorization:` secret through it — command-line values can leak into shell history
+and process lists, and an explicit `--header` cookie overrides the resolved
+`AIMLAB_SESSION`.
 
 ## Run-history pipeline (`voltmeter`)
 
