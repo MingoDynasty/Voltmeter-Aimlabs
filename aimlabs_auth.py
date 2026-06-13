@@ -221,8 +221,10 @@ def _iter_cookie_pairs(cookies: Any) -> Iterator[tuple[str, Optional[str]]]:
       - EdgeChromium/WebView2 (Windows) and others -> list[http.cookies.SimpleCookie]
         (each a dict of name -> Morsel)
       - some backends/versions -> list[http.cookiejar.Cookie] (.name / .value)
-      - occasionally a bare Morsel, or a plain {name: value} dict
+      - occasionally a bare Morsel, or a plain {name: value} dict (not in a list)
     """
+    if isinstance(cookies, (Morsel, dict)):  # a bare cookie container, not a list of them
+        cookies = [cookies]
     for cookie in cookies or []:
         if isinstance(cookie, Morsel):
             yield cookie.key, cookie.value

@@ -183,6 +183,16 @@ class LoginCaptureTests(unittest.TestCase):
             f"{DEFAULT_SESSION_COOKIE}.0=aaa; {DEFAULT_SESSION_COOKIE}.1=bbb",
         )
 
+    def test_extract_session_cookie_from_bare_dict_not_wrapped_in_a_list(self) -> None:
+        # Some backends return a single {name: value} dict, not a list of them.
+        self.assertEqual(extract_session_cookie({DEFAULT_SESSION_COOKIE: "token"}), "token")
+
+    def test_extract_session_cookie_from_bare_simple_cookie_not_wrapped_in_a_list(self) -> None:
+        simple_cookie: SimpleCookie = SimpleCookie()
+        simple_cookie[DEFAULT_SESSION_COOKIE] = "captured-token"
+
+        self.assertEqual(extract_session_cookie(simple_cookie), "captured-token")
+
     def test_extract_session_cookie_returns_none_without_session_token(self) -> None:
         self.assertIsNone(extract_session_cookie([{"csrf-token": "noise"}]))
         self.assertIsNone(extract_session_cookie(None))
