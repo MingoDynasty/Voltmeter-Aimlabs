@@ -1,7 +1,22 @@
-[aimlabs]
-# Copy this file to config.toml, then fill in your Aimlabs user id.
-user_id = ""
+# Copy this file to config.toml (gitignored) and fill in your Aimlabs user id.
+#
+# The session credential is NOT stored here. Run `voltmeter login` (captures it
+# into a gitignored .env as AIMLAB_SESSION) or export AIMLAB_SESSION yourself.
+# Every key below except user_id is optional; the values shown are the defaults.
 
-# Optional. Prefer this or AIMLABS_COOKIE over passing Cookie via --header,
-# because command-line secrets can be exposed in shell history/process lists.
-session_cookie = ""
+[aimlabs]
+user_id = ""                   # REQUIRED; your Aimlabs user id (anthicId == userId)
+
+[storage]
+db_path = "data/aimlabs.db"    # local run-history store
+
+[sync]
+page_size = 50                 # history page size (1..200)
+request_delay_seconds = 0.25   # politeness delay between history pages
+request_timeout_seconds = 20   # per-request timeout (seconds)
+
+[report]
+family = "all"                 # "all" | "valorant"
+timezone = "local"             # "local" | IANA name, e.g. "America/Los_Angeles"
+rolling_median_window = 10     # rolling-median window (number of plays)
+rolling_max_window = 25        # rolling-max window (number of plays)
