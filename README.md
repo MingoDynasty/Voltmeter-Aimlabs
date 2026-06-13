@@ -68,10 +68,9 @@ and process lists, and an explicit `--header` cookie overrides the resolved
 ## Run-history pipeline (`voltmeter`)
 
 ```bash
-uv run voltmeter login            # capture the session cookie into .env (once)
-uv run voltmeter sync             # fetch new plays into the local store
-uv run voltmeter report           # offline: runs table + per-scenario stats
-uv run voltmeter refresh-catalog  # rebuild the scenario catalog from resources/
+uv run voltmeter login   # capture the session cookie into .env (once)
+uv run voltmeter sync    # fetch new plays into the local store
+uv run voltmeter report  # offline: runs table + per-scenario stats
 ```
 
 - `sync` pulls your play history into the SQLite store at `data/aimlabs.db`
@@ -82,6 +81,12 @@ uv run voltmeter refresh-catalog  # rebuild the scenario catalog from resources/
   are excluded by default (`--include-all-statuses` to include them).
 - Global options: `--config PATH`, `--verbose`. Run `voltmeter <command> --help`
   for the full surface.
+
+The scenario catalog (task_id → scenario metadata) is built automatically from the
+bundled `resources/aimlabs/` files, so the flow above needs no setup step for it.
+`uv run voltmeter refresh-catalog` is a maintainer-only diagnostic: run it after
+editing those resource files to validate the rebuild and report any duplicate
+`task_id` collisions. Normal use never requires it.
 
 ## Score snapshots
 
