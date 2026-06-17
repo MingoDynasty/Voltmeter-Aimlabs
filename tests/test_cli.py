@@ -121,6 +121,21 @@ class CliReportTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("loaded 2 plays from", stderr)
 
+    def test_verbose_is_accepted_after_the_subcommand_too(self) -> None:
+        _seed_store(
+            self.db_path,
+            [
+                _raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 100),
+                _raw_play("play-2", KNOWN_TASK_ID, "2026-06-05T11:00:00.000Z", 200),
+            ],
+        )
+
+        # --config before, --verbose after the subcommand (the natural invocation).
+        exit_code, _, stderr = _run_cli(["--config", str(self.config_path), "report", "--verbose"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("loaded 2 plays from", stderr)
+
     def test_missing_command_exits_with_usage_error(self) -> None:
         with redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as raised:
