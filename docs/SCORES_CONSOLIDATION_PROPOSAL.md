@@ -78,8 +78,10 @@ keying scheme (slug vs task_id), and a divergent resource-loading scope (s1-only
   tables / JSON), including the no-login path.
 - `voltmeter --help` lists `scores`; `main.py` no longer exists and nothing imports it.
 - Offline `report` path still imports no network/auth modules (existing §10/§11 test still green).
-- No `main.py` references remain anywhere (`git grep main.py` clean), including the CI workflow;
-  CI stays green with the file deleted.
+- No **live** `main.py` references remain — code, `.github/workflows/ci.yml`, `README.md`,
+  `config.example.toml`, and user-facing docs are all clear; CI stays green with the file deleted.
+  (Planning mentions in *this* proposal and in git history are expected to keep referencing it, so
+  the sweep above is "update the live references," not "`git grep main.py` returns nothing.")
 
 ## Part 2 — unify the scenario-metadata layer (larger)
 
