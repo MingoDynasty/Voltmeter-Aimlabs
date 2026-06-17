@@ -1,13 +1,17 @@
 # Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login)
 
-**Status:** Proposal — **deferred until after the run-history milestones (M1–M6)**. Not a
-current blocker; the workaround is "re-login when it breaks."
-**Investigated:** 2026-06-07 (Claude Code).
-**Scope when picked up:** small standalone change to the PoC auth path, plus a note in the
-pipeline's credential/auth design. Mirrors the one-PR-off-`main` workflow.
-**Related:** PR #8 (error-message disambiguation — the *first half* of this, **merged to `main`**);
-`proof-of-concepts/aimlab_history.py` auth functions; `RUN_HISTORY_ARCHITECTURE.md` auth
-assumptions.
+**Status:** Proposal — **ready to implement.** The run-history pipeline build is complete
+(M1–M6b merged) and the go/no-go is resolved (see **Decisions**); the one remaining empirical
+gate is the `--no-follow-rotation` control run (see **Open questions**). Until then the
+workaround is "re-login when it breaks."
+**Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
+auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts.
+**Scope when picked up:** a self-contained change to the shared auth layer (`aimlabs_auth.py`),
+plus reconciling the credential/auth design. Mirrors the one-PR-off-`main` workflow.
+**Related:** PR #8 (error-message disambiguation — the *first half* of this, **merged to `main`**,
+now landed as `ReloginRequiredError`); `aimlabs_auth.py` (`fetch_session_json` /
+`resolve_session_cookie` / `write_env_var` / `extract_session_cookie`);
+`docs/RUN_HISTORY_ARCHITECTURE.md` §4 / §8.4 / §17 auth assumptions.
 
 ---
 
@@ -29,6 +33,20 @@ rolling ~30-day session keep minting hour-long bearers with no re-login.
 
 ---
 
+## Decisions (resolved 2026-06-17, with the user)
+
+- **(A) Go: build it.** `sync` is **unattended/scheduled by design** — it never opens a login
+  window (design §4 + decision 23: no `--no-login`, no interactive detection). A refresh token
+  that silently dies ~1 h in therefore breaks *every* scheduled run until a human re-logs in —
+  exactly the failure this fix removes. (For a purely interactive tool the cheaper "re-login
+  when it breaks" might win; that's not this tool.)
+- **(D) Storage: a JSON token-state file owned by the shared auth layer** (see *Where it should
+  live*), not a per-run `.env` rewrite.
+- **Blocking gate remaining:** the `--no-follow-rotation` control run (see *Open questions*).
+  Everything else is design reconciliation + build.
+
+---
+
 ## Background: there are two token layers
 
 1. **The aimlabs session** — the `__Secure-next-auth.session-token` cookie (a NextAuth
@@ -38,8 +56,9 @@ rolling ~30-day session keep minting hour-long bearers with no re-login.
    short-lived **access token** (~1 h) plus a **refresh token**.
 
 `GET https://aimlabs.com/api/auth/session` returns the current access token, transparently
-refreshing it server-side (via the stored refresh token) when it has expired. `aimlab_history.py`
-exchanges `AIMLAB_SESSION` for a fresh bearer this way on every run.
+refreshing it server-side (via the stored refresh token) when it has expired. The auth layer
+(`aimlabs_auth.get_bearer_from_session`) exchanges `AIMLAB_SESSION` for a fresh bearer this way
+on every run.
 
 Two behaviors of that endpoint matter here:
 
@@ -56,16 +75,18 @@ The script reported **"your Aim Lab session has expired"** even though the sessi
 (cookie good for ~30 days, user authenticated). The real response was HTTP 200 with
 `accessTokenError: "RefreshAccessTokenError"` and **no** `accessToken`.
 
-**Already addressed by PR #8** (error-message disambiguation): a dedicated
-`SessionRefreshError` + a `refresh_failed` reason now distinguish "the session is fine but the
-access-token refresh failed — re-login" from a genuinely missing/expired session and from
-transient network errors. PR #8 does **not** fix the underlying cause — that's this proposal.
+**Already addressed by PR #8** (error-message disambiguation), now productized as
+`ReloginRequiredError` (raised whenever `/api/auth/session` returns an `accessTokenError`): it
+distinguishes "the session is fine but the access-token refresh failed — re-login" from a
+genuinely missing/expired session and from transient network errors. PR #8 does **not** fix the
+underlying cause — that's this proposal.
 
-> **PR #8 wording caveat (now a follow-up):** PR #8 has **merged to `main`** with a message
-> saying the refresh token "was revoked (commonly by logging in again elsewhere)." The
-> investigation below shows that's usually **wrong** — the typical cause is rotation/staleness,
-> with no second login required. Since #8 is already on `main`, correct the wording there as a
-> small standalone follow-up (point it at rotation), independent of the persistence work here.
+> **PR #8 wording caveat — RESOLVED.** PR #8's original message blamed the refresh token being
+> "revoked (commonly by logging in again elsewhere)," which the investigation below shows is
+> usually wrong (the typical cause is rotation/staleness, no second login). Productization
+> already neutralized this: the current `ReloginRequiredError` message just says aimlabs
+> "accepted the session but could not refresh an access token; run `voltmeter login`" — no
+> "revoked elsewhere" claim remains, so no separate wording follow-up is owed.
 
 ---
 
@@ -151,55 +172,88 @@ the session window.
    reuse-detection, which can revoke the whole token family. Take a run lock (e.g. a lockfile)
    so two runs can't race, and document "don't keep aimlabs.com open in a browser while the
    tool is the credential holder."
-3. **Only re-login on a genuine `SessionRefreshError`.** Distinguish "refresh truly failed →
+3. **Only re-login on a genuine `ReloginRequiredError`.** Distinguish "refresh truly failed →
    must re-login" from a transient network/HTTP blip, so a still-good cookie isn't discarded.
    (PR #8 introduced exactly this distinction — build on it.)
 4. **Handle chunked `Set-Cookie` (`.0`/`.1`/…).** If the token grows past ~4 KB, NextAuth splits
-   it across cookies. Reuse the `_extract_session_cookie` logic the `--login` capture path
-   already has, rather than assuming a single cookie.
-5. **Confirm rolling vs. absolute expiry.** NextAuth defaults to a *rolling* session (each use
-   pushes `expires` out ~30 days), which is what makes "never re-login" true. If aimlabs set an
-   *absolute* cap, a re-login is still required at that hard limit regardless of persistence.
-   Cheap to confirm — log the `expires` value across several refreshes.
+   it across cookies. Reuse `extract_session_cookie` (`aimlabs_auth.py`) — the `login` capture
+   path's helper, which **already joins chunked cookies** — rather than assuming a single cookie.
+   (This means rule 4 is effectively already implemented for the read side.)
+5. **Rolling vs. absolute expiry — confirm in production, do NOT block on it.** NextAuth defaults
+   to a *rolling* session (each use pushes `expires` out ~30 days), which is what makes "never
+   re-login" true. If aimlabs set an *absolute* cap, a re-login is still required at that hard
+   limit regardless of persistence — but the fix is a large win either way (it turns "dies at
+   the first refresh ~1 h in" into "survives the whole session window unattended"). Confirming
+   rolling needs an `expires` comparison across a **>24 h** horizon (NextAuth only rolls after
+   `updateAge`, default 24 h), so a few-hour run can't answer it — let it accrue in production
+   rather than gating implementation. `ARCHITECTURE.md` already *assumes* rolling; treat that as
+   provisional.
 
 ---
 
 ## Where it should live
 
-- **PoC script (`aimlab_history.py`):** write the rotated cookie back to `.env` via the
-  existing `_write_env_var` helper. Smallest change; this is the deferred follow-up to PR #8.
-- **Run-history pipeline:** this is really a **credential/token-state** concern. A small JSON
-  state file the pipeline owns (atomic write + lock in one place) is cleaner than rewriting
-  `.env` on every run. `RUN_HISTORY_ARCHITECTURE.md`'s auth section currently assumes a static
-  ~30-day cookie; it should be updated to describe a **rotating chain that must be persisted**.
+**Decided (D): a small JSON token-state file owned by the shared auth layer (`aimlabs_auth.py`),
+atomic write + run lock in one place** — *not* a per-run `.env` rewrite. Rationale: the
+credential is now read by **both** `voltmeter sync` and `aimlab_scores` (both go through
+`aimlabs_auth.resolve_session_cookie`), and `.env` is a hand-maintained file, so rewriting it on
+every run is the riskier path. Centralize rotate-and-persist in `aimlabs_auth` so both consumers
+benefit and only one place owns the write.
+
+Re-baselined onto the current code (M6b retired the PoC `aimlab_history.py`):
+
+- **The discard is in `fetch_session_json` (`aimlabs_auth.py`):** it reads the response *body*
+  but never reads the `Set-Cookie` *header*. That's the line to change — capture the rotated
+  session-token there (or in `get_bearer_from_session`) and hand it to the state writer.
+- **Building blocks already exist (renamed/public):** `write_env_var`, and `extract_session_cookie`
+  — which already handles the chunked `.0`/`.1` case (rule 4), so that part is done.
+- **Atomicity is NOT yet there:** `write_env_var` does a plain `write_text`, not temp-file +
+  `os.replace`. The new state writer must be atomic (rule 1); don't reuse `write_env_var` as-is.
+- **Design reconciliation owed:** `docs/RUN_HISTORY_ARCHITECTURE.md` **§4 / §8.4 / §17** currently
+  classify `RefreshAccessTokenError` as **terminal** ("the only fix is a fresh `login`") and call
+  the cause "not understood." This proposal overturns both — they must be rewritten to
+  "recoverable by persisting the rotated cookie." Do this *after* the control run (Open questions)
+  confirms the mechanism.
 
 ---
 
 ## Open questions / verification still owed
 
-- **`--no-follow-rotation` control run.** The monitor proved that *following* rotation
-  sustains the session. The direct proof of the bug is the opposite control: a run that keeps
-  re-sending the original static cookie should die right after the first refresh. The monitor
-  already has a `--no-follow-rotation` flag for this; it needs its own fresh login (and sole-
-  consumer conditions). Run this when the work is picked up — it doubles as the regression test.
-- **Rolling vs. absolute session lifetime** (see rule 5).
-- **Second-cycle confirmation.** As of writing, the monitor had confirmed **one** successful
-  refresh cycle (03:47). Confirming it sustains across ≥2 cycles (next refresh ~04:47) further
-  hardens the conclusion; not load-bearing for the diagnosis.
+- **`--no-follow-rotation` control run — the one blocking gate.** The captured log proves the
+  *positive* direction (following rotation sustains the session); the control proves the bug
+  directly and doubles as the regression test. **Procedure** — sole consumer (no `aimlabs.com`
+  browser tab, no concurrent `sync`/`scores`), disable system sleep, run from the **repo root**
+  (where `.env` lives):
+  ```
+  voltmeter login        # fresh cookie (unspent refresh token)
+  python proof-of-concepts/auth-session-rotation/_monitor_session.py \
+      --no-follow-rotation --interval 60 --max-min 90
+  ```
+  **Expected:** `token=Y` for ~0–60 min → first refresh at ~60 min still `token=Y` (RT0's one
+  valid use) → next poll (~61 min) re-sends spent RT0 → `RefreshAccessTokenError`, `token=N`,
+  monitor exits. Dying ~1 poll after the ~60-min mark (vs. the treatment run sailing past it)
+  *is* the proof, and is what the regression test encodes (mock the session endpoint: first
+  refresh returns a rotated cookie + token; re-presenting the old cookie returns
+  `RefreshAccessTokenError`). If it fails in the first poll or two (well before 60 min), the
+  "fresh" cookie wasn't fresh — re-login and retry.
+- **Rolling vs. absolute session lifetime** — deferred, non-blocking (see rule 5).
+- **Second-cycle confirmation** — fold into a long follow-rotation run (`--max-min 150` crosses
+  the second ~60-min refresh boundary, ~04:47 in the captured log); hardening only, not
+  load-bearing.
 
 ---
 
 ## Acceptance criteria (when implemented)
 
-- After a refresh, the stored `AIMLAB_SESSION` (or token-state file) reflects the rotated
-  cookie; a subsequent run reuses it without re-login.
+- After a refresh, the **token-state file** reflects the rotated cookie; a subsequent run
+  (`sync` or `scores`) reuses it without re-login.
 - Survives ≥2 consecutive refresh cycles unattended (sole consumer).
 - A `--no-follow-rotation`-style path still fails after the first refresh (proves the fix is
   what's responsible) — encoded as a regression test with a mocked session endpoint.
-- Crash between refresh and persist does not corrupt `.env`/state (atomic write); a half-write
-  is impossible.
+- Crash between refresh and persist does not corrupt the state file (atomic temp-file +
+  `os.replace`); a half-write is impossible.
 - Concurrent runs are serialized by the lock; they do not fork the chain.
-- A genuine `SessionRefreshError` (not a network blip) is the only thing that prompts re-login.
+- A genuine `ReloginRequiredError` (not a network blip) is the only thing that prompts re-login.
 
 ---
 
@@ -209,9 +263,10 @@ the session window.
 consumer, **follows** the rotated `Set-Cookie` session-token across polls, masks all token
 values, and logs — relative to the first observed `accessTokenExpiresAt` — exactly when
 `accessToken` disappears vs. when it advances. Flags: `--interval`, `--max-min`,
-`--no-follow-rotation`. It reads `AIMLAB_SESSION` from `.env` in the current working directory,
-so run it from `proof-of-concepts/` (or copy `.env` alongside). `_monitor_session.log` is a
-captured run kept here as evidence. When this work is picked up, promote the monitor (or its
+`--no-follow-rotation`. It reads `AIMLAB_SESSION` from `.env` in the current working directory
+and appends to `_monitor_session.log` there too, so run it from the **repo root** (where `.env`
+lives, after a fresh `voltmeter login`); the committed `_monitor_session.log` in this directory
+is a captured run kept as evidence. When this work is picked up, promote the monitor (or its
 essence) into a proper dev/diagnostic tool or test fixture rather than re-deriving it.
 Healthy cookie ≈ 1377 chars; a terminal `RefreshAccessTokenError` cookie collapses to ≈ 340
 chars (tokens stripped) — a quick at-a-glance health signal.

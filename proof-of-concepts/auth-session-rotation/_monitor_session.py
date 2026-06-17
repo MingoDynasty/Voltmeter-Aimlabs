@@ -12,7 +12,7 @@ observed accessTokenExpiresAt -- exactly when `accessToken` disappears and
 
 Never prints token values. accessTokenExpiresAt / expires are timestamps, safe.
 
-Usage (after a FRESH `python aimlab_history.py --login`):
+Usage (after a FRESH `voltmeter login`):
     python _monitor_session.py            # 60s interval, stop on first failure
     python _monitor_session.py --interval 120 --max-min 180
 """
