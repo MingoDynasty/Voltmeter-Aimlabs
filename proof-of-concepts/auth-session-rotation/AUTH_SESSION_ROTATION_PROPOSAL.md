@@ -1,9 +1,11 @@
 # Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login)
 
-**Status:** Proposal — **ready to implement.** The run-history pipeline build is complete
-(M1–M6b merged), the go/no-go is resolved (see **Decisions**), and the blocking empirical gate —
-the `--no-follow-rotation` control run — **passed 2026-06-17** (see **Open questions**; evidence
-in `_monitor_session_control.log`). Remaining work is design reconciliation + the build.
+**Status:** Proposal — **ready to implement; no open questions.** The run-history pipeline build
+is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the blocking empirical
+gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (evidence:
+`_monitor_session_control.log`), and the design is fully settled (see **Decisions** +
+**Implementation spec**). This doc is the complete spec for Codex; the remaining work is the build
+itself (one PR off `main`, per the CLAUDE.md workflow).
 **Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
 auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts.
 **Scope when picked up:** a self-contained change to the shared auth layer (`aimlabs_auth.py`),
@@ -42,8 +44,9 @@ rolling ~30-day session keep minting hour-long bearers with no re-login.
   when it breaks" might win; that's not this tool.)
 - **(D) Storage: a JSON token-state file owned by the shared auth layer** (see *Where it should
   live*), not a per-run `.env` rewrite.
-- **Blocking gate — CLEARED (2026-06-17):** the `--no-follow-rotation` control run passed (see
-  *Open questions*). Everything else is design reconciliation + build.
+- **Blocking gate — CLEARED (2026-06-17):** the `--no-follow-rotation` control run passed
+  (Investigation §4). The design is now fully settled in **Implementation spec** — no open
+  questions remain; what's left is the build.
 
 ---
 
@@ -221,53 +224,127 @@ Re-baselined onto the current code (M6b retired the PoC `aimlab_history.py`):
   — which already handles the chunked `.0`/`.1` case (rule 4), so that part is done.
 - **Atomicity is NOT yet there:** `write_env_var` does a plain `write_text`, not temp-file +
   `os.replace`. The new state writer must be atomic (rule 1); don't reuse `write_env_var` as-is.
-- **Design reconciliation owed:** `docs/RUN_HISTORY_ARCHITECTURE.md` **§4 / §8.4 / §17** currently
+- **Design reconciliation:** `docs/RUN_HISTORY_ARCHITECTURE.md` **§4 / §8.4 / §17** currently
   classify `RefreshAccessTokenError` as **terminal** ("the only fix is a fresh `login`") and call
-  the cause "not understood." This proposal overturns both — they must be rewritten to
-  "recoverable by persisting the rotated cookie." Do this *after* the control run (Open questions)
-  confirms the mechanism.
+  the cause "not understood." Both are now disproven (Investigation §4). Reconcile them in the
+  **same PR** as the code — see **Implementation spec §4**.
 
 ---
 
-## Open questions / verification still owed
+## Implementation spec (settled 2026-06-17)
 
-- **`--no-follow-rotation` control run — CLEARED (2026-06-17).** **Result:** 60 polls healthy on
-  the original access token (`ATE` constant at 14:34:16), the first refresh at poll #60 (+59.2 m)
-  **succeeded** (`ATE` jumped +1 h to 15:33:50 — RT0's one valid use), then poll #61 (+60.2 m)
-  re-sent the spent RT0 → `token=N`, `RefreshAccessTokenError`, cookie collapsed 1377 → 340. The
-  success-then-die-on-reuse transition is the single-use-rotation fingerprint; the lone variable
-  vs. the treatment run (which sailed past the same boundary) is following the rotated cookie, so
-  the discarded `Set-Cookie` is the confirmed cause. Evidence: `_monitor_session_control.log`
-  (control) vs. `_monitor_session.log` (treatment). This sequence is the regression test: mock
-  the session endpoint so the first refresh returns a rotated cookie + token, and re-presenting
-  the old cookie returns `RefreshAccessTokenError`.
+The last open design questions, now decided so this doc is the complete spec. Simplicity-first:
+these pin only what Codex shouldn't have to guess; everything else is Codex's call.
 
-  **Reproduce** — sole consumer (no `aimlabs.com` browser tab, no concurrent `sync`/`scores`),
-  disable system sleep, run from the **repo root** (where `.env` lives):
+### 1. Token-state file — path, schema, precedence, login reset
+
+- **Path:** `data/session.json`, written/managed by `aimlabs_auth`. Use the tool-owned, already
+  gitignored `data/` dir (home of the run-history DB) — deliberately **not** the hand-maintained
+  `.env` (that separation is the whole point of decision D). Create it `0600` on POSIX (mirror
+  `write_env_var`), and add an explicit Secrets-section `.gitignore` line as belt-and-suspenders
+  (it holds a "logged-in-as-you" credential).
+- **Schema (minimal):**
+  ```json
+  {
+    "version": 1,
+    "session_cookie": "<rotated value, or chunked 'n0=v0; n1=v1' string>",
+    "expires": "<session `expires` from /api/auth/session>",
+    "updated_at": "<ISO-8601 UTC when this link was persisted>"
+  }
   ```
-  voltmeter login        # fresh cookie (unspent refresh token)
-  python proof-of-concepts/auth-session-rotation/_monitor_session.py \
-      --no-follow-rotation --interval 60 --max-min 90
-  ```
-  If it fails in the first poll or two (well before 60 min), the "fresh" cookie wasn't fresh —
-  re-login and retry.
-- **Rolling vs. absolute session lifetime** — deferred, non-blocking (see rule 5).
-- **Second-cycle confirmation** — fold into a long follow-rotation run (`--max-min 150` crosses
-  the second ~60-min refresh boundary, ~04:47 in the captured log); hardening only, not
-  load-bearing.
+- **Resolution precedence** (`resolve_session_cookie`, extended): `--session-file` (explicit
+  override, unchanged, read-only) > **`data/session.json`** > `$AIMLAB_SESSION` > `.env`. The
+  state file wins over env/`.env` because those hold the *original* capture (C0), which dies one
+  refresh after capture, whereas the state file holds the current chain link. A corrupt/
+  unparseable state file is treated as **absent** (warn, fall through) — never a hard failure.
+  `scores` and `sync` both read through this one function, so both pick up the current link.
+- **Persist** writes `data/session.json` **atomically** (temp-file + `os.replace`) on the refresh
+  path (§2), regardless of which channel the cookie was read from: fresh login → `.env` C0 → first
+  refresh persists C1 → later runs read C1 (state file wins) → C2 … .
+- **`login` resets rotation (critical correctness point):** on a successful `voltmeter login`,
+  **delete `data/session.json`** when writing the fresh cookie to `.env`. A fresh login starts a
+  new chain; since the state file *wins* over `.env`, a leftover dead last-link would otherwise
+  shadow the fresh capture and fail immediately. Next sync rebuilds the state file from the new
+  `.env` cookie.
+
+### 2. Scope — only the bearer path rotates; `scores` only reads
+
+Refresh/rotation happens **only at `GET /api/auth/session`**, i.e. only in `fetch_session_json`
+(via `get_bearer_from_session` / `resolve_bearer`, used by `sync` and login-verify). `aimlab_scores`
+sends the cookie to its own endpoint and **never calls `fetch_session_json`**, so it does **not**
+rotate. Therefore:
+
+- **Persist-on-rotation lives in exactly one place** — the bearer-mint path. `fetch_session_json`
+  must read the response's `Set-Cookie` (reuse `extract_session_cookie`'s chunk-join), and the
+  mint path writes the rotated link after a successful mint. The `SessionFetcher` seam must carry
+  the rotated cookie out so the **mocked regression test can exercise persistence** (today it
+  returns only the JSON body).
+- **`scores` benefits passively** — no scores-side change beyond reading through the updated
+  `resolve_session_cookie`.
+
+### 3. Single-flight lock
+
+- An **exclusive lockfile** `data/session.lock` guards the read→refresh→persist critical section
+  on the rotating path, so two concurrent `sync`/login runs can't both refresh and fork the chain.
+  Acquire via `os.open(..., O_CREAT | O_EXCL)` (works on Windows *and* POSIX); release (unlink) in
+  a `finally`. Handle a **stale lock**: if the file exists but its recorded PID is not alive,
+  reclaim it — a crashed run must not wedge the tool forever. (`os.replace` is atomic on Windows,
+  so the state write itself needs no extra OS lock.)
+- `scores` does **not** take the lock (read-only, non-rotating).
+
+### 4. Design-doc reconciliation — same PR
+
+Update `docs/RUN_HISTORY_ARCHITECTURE.md` **§4 / §8.4 / §17** in the **same PR** as the code (the
+code is what makes "recoverable" true; a separate docs PR would leave `main` self-contradictory).
+Flip the framing: `RefreshAccessTokenError` is **normally recoverable** — the rotated cookie is
+persisted and reused, so the unattended session sustains itself — and **terminal only** when the
+session itself is gone, the chain was forked (a browser tab / second run), or the state file was
+lost. Keep `ReloginRequiredError` as the surfaced error **for that residual terminal case**, so the
+existing "run `voltmeter login`" path stays correct as the fallback rather than the expected ~1 h
+outcome.
+
+---
+
+## Post-ship verification (non-blocking)
+
+Nothing here blocks implementation — these accrue *after* the fix ships.
+
+- **Control run — CLEARED (2026-06-17).** Was the blocking gate; result + evidence in
+  Investigation §4 (`_monitor_session_control.log`). Its success-then-die-on-reuse sequence is the
+  regression test (§2 / Acceptance criteria). Reproduce recipe below, retained for future use.
+- **Rolling vs. absolute session lifetime** — see rule 5; needs a >24 h `expires` comparison, so
+  let it accrue in production rather than gate the build.
+- **Second-cycle confirmation** — fold into a long follow-rotation run (`--max-min 150` crosses the
+  second ~60-min refresh boundary, ~04:47 in the captured log); hardening only.
+
+**Reproduce the control run** — sole consumer (no `aimlabs.com` tab, no concurrent `sync`/`scores`),
+disable system sleep, run from the repo root (where `.env` lives):
+```
+voltmeter login        # fresh cookie (unspent refresh token)
+python proof-of-concepts/auth-session-rotation/_monitor_session.py \
+    --no-follow-rotation --interval 60 --max-min 90
+```
+If it fails in the first poll or two (well before 60 min), the "fresh" cookie wasn't fresh —
+re-login and retry.
 
 ---
 
 ## Acceptance criteria (when implemented)
 
-- After a refresh, the **token-state file** reflects the rotated cookie; a subsequent run
+- After a refresh, `data/session.json` reflects the rotated cookie; a subsequent run
   (`sync` or `scores`) reuses it without re-login.
+- `resolve_session_cookie` prefers `data/session.json` over `$AIMLAB_SESSION`/`.env`; a corrupt
+  state file is ignored with a warning, not a crash.
+- `voltmeter login` deletes `data/session.json` (rotation reset), so a stale last-link cannot
+  shadow the freshly captured cookie.
 - Survives ≥2 consecutive refresh cycles unattended (sole consumer).
 - A `--no-follow-rotation`-style path still fails after the first refresh (proves the fix is
-  what's responsible) — encoded as a regression test with a mocked session endpoint.
+  what's responsible) — encoded as a regression test with a mocked session endpoint that rotates
+  `Set-Cookie`.
 - Crash between refresh and persist does not corrupt the state file (atomic temp-file +
   `os.replace`); a half-write is impossible.
-- Concurrent runs are serialized by the lock; they do not fork the chain.
+- Concurrent rotating runs are serialized by `data/session.lock`; they do not fork the chain, and
+  a stale lock (dead PID) is reclaimed rather than wedging the tool.
 - A genuine `ReloginRequiredError` (not a network blip) is the only thing that prompts re-login.
 
 ---
