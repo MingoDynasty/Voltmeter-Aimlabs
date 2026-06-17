@@ -121,6 +121,33 @@ class CliReportTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("loaded 2 plays from", stderr)
 
+    def test_verbose_is_accepted_after_the_subcommand_too(self) -> None:
+        _seed_store(
+            self.db_path,
+            [
+                _raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 100),
+                _raw_play("play-2", KNOWN_TASK_ID, "2026-06-05T11:00:00.000Z", 200),
+            ],
+        )
+
+        # --config before, --verbose after the subcommand (the natural invocation).
+        exit_code, _, stderr = _run_cli(["--config", str(self.config_path), "report", "--verbose"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("loaded 2 plays from", stderr)
+
+    def test_config_is_accepted_after_the_subcommand_too(self) -> None:
+        # A --config placed AFTER the subcommand must still be honored. This config omits
+        # [aimlabs].user_id, so the report fails with that specific message only if the
+        # after-positioned --config was actually read (otherwise it would not be loaded at all).
+        config_path = self.temp_path / "after_no_user.toml"
+        config_path.write_text('[report]\ntimezone = "UTC"\n', encoding="utf-8")
+
+        exit_code, _, stderr = _run_cli(["report", "--config", str(config_path)])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("[aimlabs].user_id", stderr)
+
     def test_missing_command_exits_with_usage_error(self) -> None:
         with redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as raised:

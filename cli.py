@@ -51,10 +51,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--config", metavar="PATH", default=None, help="path to config.toml")
     parser.add_argument("--verbose", action="store_true", help="print progress details to stderr")
+
+    # The same options, accepted *after* the subcommand too (`voltmeter report --verbose`).
+    # SUPPRESS defaults so an absent flag here never clobbers a value given before the
+    # subcommand; the top-level parser above carries the real defaults.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", metavar="PATH", default=argparse.SUPPRESS, help="path to config.toml")
+    common.add_argument(
+        "--verbose", action="store_true", default=argparse.SUPPRESS, help="print progress details to stderr"
+    )
+
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     sync_parser = subparsers.add_parser(
         "sync",
+        parents=[common],
         help="fetch new plays into the local store (never opens a login window)",
         allow_abbrev=False,
     )
@@ -82,6 +93,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     login_parser = subparsers.add_parser(
         "login",
+        parents=[common],
         help="open the Aim Lab login window and capture the session cookie into .env",
         allow_abbrev=False,
     )
@@ -95,6 +107,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     report_parser = subparsers.add_parser(
         "report",
+        parents=[common],
         help="render the runs table and per-scenario stats from the local store (offline)",
         allow_abbrev=False,
     )
@@ -106,6 +119,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "refresh-catalog",
+        parents=[common],
         help="validate/rebuild the bundled scenario catalog and report duplicate task ids "
         "(maintainer diagnostic; not required for normal use)",
         allow_abbrev=False,
