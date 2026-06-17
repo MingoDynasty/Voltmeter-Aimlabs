@@ -1,9 +1,9 @@
 # Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login)
 
 **Status:** Proposal — **ready to implement.** The run-history pipeline build is complete
-(M1–M6b merged) and the go/no-go is resolved (see **Decisions**); the one remaining empirical
-gate is the `--no-follow-rotation` control run (see **Open questions**). Until then the
-workaround is "re-login when it breaks."
+(M1–M6b merged), the go/no-go is resolved (see **Decisions**), and the blocking empirical gate —
+the `--no-follow-rotation` control run — **passed 2026-06-17** (see **Open questions**; evidence
+in `_monitor_session_control.log`). Remaining work is design reconciliation + the build.
 **Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
 auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts.
 **Scope when picked up:** a self-contained change to the shared auth layer (`aimlabs_auth.py`),
@@ -42,8 +42,8 @@ rolling ~30-day session keep minting hour-long bearers with no re-login.
   when it breaks" might win; that's not this tool.)
 - **(D) Storage: a JSON token-state file owned by the shared auth layer** (see *Where it should
   live*), not a per-run `.env` rewrite.
-- **Blocking gate remaining:** the `--no-follow-rotation` control run (see *Open questions*).
-  Everything else is design reconciliation + build.
+- **Blocking gate — CLEARED (2026-06-17):** the `--no-follow-rotation` control run passed (see
+  *Open questions*). Everything else is design reconciliation + build.
 
 ---
 
@@ -118,6 +118,18 @@ lifetime, i.e. at the first moment a *refresh* is actually required.
 ```
 Following the rotated cookie, the refresh **succeeded** and the access token was renewed for
 another hour. (Access-token lifetime ≈ 60 min.)
+
+**4. Control run — `--no-follow-rotation` (2026-06-17, closes the A/B).** Same sole-consumer
+conditions but *not* following the rotated cookie. Key transition:
+```
+14:32:50  #59  token=Y  ATE=14:34:16 (in +1.4m)         ← original access token, about to expire
+14:33:50  #60  token=Y  ATE=15:33:50 (in +60.0m)        ← FIRST refresh SUCCEEDED (RT0's one use)
+14:34:51  #61  token=N  err=RefreshAccessTokenError     ← reuse of spent RT0 → family revoked (cookie 1377→340)
+```
+The refresh works **exactly once**, then the next reuse of the static cookie dies — the
+single-use-rotation fingerprint. Versus run 3 (followed rotation → survived the same boundary),
+the lone variable is whether the rotated cookie is followed, so the discarded `Set-Cookie` is
+the confirmed cause. Evidence: `_monitor_session_control.log`.
 
 **Conclusion:** refresh is **not** fundamentally broken — there is no hard 1-hour cap. The
 session can be sustained **iff** the caller follows the rotated cookie. The script fails only
@@ -219,23 +231,26 @@ Re-baselined onto the current code (M6b retired the PoC `aimlab_history.py`):
 
 ## Open questions / verification still owed
 
-- **`--no-follow-rotation` control run — the one blocking gate.** The captured log proves the
-  *positive* direction (following rotation sustains the session); the control proves the bug
-  directly and doubles as the regression test. **Procedure** — sole consumer (no `aimlabs.com`
-  browser tab, no concurrent `sync`/`scores`), disable system sleep, run from the **repo root**
-  (where `.env` lives):
+- **`--no-follow-rotation` control run — CLEARED (2026-06-17).** **Result:** 60 polls healthy on
+  the original access token (`ATE` constant at 14:34:16), the first refresh at poll #60 (+59.2 m)
+  **succeeded** (`ATE` jumped +1 h to 15:33:50 — RT0's one valid use), then poll #61 (+60.2 m)
+  re-sent the spent RT0 → `token=N`, `RefreshAccessTokenError`, cookie collapsed 1377 → 340. The
+  success-then-die-on-reuse transition is the single-use-rotation fingerprint; the lone variable
+  vs. the treatment run (which sailed past the same boundary) is following the rotated cookie, so
+  the discarded `Set-Cookie` is the confirmed cause. Evidence: `_monitor_session_control.log`
+  (control) vs. `_monitor_session.log` (treatment). This sequence is the regression test: mock
+  the session endpoint so the first refresh returns a rotated cookie + token, and re-presenting
+  the old cookie returns `RefreshAccessTokenError`.
+
+  **Reproduce** — sole consumer (no `aimlabs.com` browser tab, no concurrent `sync`/`scores`),
+  disable system sleep, run from the **repo root** (where `.env` lives):
   ```
   voltmeter login        # fresh cookie (unspent refresh token)
   python proof-of-concepts/auth-session-rotation/_monitor_session.py \
       --no-follow-rotation --interval 60 --max-min 90
   ```
-  **Expected:** `token=Y` for ~0–60 min → first refresh at ~60 min still `token=Y` (RT0's one
-  valid use) → next poll (~61 min) re-sends spent RT0 → `RefreshAccessTokenError`, `token=N`,
-  monitor exits. Dying ~1 poll after the ~60-min mark (vs. the treatment run sailing past it)
-  *is* the proof, and is what the regression test encodes (mock the session endpoint: first
-  refresh returns a rotated cookie + token; re-presenting the old cookie returns
-  `RefreshAccessTokenError`). If it fails in the first poll or two (well before 60 min), the
-  "fresh" cookie wasn't fresh — re-login and retry.
+  If it fails in the first poll or two (well before 60 min), the "fresh" cookie wasn't fresh —
+  re-login and retry.
 - **Rolling vs. absolute session lifetime** — deferred, non-blocking (see rule 5).
 - **Second-cycle confirmation** — fold into a long follow-rotation run (`--max-min 150` crosses
   the second ~60-min refresh boundary, ~04:47 in the captured log); hardening only, not
