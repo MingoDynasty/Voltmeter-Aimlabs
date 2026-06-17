@@ -1,22 +1,29 @@
-# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v1
+# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v2
 
-> **⚠️ SUPERSEDED (2026-06-17) by [`AUTH_SESSION_ROTATION_PROPOSAL_v2.md`](AUTH_SESSION_ROTATION_PROPOSAL_v2.md).**
-> This is the v1 draft, kept only for the review diff. **Implement against the current version, not
-> this file.** v2 incorporates review findings P1 (lock wraps resolve), P2a (`--session-file` not
-> rotation-managed), and P2b (persist only on a successful mint). At finalization the chosen draft
-> is promoted to the canonical `AUTH_SESSION_ROTATION_PROPOSAL.md` and the `_vN` drafts are dropped
-> (Git keeps them).
+> **Rev 2 (2026-06-17).** Incorporates review findings on v1
+> ([`AUTH_SESSION_ROTATION_PROPOSAL.md`](AUTH_SESSION_ROTATION_PROPOSAL.md)). This file is the
+> current draft; v1 is kept for the review diff and will move to Git history at finalization.
+>
+> - **P1 (lock):** the lock must wrap *resolution*, not just the mint — otherwise a caller that
+>   resolved the cookie before waiting on the lock mints a stale one and forks the chain. Made the
+>   locked-function API contract explicit (re-read state *inside* the lock; route every minting
+>   caller through it, including the split `cli.py:162-166` path). See **Implementation spec §3**.
+> - **P2a (`--session-file`):** resolved the "read-only override" vs "persist regardless of source"
+>   contradiction — explicit overrides are **not** rotation-managed and are never persisted to the
+>   shared state file. See **Implementation spec §1**.
+> - **P2b (persist gating):** persist **only after a successful access-token mint** — never on a
+>   failed refresh, which returns a *collapsed, dead* cookie that would manufacture a lockout if
+>   written over good state. Tightened TL;DR / Proposed fix / rule 1 / **Implementation spec §1–2**.
 
-**Status:** Proposal — **ready to implement; no open questions.** The run-history pipeline build
-is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the blocking empirical
-gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (evidence:
+**Status:** Proposal — **rev 2; ready to implement; no open questions.** The run-history pipeline
+build is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the blocking
+empirical gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (evidence:
 `_monitor_session_control.log`), and the design is fully settled (see **Decisions** +
 **Implementation spec**). This doc is the complete spec for Codex; the remaining work is the build
 itself (one PR off `main`, per the CLAUDE.md workflow).
 **Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
-auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts.
-**Scope when picked up:** a self-contained change to the shared auth layer (`aimlabs_auth.py`),
-plus reconciling the credential/auth design. Mirrors the one-PR-off-`main` workflow.
+auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Rev 2:** 2026-06-17 (review
+findings P1/P2a/P2b above).
 **Related:** PR #8 (error-message disambiguation — the *first half* of this, **merged to `main`**,
 now landed as `ReloginRequiredError`); `aimlabs_auth.py` (`fetch_session_json` /
 `resolve_session_cookie` / `write_env_var` / `extract_session_cookie`);
@@ -35,10 +42,11 @@ stored cookie is stale. The next refresh re-presents the spent token, the provid
 reuse-detection rejects it (`accessTokenError: "RefreshAccessTokenError"`), and the user is
 forced to re-login — typically within ~1–2 hours of capture, not ~30 days.
 
-**Fix:** after each `/api/auth/session` call, **persist the returned `Set-Cookie`
-session-token back over the stored value**, wrapped in an atomic write and a single-run lock,
-so the stored credential always holds the current link in the rotation chain. That lets the
-rolling ~30-day session keep minting hour-long bearers with no re-login.
+**Fix:** after each `/api/auth/session` call **that returns a fresh access token**, **persist the
+returned `Set-Cookie` session-token over the stored value** (atomic write, single-flight lock), so
+the stored credential always holds the current link in the rotation chain. A *failed* refresh is
+**never** persisted (it returns a collapsed, dead cookie — rule 1 / Implementation spec §1–2). That
+lets the rolling ~30-day session keep minting hour-long bearers with no re-login.
 
 ---
 
@@ -139,7 +147,9 @@ conditions but *not* following the rotated cookie. Key transition:
 The refresh works **exactly once**, then the next reuse of the static cookie dies — the
 single-use-rotation fingerprint. Versus run 3 (followed rotation → survived the same boundary),
 the lone variable is whether the rotated cookie is followed, so the discarded `Set-Cookie` is
-the confirmed cause. Evidence: `_monitor_session_control.log`.
+the confirmed cause. Evidence: `_monitor_session_control.log`. (Note the failure response at #61
+still carries a `Set-Cookie` — a *collapsed, dead* 340-char cookie; this is why persistence must
+be gated on a successful mint, P2b / rule 1.)
 
 **Conclusion:** refresh is **not** fundamentally broken — there is no hard 1-hour cap. The
 session can be sustained **iff** the caller follows the rotated cookie. The script fails only
@@ -163,10 +173,11 @@ returns. The stored cookie therefore goes stale one refresh after capture.
 
 ## Proposed fix
 
-After every `/api/auth/session` call, capture the response's `Set-Cookie` session-token and
-**persist it over the stored `AIMLAB_SESSION`** before doing anything else. The stored value
-then always holds the newest link in the chain (C0 → C1 → C2 …), so the rolling ~30-day session
-keeps minting bearers with no re-login.
+After a `/api/auth/session` call **that returns a fresh access token**, capture the response's
+`Set-Cookie` session-token and **persist it** before using the bearer for anything else. The
+stored value then always holds the newest link in the chain (C0 → C1 → C2 …), so the rolling
+~30-day session keeps minting bearers with no re-login. A response carrying `accessTokenError`/no
+token is **not** persisted (rule 1, Implementation spec §1–2).
 
 Walked through the user's "run at 1:00, run again at 3:00" example:
 
@@ -185,15 +196,19 @@ the session window.
 
 ## Design rules / gotchas (must-haves, not optional)
 
-1. **Persist immediately and atomically — before the heavy API work.** The dangerous window is
-   "refresh happened (RT0 now dead) but the new cookie isn't saved yet." A crash there bricks
-   the stored credential = lockout. Write the rotated cookie the moment the session response
-   returns, via temp-file + `os.replace` (atomic rename).
+1. **Persist immediately and atomically — but only on a successful mint.** On a response that
+   returns a fresh access token, write the rotated cookie the moment it returns (before the heavy
+   API work), via temp-file + `os.replace` (atomic rename). The dangerous window is "refresh
+   happened (RT0 now dead) but the new cookie isn't saved yet" — a crash there bricks the stored
+   credential. **Never persist a failed-refresh response (P2b):** it returns a *collapsed, dead*
+   cookie (1377 → 340 chars in the evidence), and writing it over good state would manufacture the
+   very lockout we're preventing. On failure, leave the state file untouched and raise
+   `ReloginRequiredError`.
 2. **Be the sole consumer / single-flight it.** Anything *else* hitting `/api/auth/session`
    — a browser tab on aimlabs.com, a second concurrent run — forks the chain and trips
-   reuse-detection, which can revoke the whole token family. Take a run lock (e.g. a lockfile)
-   so two runs can't race, and document "don't keep aimlabs.com open in a browser while the
-   tool is the credential holder."
+   reuse-detection, which can revoke the whole token family. The single-flight lock must cover
+   **resolve → mint → persist as one unit** (Implementation spec §3), and document "don't keep
+   aimlabs.com open in a browser while the tool is the credential holder."
 3. **Only re-login on a genuine `ReloginRequiredError`.** Distinguish "refresh truly failed →
    must re-login" from a transient network/HTTP blip, so a still-good cookie isn't discarded.
    (PR #8 introduced exactly this distinction — build on it.)
@@ -225,8 +240,9 @@ benefit and only one place owns the write.
 Re-baselined onto the current code (M6b retired the PoC `aimlab_history.py`):
 
 - **The discard is in `fetch_session_json` (`aimlabs_auth.py`):** it reads the response *body*
-  but never reads the `Set-Cookie` *header*. That's the line to change — capture the rotated
-  session-token there (or in `get_bearer_from_session`) and hand it to the state writer.
+  but never reads the `Set-Cookie` *header*. Capture the rotated session-token there (reuse
+  `extract_session_cookie`'s chunk-join) and persist it from the **locked mint path (§3), on a
+  successful mint only (§1/§2)**.
 - **Building blocks already exist (renamed/public):** `write_env_var`, and `extract_session_cookie`
   — which already handles the chunked `.0`/`.1` case (rule 4), so that part is done.
 - **Atomicity is NOT yet there:** `write_env_var` does a plain `write_text`, not temp-file +
@@ -238,12 +254,12 @@ Re-baselined onto the current code (M6b retired the PoC `aimlab_history.py`):
 
 ---
 
-## Implementation spec (settled 2026-06-17)
+## Implementation spec (settled 2026-06-17; refined rev 2)
 
 The last open design questions, now decided so this doc is the complete spec. Simplicity-first:
 these pin only what Codex shouldn't have to guess; everything else is Codex's call.
 
-### 1. Token-state file — path, schema, precedence, login reset
+### 1. Token-state file — path, schema, precedence, persist gating, login reset
 
 - **Path:** `data/session.json`, written/managed by `aimlabs_auth`. Use the tool-owned, already
   gitignored `data/` dir (home of the run-history DB) — deliberately **not** the hand-maintained
@@ -260,14 +276,25 @@ these pin only what Codex shouldn't have to guess; everything else is Codex's ca
   }
   ```
 - **Resolution precedence** (`resolve_session_cookie`, extended): `--session-file` (explicit
-  override, unchanged, read-only) > **`data/session.json`** > `$AIMLAB_SESSION` > `.env`. The
-  state file wins over env/`.env` because those hold the *original* capture (C0), which dies one
-  refresh after capture, whereas the state file holds the current chain link. A corrupt/
-  unparseable state file is treated as **absent** (warn, fall through) — never a hard failure.
-  `scores` and `sync` both read through this one function, so both pick up the current link.
-- **Persist** writes `data/session.json` **atomically** (temp-file + `os.replace`) on the refresh
-  path (§2), regardless of which channel the cookie was read from: fresh login → `.env` C0 → first
-  refresh persists C1 → later runs read C1 (state file wins) → C2 … .
+  override) > **`data/session.json`** > `$AIMLAB_SESSION` > `.env`. The state file wins over
+  env/`.env` because those hold the *original* capture (C0), which dies one refresh after capture,
+  whereas the state file holds the current chain link. A corrupt/unparseable state file is treated
+  as **absent** (warn, fall through) — never a hard failure. `scores` and `sync` both read through
+  this one function, so both pick up the current link.
+- **`--session-file` is a read-only, *non-rotation-managed* override (P2a).** It still wins for
+  *reads* ("use exactly this"), but its rotations are **not** persisted to the shared state file —
+  a one-off override must not silently become the default credential for later runs. Consequence:
+  because the pointed-at file is never written back, repeated `--session-file` runs are **not**
+  rotation-protected (they'd die after the first refresh, like the pre-fix bug). That's acceptable
+  for a one-off/debug override; **for unattended/scheduled use, use the default `.env` → state-file
+  channel**, which is the protected path.
+- **Persist (P2b + P2a):** writes `data/session.json` **atomically** (temp-file + `os.replace`)
+  **only after a successful mint** (a response with a fresh `accessToken`; never on
+  `accessTokenError` — that returns a dead cookie, rule 1), and **only for the default channels**
+  (state file / `$AIMLAB_SESSION` / `.env`) — *not* for a `--session-file` run. A successful mint
+  with no refresh (rolling re-encrypt only) is still persisted; it's harmless and keeps state
+  current. Flow: fresh login → `.env` C0 → first refresh persists C1 → later runs read C1 (state
+  file wins) → C2 … .
 - **`login` resets rotation (critical correctness point):** on a successful `voltmeter login`,
   **delete `data/session.json`** when writing the fresh cookie to `.env`. A fresh login starts a
   new chain; since the state file *wins* over `.env`, a leftover dead last-link would otherwise
@@ -281,23 +308,42 @@ Refresh/rotation happens **only at `GET /api/auth/session`**, i.e. only in `fetc
 sends the cookie to its own endpoint and **never calls `fetch_session_json`**, so it does **not**
 rotate. Therefore:
 
-- **Persist-on-rotation lives in exactly one place** — the bearer-mint path. `fetch_session_json`
-  must read the response's `Set-Cookie` (reuse `extract_session_cookie`'s chunk-join), and the
-  mint path writes the rotated link after a successful mint. The `SessionFetcher` seam must carry
+- **Persist-on-rotation lives in exactly one place** — the bearer-mint path, inside the
+  single-flight locked function (§3). `fetch_session_json` must read the response's `Set-Cookie`
+  (reuse `extract_session_cookie`'s chunk-join), and the locked mint path persists the rotated link
+  **after a successful mint only** (never on `accessTokenError`; on failure, leave the state file
+  untouched, release the lock, raise `ReloginRequiredError`). The `SessionFetcher` seam must carry
   the rotated cookie out so the **mocked regression test can exercise persistence** (today it
   returns only the JSON body).
 - **`scores` benefits passively** — no scores-side change beyond reading through the updated
   `resolve_session_cookie`.
 
-### 3. Single-flight lock
+### 3. Single-flight lock — one locked function owns resolve → mint → persist (P1)
 
-- An **exclusive lockfile** `data/session.lock` guards the read→refresh→persist critical section
-  on the rotating path, so two concurrent `sync`/login runs can't both refresh and fork the chain.
-  Acquire via `os.open(..., O_CREAT | O_EXCL)` (works on Windows *and* POSIX); release (unlink) in
-  a `finally`. Handle a **stale lock**: if the file exists but its recorded PID is not alive,
-  reclaim it — a crashed run must not wedge the tool forever. (`os.replace` is atomic on Windows,
-  so the state write itself needs no extra OS lock.)
-- `scores` does **not** take the lock (read-only, non-rotating).
+The lock is worthless if a caller resolves the cookie *before* acquiring it: process A reads C1,
+blocks on the lock, B rotates C1→C2 and persists, A wakes and mints with the stale C1 → forks the
+chain (the exact thing the lock exists to prevent). Today `cli.py:162-166` resolves the session and
+*then* mints — outside any lock — so this is a live shape, not a hypothetical.
+
+**Contract — a single auth-layer function owns the whole critical section, in this order:**
+
+1. acquire the exclusive lock;
+2. **(re-)read `data/session.json` as the first step *inside* the lock** — never trust a cookie
+   resolved before the lock was held;
+3. call `/api/auth/session` (mint);
+4. on success, persist the rotated cookie atomically (§1); on `accessTokenError`, persist nothing;
+5. release the lock (in a `finally`).
+
+All bearer-minting callers route through this one function — including the split `cli.py:162-166`
+path, which must be refactored to call it rather than resolve-then-mint. The bearer a caller
+receives is the one minted *inside* the lock.
+
+- **Lockfile:** `data/session.lock`, acquired via `os.open(..., O_CREAT | O_EXCL)` (works on
+  Windows *and* POSIX). Handle a **stale lock**: if the file exists but its recorded PID is not
+  alive, reclaim it — a crashed run must not wedge the tool forever. (`os.replace` is atomic on
+  Windows, so the state write itself needs no extra OS lock.)
+- `scores` does **not** take the lock (read-only, non-rotating; atomic `os.replace` means a reader
+  never sees a torn file).
 
 ### 4. Design-doc reconciliation — same PR
 
@@ -338,8 +384,12 @@ re-login and retry.
 
 ## Acceptance criteria (when implemented)
 
-- After a refresh, `data/session.json` reflects the rotated cookie; a subsequent run
-  (`sync` or `scores`) reuses it without re-login.
+- After a refresh **that succeeds**, `data/session.json` reflects the rotated cookie; a subsequent
+  run (`sync` or `scores`) reuses it without re-login.
+- A **failed** refresh (`accessTokenError`) does **not** overwrite the state file with the dead
+  cookie — it leaves the last-good state intact and raises `ReloginRequiredError`.
+- A `--session-file` run does **not** write `data/session.json` (explicit overrides are not
+  rotation-managed).
 - `resolve_session_cookie` prefers `data/session.json` over `$AIMLAB_SESSION`/`.env`; a corrupt
   state file is ignored with a warning, not a crash.
 - `voltmeter login` deletes `data/session.json` (rotation reset), so a stale last-link cannot
@@ -350,8 +400,9 @@ re-login and retry.
   `Set-Cookie`.
 - Crash between refresh and persist does not corrupt the state file (atomic temp-file +
   `os.replace`); a half-write is impossible.
-- Concurrent rotating runs are serialized by `data/session.lock`; they do not fork the chain, and
-  a stale lock (dead PID) is reclaimed rather than wedging the tool.
+- Two concurrent rotating runs cannot fork the chain: resolve → mint → persist runs inside one
+  `data/session.lock` (state re-read *inside* the lock), and a stale lock (dead PID) is reclaimed
+  rather than wedging the tool.
 - A genuine `ReloginRequiredError` (not a network blip) is the only thing that prompts re-login.
 
 ---
