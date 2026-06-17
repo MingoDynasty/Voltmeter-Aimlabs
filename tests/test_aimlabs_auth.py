@@ -2,8 +2,9 @@ from http.cookies import SimpleCookie
 import io
 import json
 import sys
-from types import SimpleNamespace
 import tempfile
+import threading
+from types import SimpleNamespace
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -139,20 +140,45 @@ class FakeLoginWindow:
 
     def __init__(self, cookies: list) -> None:
         self.cookies = cookies
+        self.cookies_requested = threading.Event()
         self.destroyed = False
+        self.destroyed_event = threading.Event()
 
     def get_cookies(self) -> list:
+        self.cookies_requested.set()
         return self.cookies
 
     def destroy(self) -> None:
         self.destroyed = True
+        self.destroyed_event.set()
+
+
+class BlockingLoginWindow:
+    """Mimics a backend where get_cookies never returns after the window closes."""
+
+    def __init__(self) -> None:
+        self.get_cookies_entered = threading.Event()
+        self.release_get_cookies = threading.Event()
+        self.destroyed_event = threading.Event()
+
+    def get_cookies(self) -> list:
+        self.get_cookies_entered.set()
+        self.release_get_cookies.wait()
+        return []
+
+    def destroy(self) -> None:
+        self.destroyed_event.set()
 
 
 def fake_webview_module(window: FakeLoginWindow) -> SimpleNamespace:
-    # webview.start(poll_func, args) runs the poll loop in a thread; the fake runs it inline.
+    def start(starter_func, starter_args):
+        starter_func(*starter_args)
+        if not window.destroyed_event.wait(timeout=1.0):
+            raise AssertionError("login poll thread did not finish")
+
     return SimpleNamespace(
         create_window=lambda title, start_url: window,
-        start=lambda poll_func, poll_args: poll_func(*poll_args),
+        start=start,
     )
 
 
@@ -283,6 +309,85 @@ class LoginCaptureTests(unittest.TestCase):
         self.assertTrue(login_window.destroyed)
         self.assertIn("no session captured", message_stream.getvalue())
 
+    def test_login_close_stops_poll_thread_between_cookie_reads(self) -> None:
+        login_window = FakeLoginWindow([])
+        message_stream = io.StringIO()
+        created_threads = []
+        real_thread = threading.Thread
+
+        def recording_thread(*, target, args, daemon):
+            poll_thread = real_thread(target=target, args=args, daemon=daemon)
+            created_threads.append(poll_thread)
+            return poll_thread
+
+        def start(starter_func, starter_args):
+            starter_func(*starter_args)
+            self.assertTrue(login_window.cookies_requested.wait(timeout=1.0))
+
+        fake_webview = SimpleNamespace(
+            create_window=lambda title, start_url: login_window,
+            start=start,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env"
+            with (
+                patch.dict(sys.modules, {"webview": fake_webview}),
+                patch("aimlabs_auth.threading.Thread", side_effect=recording_thread),
+                patch("aimlabs_auth.LOGIN_POLL_INTERVAL_SECONDS", 30.0),
+            ):
+                captured_session = login_and_capture(env_path, timeout=60.0, message_stream=message_stream)
+
+            self.assertIsNone(captured_session)
+            self.assertFalse(env_path.exists())
+
+        self.assertTrue(login_window.destroyed_event.wait(timeout=1.0))
+        self.assertEqual(len(created_threads), 1)
+        self.assertFalse(created_threads[0].is_alive())
+        self.assertIn("no session captured", message_stream.getvalue())
+
+    def test_login_close_returns_even_if_get_cookies_is_blocked(self) -> None:
+        login_window = BlockingLoginWindow()
+        message_stream = io.StringIO()
+        created_threads = []
+        real_thread = threading.Thread
+
+        def recording_thread(*, target, args, daemon):
+            poll_thread = real_thread(target=target, args=args, daemon=daemon)
+            created_threads.append(poll_thread)
+            return poll_thread
+
+        def start(starter_func, starter_args):
+            starter_func(*starter_args)
+            self.assertTrue(login_window.get_cookies_entered.wait(timeout=1.0))
+
+        fake_webview = SimpleNamespace(
+            create_window=lambda title, start_url: login_window,
+            start=start,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env"
+            try:
+                with (
+                    patch.dict(sys.modules, {"webview": fake_webview}),
+                    patch("aimlabs_auth.threading.Thread", side_effect=recording_thread),
+                ):
+                    captured_session = login_and_capture(env_path, timeout=60.0, message_stream=message_stream)
+
+                self.assertIsNone(captured_session)
+                self.assertFalse(env_path.exists())
+                self.assertEqual(len(created_threads), 1)
+                self.assertTrue(created_threads[0].daemon)
+                self.assertTrue(created_threads[0].is_alive())
+                self.assertIn("no session captured", message_stream.getvalue())
+            finally:
+                login_window.release_get_cookies.set()
+                for poll_thread in created_threads:
+                    poll_thread.join(timeout=1.0)
+
+        self.assertTrue(login_window.destroyed_event.is_set())
+
     def test_login_hints_when_backend_hides_the_session_cookie(self) -> None:
         login_window = FakeLoginWindow([{"csrf-token": "noise"}])
         message_stream = io.StringIO()
@@ -291,7 +396,7 @@ class LoginCaptureTests(unittest.TestCase):
             env_path = Path(temp_dir) / ".env"
             with (
                 patch.dict(sys.modules, {"webview": fake_webview_module(login_window)}),
-                patch("aimlabs_auth.time.sleep"),
+                patch("aimlabs_auth.LOGIN_POLL_INTERVAL_SECONDS", 0.0),
                 patch("aimlabs_auth.time.time", side_effect=[0.0, 0.5, 2.0]),
             ):
                 captured_session = login_and_capture(env_path, timeout=1.0, message_stream=message_stream)
