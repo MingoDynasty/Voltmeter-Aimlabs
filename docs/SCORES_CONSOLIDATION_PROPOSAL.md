@@ -62,8 +62,14 @@ keying scheme (slug vs task_id), and a divergent resource-loading scope (s1-only
   implementation; the subcommand handler is a thin adapter (mirrors how `sync`/`login` lazy-import
   their heavy deps so the offline `report` path stays clean — §10/§11).
 - Keep `--config`/`--verbose` honored in both positions (consistent with the 2026-06-16 fix).
-- Delete `main.py` and drop it from `[tool.setuptools] py-modules`; update `README.md` /
-  `config.example.toml` references from `python main.py …` to `voltmeter scores …`.
+- Delete `main.py` and drop it from `[tool.setuptools] py-modules`. Sweep **every** `main.py`
+  reference (`git grep main.py`), not just the obvious docs:
+  - `README.md` / `config.example.toml` — swap `python main.py …` → `voltmeter scores …`.
+  - `.github/workflows/ci.yml` — `main.py` is named in the lint/type-check targets (4
+    occurrences); remove it there or CI breaks the moment the file is gone.
+  - `docs/example_output.log` — this is *captured output of the old grouped tables*, so
+    **regenerate** it under `voltmeter scores` rather than just rewriting the first line.
+  - `docs/RUN_HISTORY_ARCHITECTURE.md` — drop the stale "`cli.py` (or extend `main.py`)" note.
 - **Non-goal:** merging the *fetch logic* of the two tools. Live-PB and historical-play are
   different jobs against different endpoints; they stay separate code paths under one CLI.
 
@@ -72,7 +78,8 @@ keying scheme (slug vs task_id), and a divergent resource-loading scope (s1-only
   tables / JSON), including the no-login path.
 - `voltmeter --help` lists `scores`; `main.py` no longer exists and nothing imports it.
 - Offline `report` path still imports no network/auth modules (existing §10/§11 test still green).
-- Docs/config no longer reference `main.py`.
+- No `main.py` references remain anywhere (`git grep main.py` clean), including the CI workflow;
+  CI stays green with the file deleted.
 
 ## Part 2 — unify the scenario-metadata layer (larger)
 
@@ -80,10 +87,17 @@ keying scheme (slug vs task_id), and a divergent resource-loading scope (s1-only
 
 The two layers differ in three load-bearing ways that the refactor must reconcile:
 
-1. **Keying.** `benchmark_constants` is keyed by a derived **slug** (`get_scenarios`,
-   `--scenario <key>`); `scenario_catalog` is keyed by **task_id**. The `scores` command selects
-   scenarios by slug today — a unified catalog needs a stable slug/lookup that survives, or the
-   `--scenario` contract changes (call out in review).
+1. **Keying — and display.** `benchmark_constants` is keyed by a derived **slug** and strips the
+   difficulty/season suffix for both display *and* the slug, so the three MiniTS difficulties share
+   the slug `minits` and `scores --scenario minits --difficulty all` deliberately means "MiniTS
+   across every difficulty." `scenario_catalog` is keyed by **task_id** and keeps the qualifier so
+   each task_id is uniquely labelled (the 2026-06-16 report fix). These pull in opposite
+   directions, so a single shared name string cannot serve both. **Resolution:** the catalog's
+   `name` is canonical and task_id-unique (qualified); `scores` owns its own presentation — it
+   derives a short label and a stable base-name slug at the `scores` layer (or from a
+   `base_name`/`slug` field on the record), since it already groups output under difficulty headers
+   where the qualifier is redundant. The stripping moves out of the shared catalog and into the
+   `scores` command.
 2. **Resource scope.** `benchmark_constants` loads **only** `valorant_s1`; `scenario_catalog`
    unions **all** sources (s1 + s2 + s3) with a duplicate-task_id policy. Unifying means `scores`
    would gain access to s2/s3 — desirable, but confirm the leaderboard endpoint accepts those
@@ -99,17 +113,21 @@ The two layers differ in three load-bearing ways that the refactor must reconcil
   `scenario_catalog` are the only metadata modules; `scores` and the pipeline read the same
   catalog.
 - `ScenarioCatalogRecord` exposes tier thresholds; a unit test pins a known scenario's thresholds.
-- `voltmeter scores` output is unchanged for `valorant_s1` scenarios (regression-locked against
-  Part 1's golden output); any newly-exposed s2/s3 scenarios are an explicit, reviewed addition.
-- Single `_display_name`; the difficulty/season qualifier is retained (no regression of the
-  2026-06-16 fix).
+- `voltmeter scores`' tabular **data** (scores / ranks / energy / accuracy) and its
+  `--scenario <slug>` selector are unchanged for `valorant_s1`, regression-locked against Part 1's
+  golden output. Scenario *labels* may differ only by the short-label formatting `scores` applies
+  at its own layer; any newly-exposed s2/s3 scenarios are an explicit, reviewed addition.
+- One canonical catalog `name`, task_id-unique with the difficulty/season qualifier retained (no
+  regression of the 2026-06-16 fix); the `scores`-side short label/slug is derived from it, not by
+  re-stripping inside the shared catalog.
 
 ---
 
 ## Open questions for review
 
-- **`--scenario` selector after unification:** keep the slug, switch to task_id, or accept both?
-  (Affects anyone scripting `scores --scenario …`.)
+- **`--scenario` selector after unification:** **resolved** (see Part 2 §Keying) — keep a stable
+  base-name slug derived at the `scores` layer so `scores --scenario minits` is unchanged; the
+  catalog itself stays task_id-keyed.
 - **Expose s2/s3 to `scores`?** Confirm the leaderboard endpoint serves them before turning them
   on; if not, gate `scores` to `has_leaderboards` records.
 - **Where thresholds live:** on `ScenarioCatalogRecord` directly vs a side table keyed by
