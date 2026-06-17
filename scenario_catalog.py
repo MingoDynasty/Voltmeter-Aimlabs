@@ -179,7 +179,7 @@ def _scenario_record(
     return ScenarioCatalogRecord(
         task_id=task_id,
         weapon_id=weapon_id,
-        name=_display_name(resource_scenario["name"], difficulty),
+        name=_display_name(resource_scenario["name"]),
         category=lookup_label(categories_by_id, "category", resource_scenario),
         sub=lookup_label(subcategories_by_id, "subcategory", resource_scenario),
         difficulty=difficulty,
@@ -192,19 +192,14 @@ def _scenario_record(
     )
 
 
-def _display_name(resource_name: str, difficulty: str) -> str:
-    name = resource_name.removeprefix("VT ").strip()
-    for suffix in (
-        " VALORANT Easy",
-        " VALORANT Hard",
-        " VALORANT",
-        f" {difficulty.title()} S3",
-        f" {difficulty.title()}",
-        " S3",
-    ):
-        if name.endswith(suffix):
-            name = name[: -len(suffix)].strip()
-    return name
+def _display_name(resource_name: str) -> str:
+    # Strip only the universal "VT " (Voltaic) prefix — it is on every scenario in every
+    # source and so never disambiguates. The rest of the upstream name is retained verbatim
+    # so each task_id keeps a unique label: the difficulty/season qualifiers ("VALORANT Hard",
+    # "Novice S3", …) are what tell e.g. MiniTS Normal from MiniTS Hard apart in the report.
+    # (Some task_ids span multiple difficulty tiers — e.g. "Fourshot Adaptive" — so difficulty
+    # is a property of the benchmark tier, not the task_id, and cannot be a per-row column.)
+    return resource_name.removeprefix("VT ").strip()
 
 
 def _derive_family(resource_data: dict) -> str:
