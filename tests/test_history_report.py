@@ -61,7 +61,7 @@ class HistoryReportTests(unittest.TestCase):
         self.assertIn("Status", text)
         self.assertIn("PENDING", text)
 
-    def test_same_display_name_different_task_ids_bucketed_separately(self) -> None:
+    def test_related_scenarios_different_task_ids_bucketed_separately(self) -> None:
         rows = [
             _play_row("play-s2", AIMLABS_S2_TASK, idx=1, score=100),
             _play_row("play-s3", AIMLABS_S3_TASK, idx=2, score=300),
@@ -71,8 +71,9 @@ class HistoryReportTests(unittest.TestCase):
 
         self.assertEqual(len(report.task_summaries), 2)
         summaries_by_task = {summary.task_id: summary for summary in report.task_summaries}
-        self.assertEqual(summaries_by_task[AIMLABS_S2_TASK].scenario_name, "Angle")
-        self.assertEqual(summaries_by_task[AIMLABS_S3_TASK].scenario_name, "Angle")
+        # The season/difficulty qualifier is retained so sibling scenarios stay distinguishable.
+        self.assertEqual(summaries_by_task[AIMLABS_S2_TASK].scenario_name, "Angle Novice")
+        self.assertEqual(summaries_by_task[AIMLABS_S3_TASK].scenario_name, "Angle Novice S3")
         self.assertEqual(summaries_by_task[AIMLABS_S2_TASK].personal_best, 100)
         self.assertEqual(summaries_by_task[AIMLABS_S3_TASK].personal_best, 300)
         self.assertNotEqual(

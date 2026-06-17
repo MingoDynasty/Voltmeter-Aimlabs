@@ -34,7 +34,7 @@ class ScenarioCatalogTests(unittest.TestCase):
         catalog = refresh_catalog()
 
         valorant_record = catalog.records_for_task_id("CsLevel.Lowgravity56.VT Float.RSM6A6")[0]
-        self.assertEqual(valorant_record.name, "Floatshot")
+        self.assertEqual(valorant_record.name, "Floatshot VALORANT Easy")
         self.assertEqual(valorant_record.category, "Flick-tech")
         self.assertEqual(valorant_record.sub, "Dynamic")
         self.assertEqual(valorant_record.difficulty, "novice")
@@ -46,14 +46,14 @@ class ScenarioCatalogTests(unittest.TestCase):
         self.assertTrue(valorant_record.has_leaderboards)
 
         aimlabs_s2_record = catalog.records_for_task_id("CsLevel.VT Empyrean.VT Angle.RB668Z")[0]
-        self.assertEqual(aimlabs_s2_record.name, "Angleshot")
+        self.assertEqual(aimlabs_s2_record.name, "Angleshot Novice")
         self.assertEqual(aimlabs_s2_record.family, "aimlabs")
         self.assertEqual(aimlabs_s2_record.season, "2")
         self.assertEqual(aimlabs_s2_record.benchmark_alias, "aimlabs_s2")
         self.assertFalse(aimlabs_s2_record.has_leaderboards)
 
         aimlabs_s3_record = catalog.records_for_task_id("CsLevel.VT Lowgravity56.VT Angle.SGAB0P")[0]
-        self.assertEqual(aimlabs_s3_record.name, "Angleshot")
+        self.assertEqual(aimlabs_s3_record.name, "Angleshot Novice S3")
         self.assertEqual(aimlabs_s3_record.family, "aimlabs")
         self.assertEqual(aimlabs_s3_record.season, "3")
         self.assertTrue(aimlabs_s3_record.has_leaderboards)
@@ -86,8 +86,8 @@ class ScenarioCatalogTests(unittest.TestCase):
         self.assertEqual(set(resolved_records), {"task-valorant", "task-aimlabs"})
         self.assertEqual(resolved_records["task-valorant"][0].family, "valorant")
         self.assertEqual(resolved_records["task-aimlabs"][0].family, "aimlabs")
-        self.assertEqual(resolved_records["task-valorant"][0].name, "Shared Name")
-        self.assertEqual(resolved_records["task-aimlabs"][0].name, "Shared Name")
+        self.assertEqual(resolved_records["task-valorant"][0].name, "Shared Name VALORANT Easy")
+        self.assertEqual(resolved_records["task-aimlabs"][0].name, "Shared Name Novice")
         self.assertNotEqual(resolved_records["task-valorant"][0].task_id, resolved_records["task-aimlabs"][0].task_id)
 
     def test_unknown_task_ids_are_retained_and_labelled(self) -> None:
@@ -138,7 +138,7 @@ class ScenarioCatalogTests(unittest.TestCase):
         records = catalog.records_for_task_id("shared-task")
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0].benchmark_alias, "aimlabs_s3")
-        self.assertEqual(records[0].name, "New Name")
+        self.assertEqual(records[0].name, "New Name Novice S3")
         self.assertEqual(catalog.duplicate_task_ids, ("shared-task",))
         shadowed_records = catalog.shadowed_records_for_task_id("shared-task")
         self.assertEqual(len(shadowed_records), 1)
