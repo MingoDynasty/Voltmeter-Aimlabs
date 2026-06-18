@@ -1,35 +1,30 @@
-# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v2
+# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v3
 
-> **⚠️ SUPERSEDED (2026-06-17) by [`AUTH_SESSION_ROTATION_PROPOSAL_v3.md`](AUTH_SESSION_ROTATION_PROPOSAL_v3.md).**
-> This is the v2 draft, kept only for the review diff. **Implement against the current version, not
-> this file.** v3 adds the `--session-file` independence contract + minting-path warning (review
-> finding P2 on v2). At finalization the chosen draft is promoted to the canonical
-> `AUTH_SESSION_ROTATION_PROPOSAL.md` and the `_vN` drafts are dropped (Git keeps them).
-
-> **Rev 2 (2026-06-17).** Incorporated review findings on v1
-> ([`AUTH_SESSION_ROTATION_PROPOSAL.md`](AUTH_SESSION_ROTATION_PROPOSAL.md)); now superseded by v3
-> (see banner). All drafts move to Git history at finalization.
+> **Rev 3 (2026-06-17).** Supersedes v2
+> ([`AUTH_SESSION_ROTATION_PROPOSAL_v2.md`](AUTH_SESSION_ROTATION_PROPOSAL_v2.md)). This file is the
+> current draft; older drafts are kept for the review diff and move to Git history at finalization.
 >
-> - **P1 (lock):** the lock must wrap *resolution*, not just the mint — otherwise a caller that
->   resolved the cookie before waiting on the lock mints a stale one and forks the chain. Made the
->   locked-function API contract explicit (re-read state *inside* the lock; route every minting
->   caller through it, including the split `cli.py:162-166` path). See **Implementation spec §3**.
-> - **P2a (`--session-file`):** resolved the "read-only override" vs "persist regardless of source"
->   contradiction — explicit overrides are **not** rotation-managed and are never persisted to the
->   shared state file. See **Implementation spec §1**.
-> - **P2b (persist gating):** persist **only after a successful access-token mint** — never on a
->   failed refresh, which returns a *collapsed, dead* cookie that would manufacture a lockout if
->   written over good state. Tightened TL;DR / Proposed fix / rule 1 / **Implementation spec §1–2**.
+> - **Rev 3 — P2 (`--session-file` shared chain):** a `--session-file` sync still hits
+>   `/api/auth/session` and can rotate a refresh token it then discards, **stranding or revoking the
+>   managed chain if the override shares a login** (reuse-detection is server-side and *per family*,
+>   so even a different cookie value from the same login counts). Added the **independence contract**
+>   (one credential source = one login/family) and a **loud warning** on the minting path; kept
+>   `--session-file` read-only and non-persisted (simplest — no write-back machinery). See
+>   **Implementation spec §1**.
+> - **Rev 2** — incorporated P1 (lock wraps *resolve* → mint → persist; re-read state inside the
+>   lock; route every minting caller through it, incl. `cli.py:162-166`), P2a (`--session-file` not
+>   rotation-managed / never persisted to the shared state file), and P2b (persist **only** after a
+>   successful mint — never the collapsed dead cookie from a failed refresh).
 
-**Status:** Proposal — **rev 2; ready to implement; no open questions.** The run-history pipeline
+**Status:** Proposal — **rev 3; ready to implement; no open questions.** The run-history pipeline
 build is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the blocking
 empirical gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (evidence:
 `_monitor_session_control.log`), and the design is fully settled (see **Decisions** +
 **Implementation spec**). This doc is the complete spec for Codex; the remaining work is the build
 itself (one PR off `main`, per the CLAUDE.md workflow).
 **Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
-auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Rev 2:** 2026-06-17 (review
-findings P1/P2a/P2b above).
+auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Revisions:** rev 2/rev 3
+2026-06-17 (review findings above).
 **Related:** PR #8 (error-message disambiguation — the *first half* of this, **merged to `main`**,
 now landed as `ReloginRequiredError`); `aimlabs_auth.py` (`fetch_session_json` /
 `resolve_session_cookie` / `write_env_var` / `extract_session_cookie`);
@@ -294,6 +289,22 @@ these pin only what Codex shouldn't have to guess; everything else is Codex's ca
   rotation-protected (they'd die after the first refresh, like the pre-fix bug). That's acceptable
   for a one-off/debug override; **for unattended/scheduled use, use the default `.env` → state-file
   channel**, which is the protected path.
+- **Independence contract — one credential source = one login (P2 v3, load-bearing).**
+  `--session-file` must point at an **independent session** (its own refresh-token family), never a
+  cookie derived from the same login that seeds `.env`/`data/session.json`. Reuse-detection is
+  server-side and *per family*, so a `--session-file` sync that triggers a refresh consumes that
+  family's current refresh token; if it's the **same** family as the managed chain — *even a
+  different cookie value from the same login* — the next default sync re-presents a now-spent token
+  and the whole family (both stores) is revoked. No client-side scheme can make two stores over one
+  server-side family safe, so this is a documented contract, not a feature. (Persisting rotation
+  back to the override source would **not** fix it — the *other* store still strands/revokes the
+  family; it only "works" if you use `--session-file` exclusively, which is just this rule.)
+- **Guard (simple, P2 v3).** When `--session-file` is used on the **minting path** (`sync` / bearer
+  mint), emit a loud one-line warning to the warning stream — e.g. *"using --session-file: this run
+  will not persist rotation; the file must be an independent login or it can revoke your managed
+  credential."* A stricter `--allow-unmanaged-session` opt-in gate was considered and **deferred**
+  as unneeded config for a single-account tool (simplicity-first); revisit only if a hard block is
+  wanted.
 - **Persist (P2b + P2a):** writes `data/session.json` **atomically** (temp-file + `os.replace`)
   **only after a successful mint** (a response with a fresh `accessToken`; never on
   `accessTokenError` — that returns a dead cookie, rule 1), and **only for the default channels**
@@ -395,7 +406,8 @@ re-login and retry.
 - A **failed** refresh (`accessTokenError`) does **not** overwrite the state file with the dead
   cookie — it leaves the last-good state intact and raises `ReloginRequiredError`.
 - A `--session-file` run does **not** write `data/session.json` (explicit overrides are not
-  rotation-managed).
+  rotation-managed), and a `--session-file` run on the minting path emits the warning that it
+  won't persist rotation and must be an independent login.
 - `resolve_session_cookie` prefers `data/session.json` over `$AIMLAB_SESSION`/`.env`; a corrupt
   state file is ignored with a warning, not a crash.
 - `voltmeter login` deletes `data/session.json` (rotation reset), so a stale last-link cannot
