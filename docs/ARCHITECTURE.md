@@ -231,6 +231,13 @@ Implementation notes that bit us / matter:
 
 ### 6.2 Auto-login (so the user can't "forget")
 
+> **Pipeline divergence (M6b).** This auto-login UX — and the `--no-login` flag below —
+> describes the **retired `aimlab_history.py` PoC**, not the shipped `voltmeter` CLI. The
+> productized pipeline made the **opposite** choice: `voltmeter sync` never opens a login window
+> and has **no `--no-login` flag** — unattended/scheduled is the *default* (see
+> `RUN_HISTORY_ARCHITECTURE.md` §4 and decision 23). Don't apply the `--no-login` guidance here to
+> `voltmeter`.
+
 A normal run with a **missing or expired** credential will **auto-open the login
 window** — the user never needs to know `--login` exists. Guards:
 - Fires only when a **desktop GUI is likely available** (`_gui_likely_available`:
