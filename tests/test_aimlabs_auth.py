@@ -343,6 +343,7 @@ class LoginCaptureTests(unittest.TestCase):
 
         self.assertTrue(login_window.destroyed_event.wait(timeout=1.0))
         self.assertEqual(len(created_threads), 1)
+        created_threads[0].join(timeout=1.0)
         self.assertFalse(created_threads[0].is_alive())
         self.assertIn("no session captured", message_stream.getvalue())
 

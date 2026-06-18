@@ -1,7 +1,7 @@
 # Proposal v2: `voltmeter login` hangs (un-interruptibly) when the window is closed without logging in
 
-**Status:** Proposal v2 — ready to implement. Small, self-contained change to the shared
-auth layer (`aimlabs_auth.py::login_and_capture`). Mirrors the one-PR-off-`main` workflow.
+**Status:** Implemented v2 — this document records the final design used for the shared auth
+layer fix (`aimlabs_auth.py::login_and_capture`). Mirrors the one-PR-off-`main` workflow.
 **Found:** 2026-06-17 (Claude Code), from a user report.
 **Related:** `aimlabs_auth.py` (`login_and_capture` / `_poll`); pywebview (`webview.start`,
 WebView2/winforms `get_cookies`).
