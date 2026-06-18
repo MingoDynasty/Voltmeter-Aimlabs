@@ -97,17 +97,14 @@ Full detail in [`ARCHITECTURE.md`](ARCHITECTURE.md). What this pipeline relies o
 - A `login` command captures the session cookie via an embedded browser (handles MFA/captcha).
   The credential **never leaves the machine**.
 
-> **Decoupled lifetimes (observed live, §17):** the cookie's *identity* lifetime (`expires`,
-> ~30 days) and its *token-minting* ability (the underlying `offline_access` refresh token) are
-> **independent — the refresh token can die first.** When it does, `/api/auth/session` returns
-> HTTP 200 with `{ accessTokenError: "RefreshAccessTokenError", user, expires }` and **no**
-> `accessToken`, even though the cookie still "logs you in." The auth layer must classify this
-> as a distinct, **terminal "re-login required"** state — *not* "cookie expired" (it isn't) and
-> *not* a transient 5xx (it's a 200). The only fix is a fresh `login`. (We do not fully
-> understand what triggers the refresh token's death — it happened ~2 min after a successful
-> mint in testing — which is itself a reason to handle *any* `accessTokenError` this way rather
-> than reason about a lifecycle we don't control. The POC's current message mislabels this as
-> "cookie likely expired" and should be corrected.)
+> **Rotating token chain (observed live, §17):** the cookie's *identity* lifetime (`expires`,
+> ~30 days) and its *token-minting* contents are decoupled. `/api/auth/session` can consume a
+> single-use upstream refresh token and return both a fresh `accessToken` and a rotated
+> `Set-Cookie` session link. The auth layer persists that rotated link to `data/session.json`
+> under a single-flight lock, so a normal 401 re-mint is recoverable. `RefreshAccessTokenError`
+> remains the residual **"re-login required"** state when the session is gone, the token family
+> was forked by another consumer, or the managed state was lost/corrupt — *not* a transient 5xx
+> and not merely "cookie expired."
 
 **Production auth policy** (per review blocker #4):
 
@@ -117,12 +114,11 @@ Full detail in [`ARCHITECTURE.md`](ARCHITECTURE.md). What this pipeline relies o
 - **`report` and other offline commands never resolve auth, never touch the network, never
   trigger login** (§10, §11).
 - **`sync` never opens a login window (review round-8 #1).** It resolves the credential from
-  file/env channels only (`--session-file` / `$AIMLAB_SESSION` / `.env`); if none is present **or
-  it's expired** (`RefreshAccessTokenError`), it **fails with "run `voltmeter login`"** — it does
-  not pop a browser. `login` is the *only* command that opens the interactive window. This makes
-  the missing-credential and expired-credential paths consistent (both → "run `login`," matching
-  §8.4's terminal-re-login rule) and makes unattended/scheduled the natural default — so there is
-  no `--no-login` flag and no interactive-desktop detection in `sync`.
+  file/env channels only (`--session-file` / `data/session.json` / `$AIMLAB_SESSION` / `.env`);
+  if none is present or the residual terminal auth state is reached, it **fails with "run
+  `voltmeter login`"** — it does not pop a browser. `login` is the *only* command that opens the
+  interactive window. This makes unattended/scheduled the natural default, so there is no
+  `--no-login` flag and no interactive-desktop detection in `sync`.
 
 The implementation assumes `get_bearer()` returns a fresh bearer (minting from the session
 cookie as needed) and can **re-mint mid-run on a 401** (§8.4).
@@ -475,13 +471,13 @@ Per-play facts are immutable. Three things can drift, each surfaced by a cheap w
 - **Bearer re-mint on 401:** a long backfill can exceed the ~1 h bearer lifetime. On a 401
   mid-pagination, re-mint from the session cookie (§4) and continue. **Requires session-cookie
   auth** (a raw bearer can't re-mint). Daily syncs never hit this.
-  **But re-mint can fail terminally:** if the session route returns `RefreshAccessTokenError`
-  (§4), the refresh token is dead and no bearer can be minted — the sync must **stop and surface
-  "re-login required,"** **not** retry-loop. After the user re-logs in, the next run resumes
-  **per phase (review round-8 #2):** `BACKFILLING` resumes from `resume_cursor`; `TOP_SWEEP` and
-  `COMPLETE` (incremental) restart from the top (idempotent, §8.1/§8.2) — there is no
-  `resume_cursor` to rely on outside `BACKFILLING`. So an unattended backfill pauses on a wall
-  only a human `login` clears, then continues from where its phase left off.
+  A successful re-mint persists the rotated session cookie before any heavy API work, so the next
+  run continues the same token chain. **But re-mint can still fail terminally:** if the session
+  route returns `RefreshAccessTokenError` (§4), no bearer can be minted — the sync must **stop
+  and surface "re-login required,"** **not** retry-loop. After the user re-logs in, the next run
+  resumes **per phase (review round-8 #2):** `BACKFILLING` resumes from `resume_cursor`;
+  `TOP_SWEEP` and `COMPLETE` (incremental) restart from the top (idempotent, §8.1/§8.2) — there
+  is no `resume_cursor` to rely on outside `BACKFILLING`.
 - **Rate limiting / transient errors:** exponential backoff on **HTTP 429 and transient 5xx**
   — this is an **M2 requirement** (the large-backfill path *is* M2), mock-tested (§13).
 - **Late/out-of-order writes:** the algorithm assumes append-only, stable ordering. If violated
@@ -605,22 +601,25 @@ voltmeter refresh-catalog   # rebuild the scenario projection (§9)
 
 **`sync` auth model (review round-5 #3, round-6 #2, round-8 #1):**
 - **`sync` never opens a login window (§4).** It resolves the credential from file/env channels
-  only; if none/expired, it **fails with "run `voltmeter login`"** (no popup). So there's no
-  `--no-login` flag and no interactive-desktop detection — unattended is the natural default, and
-  `login` is the sole window-opener.
+  only; if none is present or managed state is corrupt/the residual terminal auth state is
+  reached, it **fails with "run `voltmeter login`"** (no popup). So there's no `--no-login` flag
+  and no interactive-desktop detection — unattended is the natural default, and `login` is the
+  sole window-opener.
 - **No literal credential on the command line (review round-7 #1).** The session cookie is the
   ~30-day "logged in as you" secret; a literal `--session VALUE` would leak it into shell history,
   `ps`/`/proc/PID/cmdline`, and CI logs — contradicting the README and auth doc §8. Inline env
   (`AIMLAB_SESSION=… voltmeter …`) leaks identically. So the cookie comes **only** from file/env:
-  `$AIMLAB_SESSION` (exported via a profile/secrets manager) or `.env` (`chmod 600`).
+  managed `data/session.json`, `$AIMLAB_SESSION` (exported via a profile/secrets manager), or
+  `.env` (`chmod 600`).
 - **`--session-file PATH`:** the sanctioned override — a **path**, never the secret. File
   contract (review round-8 #3): the file holds a **session cookie**, read as the *first non-empty
   line, whitespace-trimmed* — the same value `$AIMLAB_SESSION` would hold (a full cookie string
   containing `session-token` is also accepted, for parity with the POC); it is **not** a
-  `KEY=value` line (that's `.env`) and **not** a `Cookie:` header. It re-mints normally (it's a
-  session cookie). On POSIX, **warn (don't fail)** if the file is group/world-readable
-  (`mode & 0o077`), mirroring the `chmod 600` `login` sets. The value is **never logged** — only
-  the path, plus a "loaded session from PATH" line.
+  `KEY=value` line (that's `.env`) and **not** a `Cookie:` header. It can mint a bearer, but it is
+  **read-only / not rotation-managed** and must be an independent login from the managed
+  `.env`/`data/session.json` chain. On POSIX, **warn (don't fail)** if the file is
+  group/world-readable (`mode & 0o077`), mirroring the `chmod 600` `login` sets. The value is
+  **never logged** — only the path, plus a "loaded session from PATH" line.
 - **No raw-bearer flag for `sync`.** A raw bearer can't re-mint and so can't survive a backfill
   (§8.4), which defeats `sync`'s purpose — so it isn't offered. A one-off raw-bearer path is a
   POC/debug convenience only (auth doc §5), never part of production `sync`.
@@ -671,11 +670,12 @@ shipped scores tool already uses. **Never key any row or state by username.** (T
 Detail in auth doc §8; pipeline-relevant points:
 
 - **Local-only.** Session cookie and bearer never leave the machine.
-- **Secret ≠ config.** The session cookie's canonical home is the **`AIMLAB_SESSION` env var,
-  seeded from a gitignored `.env`** (`login` writes it, `chmod 600` on POSIX). Identifiers live
-  in `config.toml` (`[aimlabs].user_id`). Precedence: `--session-file PATH` > `$AIMLAB_SESSION` >
-  `.env`. **The secret never appears as a literal CLI argument** (§11, review round-7 #1) — only
-  file/env channels.
+- **Secret ≠ config.** The current managed session chain lives in **`data/session.json`**, seeded
+  from the **`AIMLAB_SESSION` env var in a gitignored `.env`** that `login` writes. Identifiers
+  live in `config.toml` (`[aimlabs].user_id`). Precedence: `--session-file PATH` >
+  `data/session.json` > `$AIMLAB_SESSION` > `.env`. **The secret never appears as a literal CLI
+  argument** (§11, review round-7 #1) — only file/env channels. `--session-file` is a read-only,
+  non-rotation-managed override and must come from an independent login.
   - **Note (M6b):** both `voltmeter` and `aimlab_scores` resolve auth through these `AIMLAB_SESSION`
     channels by default; the legacy `[aimlabs].session_cookie` config key and `AIMLABS_COOKIE` env
     var the shipped `aimlab_scores` tool once accepted were **removed at M6b** (no users depended on
@@ -684,9 +684,9 @@ Detail in auth doc §8; pipeline-relevant points:
     keeps a general `--header` debug passthrough that can carry or override a cookie (with a leak
     warning in its `--help`) — that escape hatch is **outside** the pipeline's secret model, not a
     contradiction of it.
-- **Auth policy** is production-specific — see §4 (session canonical for sync; bearer
+- **Auth policy** is production-specific — see §4 (managed session canonical for sync; bearer
   debug-only; report never auths; **`sync` never opens a login window** — fails with "run
-  `login`" instead, so unattended is the default).
+  `login`" for missing/corrupt/residual terminal auth, so unattended is the default).
 - **`.gitignore` — DONE.** The repo `.gitignore` now ignores `.env`, `.env.*`, `*.token`,
   `*.cookie`, `*_history.json`, `data/`, `*.db`, `*.sqlite*`, and `config.toml` (committed with
   the POC). Reviewers: still never commit a real history dump or a populated `.env`.
@@ -704,8 +704,9 @@ injected into `history_sync`/`aimlabs_history` so the interesting logic tests wi
   drift warning (§7.1); schema + `user_version`; `totalCount` drift signal; account scoping.
 - **`history_sync`:** a **fake page-fetcher** returning synthetic multi-page responses covers
   pagination, finish-page-then-break, one-page overlap, **resume after interruption**, **new
-  plays arriving mid-backfill** (anchor + top sweep), **401 re-mint**, **`RefreshAccessTokenError`
-  → terminal "re-login required" (no retry-loop, §4/§8.4)**, **429/5xx backoff**, and
+  plays arriving mid-backfill** (anchor + top sweep), **401 re-mint with persisted session
+  rotation**, **residual `RefreshAccessTokenError` → "re-login required" (no retry-loop,
+  §4/§8.4)**, **429/5xx backoff**, and
   **cursor-rejection → top restart**. **High-water semantics (§8.1):** a 3-page incremental
   where pages 2–3 are older → `newest_id` stays page-1's top after completion (finalized once, not
   per page); a **`BACKFILLING` crash after the page-2 checkpoint** → resume from `resume_cursor`,
@@ -732,10 +733,11 @@ injected into `history_sync`/`aimlabs_history` so the interesting logic tests wi
   **empty store → "no runs found"** renders cleanly (§8.1).
 - **`history_sync` contamination check:** mock the aggregate `count(task_mode=42,
   is_practice=true)` → `0` (silent) and `>0` (warns) (§8.3).
-- **`aimlabs_auth`:** port the POC's mock tests (session-route exchange, `.env` precedence);
-  **`sync` never opens a window** — missing/expired credential → exit with "run `voltmeter login`"
-  (no popup, §4); **`--session-file`** reads the cookie per the §11 contract and **warns on
-  loose POSIX permissions** without logging the value.
+- **`aimlabs_auth`:** port the POC's mock tests (session-route exchange, managed-state precedence,
+  rotation persistence, corrupt-state policy); **`sync` never opens a window** — missing/corrupt
+  or residual terminal credential → exit with "run `voltmeter login`" (no popup, §4);
+  **`--session-file`** reads the cookie per the §11 contract and **warns on loose POSIX
+  permissions plus non-managed rotation** without logging the value.
 - **Fixtures must be synthetic/sanitized** — never commit a real account dump.
 
 ---
@@ -795,7 +797,7 @@ slice of tests. The §1–§3 / §5 / §17 sections are background/context, not 
 | 4 | **Timestamps ISO-8601 UTC verbatim**; display-time conversion only; reports label the TZ. | 7, 10 |
 | 5 | **Single-account product, account-stamped storage.** | 7 |
 | 6 | **Scenario metadata = separate, rebuildable, multi-source projection** carrying product-surface fields; store-all, analyze-Voltaic. | 9 |
-| 7 | **Credentials: `AIMLAB_SESSION` in `.env`; account id `[aimlabs].user_id` in `config.toml`** (userId == anthicId, confirmed). Session canonical for sync; report never auths. The shipped tool's legacy `session_cookie`/`AIMLABS_COOKIE` channels were **removed at M6b** (no users pre-release), so credential resolution flows through `AIMLAB_SESSION` (the `aimlab_scores --header` debug passthrough aside). | 4, 12 |
+| 7 | **Credentials: managed `data/session.json` seeded from `AIMLAB_SESSION` in `.env`; account id `[aimlabs].user_id` in `config.toml`** (userId == anthicId, confirmed). Session canonical for sync; report never auths. The shipped tool's legacy `session_cookie`/`AIMLABS_COOKIE` channels were **removed at M6b** (no users pre-release), so credential resolution flows through the unified session channels (the `aimlab_scores --header` debug passthrough aside). | 4, 12 |
 | 8 | **Analysis simple now**; **non-APPROVED excluded from stats by default**, visible note, override available. | 10 |
 | 9 | **CLI = verbs only; config = `config.toml`**; `report` is offline-only. | 11 |
 | 10 | **Build into the package**, gate-green per PR; `.gitignore` hardening **done**. | 12, 14 |
@@ -803,7 +805,7 @@ slice of tests. The §1–§3 / §5 / §17 sections are background/context, not 
 | 12 | **M2 split into M2a (core) / M2b (resilience).** | 14 |
 | 13 | **`resume_cursor` is `BACKFILLING`-only** (incremental + top-sweep restart-from-top, idempotent); `newest_id`/`api_total_count` are captured at the top and finalized from the freshest top observation, never per-page. | 8.1, 8.2 |
 | 14 | **Default report scope `report_family = all`** (all Voltaic Aimlabs S1+S2+S3); `valorant` restricts to S1. | 10.1 |
-| 15 | **Auth: `RefreshAccessTokenError` is a terminal "re-login required" state** (cookie identity vs token-minting lifetimes are decoupled); re-mint stops, doesn't retry-loop. | 4, 8.4 |
+| 15 | **Auth: successful re-mint persists the rotated session; residual `RefreshAccessTokenError` is "re-login required"** (no retry-loop when the chain is gone/forked/corrupt). | 4, 8.4 |
 | 16 | **Empty stream handled** — empty first page ⇒ no rows, `newest_id = NULL`, `api_total_count = 0`, `backfill_phase = COMPLETE`; `page_size` validated ≥ 1. | 8.1 |
 | 17 | **Projection JSON serialized canonically** (sorted keys, compact separators) so re-derive is byte-stable — no false drift. | 7.1 |
 | 18 | **`config.toml` schema pinned** — `[aimlabs]` / `[storage]` / `[sync]` / `[report]`, flattened `section_key`; one layout, not implementer's choice. | 11 |
@@ -811,8 +813,8 @@ slice of tests. The §1–§3 / §5 / §17 sections are background/context, not 
 | 20 | **User-release is gated on doc/config reconciliation** (M6) — a milestone being code-complete ≠ user-release-complete. | 14 |
 | 21 | **Durable `backfill_phase` enum** (`BACKFILLING`/`TOP_SWEEP`/`COMPLETE`, guarded by a DB `CHECK`) replaces the `backfill_complete` boolean — crash-before/during-sweep is unambiguous. | 7, 8.2 |
 | 22 | **`user_id` (anthicId) required; `username` dropped** — storage/state always keyed by stable anthicId, never the mutable username. | 7, 11 |
-| 23 | **`sync` never opens a login window** — missing/expired credential → fail "run `voltmeter login`" (consistent with §8.4); `login` is the sole window-opener. No `--no-login`, no auto-login, no interactive detection. | 4, 11 |
-| 24 | **`--session-file PATH` is the only credential override** — a path, never a literal secret; bare-cookie file contract; warn on loose POSIX perms; value never logged. | 11, 12 |
+| 23 | **`sync` never opens a login window** — missing/corrupt/residual terminal credential → fail "run `voltmeter login`"; `login` is the sole window-opener. No `--no-login`, no auto-login, no interactive detection. | 4, 11 |
+| 24 | **`--session-file PATH` is the only credential override** — a path, never a literal secret; read-only and not rotation-managed; bare-cookie file contract; warn on loose POSIX perms and minting-path independence; value never logged. | 11, 12 |
 | 25 | **Initial backfill triggers off `newest_id IS NULL`** (not the phase) — unifies new-account and empty-then-nonempty; both get the full backfill + top sweep. | 8.2 |
 
 ---
@@ -852,10 +854,11 @@ Evidence for the design; not universal facts.
 - **Second endpoint:** `aimlab.plays_agg(where: AimlabPlayWhere)` gives server-side
   `count/avg/max` filtered by `user_id`/`task_id`/`task_mode`/`is_practice` — used for the
   contamination check (§5.2). Its `max{}` 500s on an empty set; use `count`-only there.
-- **Auth fragility (live):** mid-session the cookie returned
-  `accessTokenError: RefreshAccessTokenError` with `expires` a month out — token-minting died
-  while identity stayed valid. Re-`login` fixed it. Drives the terminal "re-login required"
-  handling (§4, §8.4). Trigger not fully understood.
+- **Auth rotation (live):** `/api/auth/session` returns a rotated session cookie with successful
+  bearer mints. Reusing a stale pre-rotation cookie can produce
+  `accessTokenError: RefreshAccessTokenError` with `expires` still a month out. Persisting the
+  rotated link makes normal 401 re-mint recoverable; re-`login` remains the fallback when the
+  chain is already broken (§4, §8.4).
 - **Operational:** server returned all 919 in one page when `first` omitted (scale artifact —
   page explicitly); **`first: 0` → HTTP 500** (use `first ≥ 1`); **introspection disabled**.
 - `userId == anthicId` confirmed equal. (§2, §12)

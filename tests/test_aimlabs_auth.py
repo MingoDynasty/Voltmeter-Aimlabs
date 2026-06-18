@@ -13,6 +13,10 @@ from aimlabs_auth import (
     DEFAULT_SESSION_COOKIE,
     AimlabsAuthError,
     ReloginRequiredError,
+    SessionFetchResult,
+    SessionStateCorruptError,
+    read_session_state_cookie,
+    resolve_bearer,
     extract_session_cookie,
     fetch_session_json,
     get_bearer_from_session,
@@ -67,12 +71,41 @@ class AimlabsAuthTests(unittest.TestCase):
             dotenv_path.write_text('AIMLAB_SESSION="dotenv-cookie"\n', encoding="utf-8")
 
             resolved = resolve_session_cookie(
+                state_path=None,
                 env={"AIMLAB_SESSION": " env-cookie "},
                 dotenv_path=dotenv_path,
             )
 
         self.assertEqual(resolved.session_cookie, "env-cookie")
         self.assertEqual(resolved.source, "$AIMLAB_SESSION")
+
+    def test_state_file_takes_precedence_over_env_and_dotenv(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            state_path = temp_path / "data" / "session.json"
+            state_path.parent.mkdir()
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "session_cookie": "state-cookie",
+                        "expires": "2026-07-01T00:00:00.000Z",
+                        "updated_at": "2026-06-18T00:00:00.000Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            dotenv_path = temp_path / ".env"
+            dotenv_path.write_text('AIMLAB_SESSION="dotenv-cookie"\n', encoding="utf-8")
+
+            resolved = resolve_session_cookie(
+                state_path=state_path,
+                env={"AIMLAB_SESSION": "env-cookie"},
+                dotenv_path=dotenv_path,
+            )
+
+        self.assertEqual(resolved.session_cookie, "state-cookie")
+        self.assertEqual(resolved.source, str(state_path))
 
     def test_dotenv_values_parse_simple_quotes_without_mutating_environment(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -99,6 +132,19 @@ class AimlabsAuthTests(unittest.TestCase):
             def __exit__(self, exc_type, exc_value, traceback):
                 return False
 
+            @property
+            def headers(self):
+                return SimpleNamespace(
+                    get_all=lambda header_name, default=None: (
+                        [
+                            f"{DEFAULT_SESSION_COOKIE}.1=bbb; Path=/; HttpOnly",
+                            f"{DEFAULT_SESSION_COOKIE}.0=aaa; Path=/; HttpOnly",
+                        ]
+                        if header_name == "Set-Cookie"
+                        else default
+                    )
+                )
+
             def read(self) -> bytes:
                 return json.dumps({"accessToken": "fresh-token"}).encode("utf-8")
 
@@ -107,15 +153,19 @@ class AimlabsAuthTests(unittest.TestCase):
             return FakeResponse()
 
         with patch("aimlabs_auth.urllib.request.urlopen", fake_urlopen):
-            payload = fetch_session_json(full_cookie, timeout=12)
+            result = fetch_session_json(full_cookie, timeout=12)
 
-        self.assertEqual(payload["accessToken"], "fresh-token")
+        self.assertEqual(result.session_json["accessToken"], "fresh-token")
+        self.assertEqual(
+            result.rotated_session_cookie,
+            f"{DEFAULT_SESSION_COOKIE}.0=aaa; {DEFAULT_SESSION_COOKIE}.1=bbb",
+        )
         self.assertEqual(requests[0][0].get_header("Cookie"), full_cookie)
         self.assertEqual(requests[0][1], 12)
 
     def test_missing_session_raises_login_message(self) -> None:
         with self.assertRaisesRegex(AimlabsAuthError, "voltmeter login"):
-            resolve_session_cookie(env={}, dotenv_path=None)
+            resolve_session_cookie(state_path=None, env={}, dotenv_path=None)
 
     def test_bearer_exchange_uses_access_token(self) -> None:
         bearer = get_bearer_from_session(
@@ -133,6 +183,183 @@ class AimlabsAuthTests(unittest.TestCase):
                     "accessTokenError": "RefreshAccessTokenError",
                 },
             )
+
+    def test_managed_mint_persists_rotation_and_control_without_persist_fails(self) -> None:
+        endpoint = RotatingSessionEndpoint(initial_cookie="cookie-0")
+
+        self.assertEqual(
+            get_bearer_from_session("cookie-0", session_fetcher=endpoint),
+            "bearer-1",
+        )
+        with self.assertRaises(ReloginRequiredError):
+            get_bearer_from_session("cookie-0", session_fetcher=endpoint)
+
+        endpoint = RotatingSessionEndpoint(initial_cookie="cookie-0")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            state_path = temp_path / "data" / "session.json"
+            lock_path = temp_path / "data" / "session.lock"
+            first_bearer = resolve_bearer(
+                state_path=state_path,
+                lock_path=lock_path,
+                env={"AIMLAB_SESSION": "cookie-0"},
+                dotenv_path=None,
+                session_fetcher=endpoint,
+            )
+            second_bearer = resolve_bearer(
+                state_path=state_path,
+                lock_path=lock_path,
+                env={"AIMLAB_SESSION": "cookie-0"},
+                dotenv_path=None,
+                session_fetcher=endpoint,
+            )
+
+            self.assertEqual(first_bearer, "bearer-1")
+            self.assertEqual(second_bearer, "bearer-2")
+            self.assertEqual(read_session_state_cookie(state_path), "cookie-2")
+            self.assertEqual(endpoint.calls, ["cookie-0", "cookie-1"])
+
+    def test_failed_refresh_does_not_overwrite_last_good_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            state_path = temp_path / "data" / "session.json"
+            lock_path = temp_path / "data" / "session.lock"
+            state_path.parent.mkdir()
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "session_cookie": "last-good-cookie",
+                        "expires": "2026-07-01T00:00:00.000Z",
+                        "updated_at": "2026-06-18T00:00:00.000Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ReloginRequiredError):
+                resolve_bearer(
+                    state_path=state_path,
+                    lock_path=lock_path,
+                    env={"AIMLAB_SESSION": "spent-cookie"},
+                    dotenv_path=None,
+                    session_fetcher=lambda session_cookie, timeout: SessionFetchResult(
+                        {"accessTokenError": "RefreshAccessTokenError"},
+                        rotated_session_cookie="dead-cookie",
+                    ),
+                )
+
+            self.assertEqual(read_session_state_cookie(state_path), "last-good-cookie")
+
+    def test_corrupt_state_fails_closed_on_minting_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            state_path = temp_path / "data" / "session.json"
+            lock_path = temp_path / "data" / "session.lock"
+            state_path.parent.mkdir()
+            state_path.write_text("{", encoding="utf-8")
+            calls = []
+
+            with self.assertRaisesRegex(SessionStateCorruptError, "voltmeter login"):
+                resolve_bearer(
+                    state_path=state_path,
+                    lock_path=lock_path,
+                    env={"AIMLAB_SESSION": "env-cookie"},
+                    dotenv_path=None,
+                    session_fetcher=lambda session_cookie, timeout: calls.append(session_cookie),
+                )
+
+            self.assertEqual(calls, [])
+
+    def test_concurrent_managed_mints_serialize_and_re_resolve_state(self) -> None:
+        endpoint = SerializedRotatingSessionEndpoint(initial_cookie="cookie-0")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            state_path = temp_path / "data" / "session.json"
+            lock_path = temp_path / "data" / "session.lock"
+            results = []
+            errors = []
+
+            def worker() -> None:
+                try:
+                    results.append(
+                        resolve_bearer(
+                            state_path=state_path,
+                            lock_path=lock_path,
+                            env={"AIMLAB_SESSION": "cookie-0"},
+                            dotenv_path=None,
+                            session_fetcher=endpoint,
+                        )
+                    )
+                except Exception as error:  # pylint: disable=broad-exception-caught
+                    errors.append(error)
+
+            first_thread = threading.Thread(target=worker)
+            second_thread = threading.Thread(target=worker)
+            first_thread.start()
+            self.assertTrue(endpoint.first_call_entered.wait(timeout=1.0))
+            second_thread.start()
+            endpoint.release_first_call.set()
+            first_thread.join(timeout=2.0)
+            second_thread.join(timeout=2.0)
+
+            self.assertFalse(first_thread.is_alive())
+            self.assertFalse(second_thread.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual(results, ["bearer-1", "bearer-2"])
+            self.assertEqual(endpoint.calls, ["cookie-0", "cookie-1"])
+            self.assertFalse(endpoint.concurrent_fetch_detected)
+            self.assertEqual(read_session_state_cookie(state_path), "cookie-2")
+
+
+class RotatingSessionEndpoint:  # pylint: disable=too-few-public-methods
+    def __init__(self, *, initial_cookie: str) -> None:
+        self.current_cookie = initial_cookie
+        self.calls: list[str] = []
+
+    def __call__(self, session_cookie: str, timeout: float) -> SessionFetchResult:
+        del timeout
+        self.calls.append(session_cookie)
+        if session_cookie != self.current_cookie:
+            return SessionFetchResult(
+                {"accessTokenError": "RefreshAccessTokenError"},
+                rotated_session_cookie="dead-cookie",
+            )
+        call_number = len(self.calls)
+        next_cookie = f"cookie-{call_number}"
+        self.current_cookie = next_cookie
+        return SessionFetchResult(
+            {"accessToken": f"bearer-{call_number}", "expires": "2026-07-01T00:00:00.000Z"},
+            rotated_session_cookie=next_cookie,
+        )
+
+
+class SerializedRotatingSessionEndpoint(RotatingSessionEndpoint):
+    def __init__(self, *, initial_cookie: str) -> None:
+        super().__init__(initial_cookie=initial_cookie)
+        self.first_call_entered = threading.Event()
+        self.release_first_call = threading.Event()
+        self.concurrent_fetch_detected = False
+        self._active_fetches = 0
+        self._lock = threading.Lock()
+
+    def __call__(self, session_cookie: str, timeout: float) -> SessionFetchResult:
+        with self._lock:
+            self._active_fetches += 1
+            if self._active_fetches > 1:
+                self.concurrent_fetch_detected = True
+            is_first_call = not self.calls
+            if is_first_call:
+                self.first_call_entered.set()
+
+        if is_first_call:
+            self.release_first_call.wait(timeout=2.0)
+
+        try:
+            return super().__call__(session_cookie, timeout)
+        finally:
+            with self._lock:
+                self._active_fetches -= 1
 
 
 class FakeLoginWindow:
@@ -260,18 +487,46 @@ class LoginCaptureTests(unittest.TestCase):
         message_stream = io.StringIO()
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
+            temp_path = Path(temp_dir)
+            env_path = temp_path / ".env"
+            state_path = temp_path / "data" / "session.json"
+            lock_path = temp_path / "data" / "session.lock"
+            state_path.parent.mkdir()
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "session_cookie": "stale-cookie",
+                        "expires": "2026-07-01T00:00:00.000Z",
+                        "updated_at": "2026-06-18T00:00:00.000Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
             with (
                 patch.dict(sys.modules, {"webview": fake_webview_module(login_window)}),
                 patch(
                     "aimlabs_auth.fetch_session_json",
-                    return_value={"user": {"email": "user@example.com"}, "expires": "2026-07-01T00:00:00.000Z"},
+                    return_value=SessionFetchResult(
+                        {
+                            "accessToken": "bearer-1",
+                            "user": {"email": "user@example.com"},
+                            "expires": "2026-07-01T00:00:00.000Z",
+                        },
+                        rotated_session_cookie="rotated-token",
+                    ),
                 ),
             ):
-                captured_session = login_and_capture(env_path, message_stream=message_stream)
+                captured_session = login_and_capture(
+                    env_path,
+                    state_path=state_path,
+                    lock_path=lock_path,
+                    message_stream=message_stream,
+                )
 
             self.assertEqual(captured_session, "captured-token")
             self.assertIn('AIMLAB_SESSION="captured-token"', env_path.read_text(encoding="utf-8"))
+            self.assertEqual(read_session_state_cookie(state_path), "rotated-token")
         self.assertTrue(login_window.destroyed)
         messages = message_stream.getvalue()
         self.assertIn("verified login as user@example.com", messages)
@@ -284,15 +539,24 @@ class LoginCaptureTests(unittest.TestCase):
         message_stream = io.StringIO()
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
+            temp_path = Path(temp_dir)
+            env_path = temp_path / ".env"
+            state_path = temp_path / "data" / "session.json"
+            lock_path = temp_path / "data" / "session.lock"
             with (
                 patch.dict(sys.modules, {"webview": fake_webview_module(login_window)}),
                 patch("aimlabs_auth.fetch_session_json", side_effect=AimlabsAuthError("offline")),
             ):
-                captured_session = login_and_capture(env_path, message_stream=message_stream)
+                captured_session = login_and_capture(
+                    env_path,
+                    state_path=state_path,
+                    lock_path=lock_path,
+                    message_stream=message_stream,
+                )
 
             self.assertEqual(captured_session, "captured-token")
             self.assertTrue(env_path.exists())
+            self.assertFalse(state_path.exists())
         self.assertIn("could not verify it yet", message_stream.getvalue())
 
     def test_login_timeout_writes_nothing_and_returns_none(self) -> None:

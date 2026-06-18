@@ -267,15 +267,24 @@ def _auth_headers_from_config(
     *,
     env: Optional[Mapping[str, str]] = None,
     dotenv_path: Optional[Union[str, Path]] = ".env",
+    state_path: Optional[Union[str, Path]] = aimlabs_auth.DEFAULT_SESSION_STATE_PATH,
 ) -> dict:
     """Resolve the Cookie header from the unified AIMLAB_SESSION channels.
 
-    Channels (via ``aimlabs_auth.resolve_session_cookie``): ``$AIMLAB_SESSION`` then
-    ``AIMLAB_SESSION`` in a repo-root ``.env``. Returns ``{}`` when no session is found.
+    Channels (via ``aimlabs_auth.resolve_session_cookie``): managed session state,
+    ``$AIMLAB_SESSION``, then ``AIMLAB_SESSION`` in a repo-root ``.env``. Returns ``{}``
+    when no session is found. Corrupt managed state warns and falls through because scores
+    never mints a bearer or rotates the session.
     """
     environment = os.environ if env is None else env
     try:
-        resolved_session = aimlabs_auth.resolve_session_cookie(env=environment, dotenv_path=dotenv_path)
+        resolved_session = aimlabs_auth.resolve_session_cookie(
+            state_path=state_path,
+            env=environment,
+            dotenv_path=dotenv_path,
+            corrupt_state_policy="warn",
+            warning_stream=sys.stderr,
+        )
     except aimlabs_auth.AimlabsAuthError:
         return {}
     return {"Cookie": aimlabs_auth.session_cookie_header(resolved_session.session_cookie)}

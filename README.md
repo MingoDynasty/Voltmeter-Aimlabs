@@ -41,9 +41,10 @@ credential is **not** stored in `config.toml`; see [Authentication](#authenticat
 
 ## Authentication
 
-Both tools authenticate with an Aim Lab session cookie, stored locally as the
-`AIMLAB_SESSION` environment variable (or in a gitignored `.env`). Provide it in
-one of two ways:
+Both tools authenticate with an Aim Lab session cookie. `voltmeter login` stores
+the captured cookie in a gitignored `.env`, and sync keeps the current rotated
+session link in gitignored `data/session.json`. Provide the initial cookie in one
+of two ways:
 
 - **`voltmeter login`** opens an embedded browser; log in normally (MFA/captcha
   are handled natively) and it writes `AIMLAB_SESSION` to a gitignored `.env`.
@@ -55,8 +56,10 @@ one of two ways:
 
 `voltmeter` never accepts the session cookie as a command-line argument: `voltmeter
 sync`'s only override is `--session-file PATH` — a path to a file whose first line
-holds the cookie, never the secret itself. `sync` never opens a login window; if the
-credential is missing or expired it exits asking you to run `voltmeter login`.
+holds the cookie, never the secret itself. That override is read-only and not
+rotation-managed, so scheduled use should prefer `voltmeter login` / `.env`.
+`sync` never opens a login window; if the credential is missing or the managed
+session chain cannot mint a bearer, it exits asking you to run `voltmeter login`.
 `voltmeter report` is fully offline and never touches authentication or the network.
 
 `aimlab_scores.py` reads `AIMLAB_SESSION` automatically too, but additionally accepts
