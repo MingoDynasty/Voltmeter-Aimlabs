@@ -1,37 +1,32 @@
-# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v3
+# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v4
 
-> **⚠️ SUPERSEDED (2026-06-17) by [`AUTH_SESSION_ROTATION_PROPOSAL_v4.md`](AUTH_SESSION_ROTATION_PROPOSAL_v4.md).**
-> This is the v3 draft, kept only for the review diff. **Implement against the current version, not
-> this file.** v4 makes `login`'s reset run under `data/session.lock` and adds a concurrency/
-> crash-safety hardening pass (review finding P2 on v3 + self-review). At finalization the chosen
-> draft is promoted to the canonical `AUTH_SESSION_ROTATION_PROPOSAL.md` and the `_vN` drafts are
-> dropped (Git keeps them).
-
-> **Rev 3 (2026-06-17).** Supersedes v2
-> ([`AUTH_SESSION_ROTATION_PROPOSAL_v2.md`](AUTH_SESSION_ROTATION_PROPOSAL_v2.md)); now superseded by
-> v4 (see banner). Older drafts are kept for the review diff and move to Git history at finalization.
+> **Rev 4 (2026-06-17).** Supersedes v3
+> ([`AUTH_SESSION_ROTATION_PROPOSAL_v3.md`](AUTH_SESSION_ROTATION_PROPOSAL_v3.md)). This file is the
+> current draft; older drafts are kept for the review diff and move to Git history at finalization.
 >
-> - **Rev 3 — P2 (`--session-file` shared chain):** a `--session-file` sync still hits
->   `/api/auth/session` and can rotate a refresh token it then discards, **stranding or revoking the
->   managed chain if the override shares a login** (reuse-detection is server-side and *per family*,
->   so even a different cookie value from the same login counts). Added the **independence contract**
->   (one credential source = one login/family) and a **loud warning** on the minting path; kept
->   `--session-file` read-only and non-persisted (simplest — no write-back machinery). See
->   **Implementation spec §1**.
-> - **Rev 2** — incorporated P1 (lock wraps *resolve* → mint → persist; re-read state inside the
->   lock; route every minting caller through it, incl. `cli.py:162-166`), P2a (`--session-file` not
->   rotation-managed / never persisted to the shared state file), and P2b (persist **only** after a
->   successful mint — never the collapsed dead cookie from a failed refresh).
+> - **Rev 4 — P2 (`login` reset race) + a focused concurrency self-review.** `login`'s state-file
+>   reset must run under the **same `data/session.lock`** (else a concurrent sync re-creates the
+>   state file with the old chain *after* login's delete, shadowing the fresh login). Specified the
+>   lock ordering (**delete-before-write**, lock only the brief commit not the 300 s browser window)
+>   and coupled it to §3's re-resolve-inside-the-lock. The self-review additionally hardened §3:
+>   **atomic** stale-lock reclaim (naive "dead PID → delete+recreate" double-acquires → forks),
+>   PID-reuse-safe liveness, same-dir temp + `chmod 0600` before `os.replace`, failure-tolerant
+>   reads, and surfacing persist-after-mint failures. Also fixed stale "rev 2" header wording (P3).
+> - **Rev 3** — P2: `--session-file` independence contract (one source = one login) + minting-path
+>   warning; kept `--session-file` read-only/non-persisted.
+> - **Rev 2** — P1 (lock wraps *resolve* → mint → persist; re-resolve inside the lock; route every
+>   minting caller through it, incl. `cli.py:162-166`), P2a (`--session-file` not rotation-managed),
+>   P2b (persist **only** after a successful mint — never the collapsed dead cookie).
 
-**Status:** Proposal — **rev 3; ready to implement; no open questions.** The run-history pipeline
+**Status:** Proposal — **rev 4; ready to implement; no open questions.** The run-history pipeline
 build is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the blocking
 empirical gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (evidence:
 `_monitor_session_control.log`), and the design is fully settled (see **Decisions** +
 **Implementation spec**). This doc is the complete spec for Codex; the remaining work is the build
 itself (one PR off `main`, per the CLAUDE.md workflow).
 **Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
-auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Revisions:** rev 2/rev 3
-2026-06-17 (review findings above).
+auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Revisions:** rev 2–rev 4
+2026-06-17 (review findings + concurrency self-review above).
 **Related:** PR #8 (error-message disambiguation — the *first half* of this, **merged to `main`**,
 now landed as `ReloginRequiredError`); `aimlabs_auth.py` (`fetch_session_json` /
 `resolve_session_cookie` / `write_env_var` / `extract_session_cookie`);
@@ -262,7 +257,7 @@ Re-baselined onto the current code (M6b retired the PoC `aimlab_history.py`):
 
 ---
 
-## Implementation spec (settled 2026-06-17; refined rev 2)
+## Implementation spec (settled 2026-06-17; refined through rev 4)
 
 The last open design questions, now decided so this doc is the complete spec. Simplicity-first:
 these pin only what Codex shouldn't have to guess; everything else is Codex's call.
@@ -319,11 +314,25 @@ these pin only what Codex shouldn't have to guess; everything else is Codex's ca
   with no refresh (rolling re-encrypt only) is still persisted; it's harmless and keeps state
   current. Flow: fresh login → `.env` C0 → first refresh persists C1 → later runs read C1 (state
   file wins) → C2 … .
-- **`login` resets rotation (critical correctness point):** on a successful `voltmeter login`,
-  **delete `data/session.json`** when writing the fresh cookie to `.env`. A fresh login starts a
-  new chain; since the state file *wins* over `.env`, a leftover dead last-link would otherwise
-  shadow the fresh capture and fail immediately. Next sync rebuilds the state file from the new
-  `.env` cookie.
+- **`login` resets rotation — under the lock (critical, P2 v4).** A fresh login starts a new chain;
+  since the state file *wins* over `.env`, a leftover dead last-link would otherwise shadow the
+  fresh capture and fail immediately. So on a successful `voltmeter login`, **under the same
+  `data/session.lock` (§3)** and in this order: **(1) delete `data/session.json` first, (2) write
+  the fresh cookie to `.env`,** (3) the existing verify step then re-seeds the chain (below).
+  - **Why the lock:** without it, a concurrent sync mid-`resolve→mint→persist` on the old chain can
+    re-create `data/session.json` with a stale link *after* login's delete, shadowing the fresh
+    login (and wasting it — people usually `login` *because* the chain broke). The lock serializes
+    them; combined with §3's *re-resolve-inside-the-lock*, a post-login sync reads the fresh `.env`.
+  - **Why delete-before-write:** it's crash-safe — a crash between the steps leaves *no state file +
+    old `.env`* (at worst a re-login), never a fresh `.env` shadowed by stale state.
+  - **Hold the lock only for the commit, not the browser window:** `login` can wait up to
+    `DEFAULT_LOGIN_TIMEOUT_SECONDS` (300 s) for the user; capture/auth happen lock-free, and the
+    lock is taken only for steps 1–2 + the verify-mint.
+- **The login verify-mint seeds the new chain.** `login` already verifies the captured cookie
+  (`_verify_and_report_identity` → `fetch_session_json` in `aimlabs_auth.py`). Under this design
+  that verify *is* a successful default-channel mint, so it persists the first rotated link (D1),
+  also under the lock. Net: after login the state is cleared then re-seeded from the fresh login,
+  with no window for the old chain to leak back in.
 
 ### 2. Scope — only the bearer path rotates; `scores` only reads
 
@@ -352,22 +361,47 @@ chain (the exact thing the lock exists to prevent). Today `cli.py:162-166` resol
 **Contract — a single auth-layer function owns the whole critical section, in this order:**
 
 1. acquire the exclusive lock;
-2. **(re-)read `data/session.json` as the first step *inside* the lock** — never trust a cookie
-   resolved before the lock was held;
+2. **(re-)resolve the credential as the first step *inside* the lock** — re-run the full precedence
+   (state file → `$AIMLAB_SESSION` → `.env`); never trust a cookie resolved *before* the lock was
+   held (don't cache a pre-lock value across the wait);
 3. call `/api/auth/session` (mint);
 4. on success, persist the rotated cookie atomically (§1); on `accessTokenError`, persist nothing;
 5. release the lock (in a `finally`).
 
 All bearer-minting callers route through this one function — including the split `cli.py:162-166`
-path, which must be refactored to call it rather than resolve-then-mint. The bearer a caller
-receives is the one minted *inside* the lock.
+path (refactor it to call this rather than resolve-then-mint) **and any mid-run re-mint on a 401**
+(design §8.4). `login`'s reset (§1) takes the **same** lock — the lock guards *every* writer of
+`data/session.json`, not just the mint. **Scope:** hold the lock only for resolve → mint → persist;
+release it **before** the heavy data fetch (never hold it across the whole sync).
 
-- **Lockfile:** `data/session.lock`, acquired via `os.open(..., O_CREAT | O_EXCL)` (works on
-  Windows *and* POSIX). Handle a **stale lock**: if the file exists but its recorded PID is not
-  alive, reclaim it — a crashed run must not wedge the tool forever. (`os.replace` is atomic on
-  Windows, so the state write itself needs no extra OS lock.)
-- `scores` does **not** take the lock (read-only, non-rotating; atomic `os.replace` means a reader
-  never sees a torn file).
+**Concurrency & crash-safety (auth is sensitive — required, not nice-to-have):**
+
+- **Lockfile = advisory, existence-based.** `data/session.lock`, created via
+  `os.open(..., O_CREAT | O_EXCL)` (atomic create-if-absent; works on Windows *and* POSIX). Write
+  `{pid, start_time}` into it and **close the fd** — represent the lock by the file's *existence*,
+  not a held handle, so cleanup/reclaim works on Windows (a held handle there can block deletion).
+  Release = `unlink`.
+- **Stale-lock reclaim must be atomic** (else it re-introduces the fork). "Check dead PID, then
+  delete + recreate" is itself racy: two contenders both see the stale lock, both reclaim, both
+  proceed → concurrent mint → forked chain. Reclaim via an **atomic steal** — rename the stale
+  lockfile to a unique name (`os.replace` of that inode succeeds for exactly one contender); the
+  winner confirms the dead `{pid, start_time}`, removes it, and re-acquires. Losers retry.
+- **Survive PID reuse.** Liveness = recorded `pid` is alive **and** its `start_time` matches (a dead
+  PID can be recycled by an unrelated process), or treat a lock older than a generous lease as
+  stale. Never reclaim on bare "PID is alive."
+- **Atomic write, done right.** The temp file must live in the **same dir** (`data/`) as
+  `session.json` so `os.replace` is genuinely atomic (it isn't across filesystems), and be
+  `chmod 0600` **before** the replace so the credential is never briefly world-readable.
+- **Reads are failure-tolerant.** Any failure to read state — missing, deleted mid-read (login can
+  `unlink` it), partial, unparseable, unknown `version` — is treated as **absent** (warn, fall
+  through to `$AIMLAB_SESSION`/`.env`), never a crash.
+- **Persist failure after a successful mint must be surfaced, not swallowed.** If the mint succeeded
+  (RT already rotated server-side) but the atomic write fails (disk full, perms), the chain has
+  advanced without being saved → the next run will need re-login. Raise/log a loud, specific error;
+  don't silently continue as if the state were saved.
+- **Who skips the lock:** `--session-file` runs (they mint but never persist, and are an independent
+  family by contract, §1) and `scores` (read-only, non-rotating). A lock-free `scores` reader sees
+  old-or-new via atomic `os.replace` (never torn), and a vanished file simply falls through.
 
 ### 4. Design-doc reconciliation — same PR
 
@@ -417,17 +451,22 @@ re-login and retry.
   won't persist rotation and must be an independent login.
 - `resolve_session_cookie` prefers `data/session.json` over `$AIMLAB_SESSION`/`.env`; a corrupt
   state file is ignored with a warning, not a crash.
-- `voltmeter login` deletes `data/session.json` (rotation reset), so a stale last-link cannot
-  shadow the freshly captured cookie.
+- `voltmeter login` deletes `data/session.json` then writes `.env` (delete-before-write), **under
+  `data/session.lock`**, so a stale last-link cannot shadow the freshly captured cookie.
+- A `login` concurrent with an in-flight `sync` cannot resurrect the old chain: the lock serializes
+  them and the post-login `sync` re-resolves the fresh `.env` (no stale state shadows the login).
 - Survives ≥2 consecutive refresh cycles unattended (sole consumer).
 - A `--no-follow-rotation`-style path still fails after the first refresh (proves the fix is
   what's responsible) — encoded as a regression test with a mocked session endpoint that rotates
   `Set-Cookie`.
-- Crash between refresh and persist does not corrupt the state file (atomic temp-file +
-  `os.replace`); a half-write is impossible.
+- Crash between refresh and persist does not corrupt the state file (atomic temp-file in the same
+  dir + `chmod 0600` before `os.replace`); a half-write is impossible. A persist failure *after* a
+  successful mint is surfaced loudly (not swallowed).
+- A read that races a delete/replace (missing, partial, deleted mid-read) falls through to
+  `$AIMLAB_SESSION`/`.env`, never crashing.
 - Two concurrent rotating runs cannot fork the chain: resolve → mint → persist runs inside one
-  `data/session.lock` (state re-read *inside* the lock), and a stale lock (dead PID) is reclaimed
-  rather than wedging the tool.
+  `data/session.lock`, with state **re-resolved inside the lock**; reclaiming a stale lock is
+  **atomic** (no two contenders both acquire) and survives PID reuse.
 - A genuine `ReloginRequiredError` (not a network blip) is the only thing that prompts re-login.
 
 ---
