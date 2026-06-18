@@ -1,16 +1,16 @@
-# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v4
+# Proposal: Persist the rotating Aim Lab session cookie (avoid forced re-login) — v5
 
-> **⚠️ SUPERSEDED (2026-06-17) by [`AUTH_SESSION_ROTATION_PROPOSAL_v5.md`](AUTH_SESSION_ROTATION_PROPOSAL_v5.md).**
-> This is the v4 draft, kept only for the review diff. **Implement against the current version, not
-> this file.** v5 splits the state-file read policy — corrupt state fails *closed* on the minting
-> path instead of falling through to the spent C0 (review finding P2 on v4). At finalization the
-> chosen draft is promoted to the canonical `AUTH_SESSION_ROTATION_PROPOSAL.md` and the `_vN` drafts
-> are dropped (Git keeps them).
-
-> **Rev 4 (2026-06-17).** Supersedes v3
-> ([`AUTH_SESSION_ROTATION_PROPOSAL_v3.md`](AUTH_SESSION_ROTATION_PROPOSAL_v3.md)); now superseded by
-> v5 (see banner). Older drafts are kept for the review diff and move to Git history at finalization.
+> **Rev 5 (2026-06-17).** Supersedes v4
+> ([`AUTH_SESSION_ROTATION_PROPOSAL_v4.md`](AUTH_SESSION_ROTATION_PROPOSAL_v4.md)). This file is the
+> current draft; older drafts are kept for the review diff and move to Git history at finalization.
 >
+> - **Rev 5 — P2 (corrupt-state fail-open was wrong on the minting path).** v4 treated *any*
+>   unreadable state file as "absent" and fell through to `.env` — but `.env` holds the original C0
+>   (RT spent after the first rotation), so on a mint that re-presents C0 and triggers the family
+>   revocation the state file exists to prevent. Split the rule by cause: **missing/deleted → fall
+>   through; existing-but-corrupt → fail closed on minting paths** (clear "run `login`" error), while
+>   `scores` stays fail-open; the resolver now exposes *corrupt* distinctly from *missing*. (A
+>   fail-open policy the rev-4 self-review over-broadened — owned and fixed; see §1 / §3.)
 > - **Rev 4 — P2 (`login` reset race) + a focused concurrency self-review.** `login`'s state-file
 >   reset must run under the **same `data/session.lock`** (else a concurrent sync re-creates the
 >   state file with the old chain *after* login's delete, shadowing the fresh login). Specified the
@@ -25,14 +25,14 @@
 >   minting caller through it, incl. `cli.py:162-166`), P2a (`--session-file` not rotation-managed),
 >   P2b (persist **only** after a successful mint — never the collapsed dead cookie).
 
-**Status:** Proposal — **rev 4; ready to implement; no open questions.** The run-history pipeline
+**Status:** Proposal — **rev 5; ready to implement; no open questions.** The run-history pipeline
 build is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the blocking
 empirical gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (evidence:
 `_monitor_session_control.log`), and the design is fully settled (see **Decisions** +
 **Implementation spec**). This doc is the complete spec for Codex; the remaining work is the build
 itself (one PR off `main`, per the CLAUDE.md workflow).
 **Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
-auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Revisions:** rev 2–rev 4
+auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Revisions:** rev 2–rev 5
 2026-06-17 (review findings + concurrency self-review above).
 **Related:** PR #8 (error-message disambiguation — the *first half* of this, **merged to `main`**,
 now landed as `ReloginRequiredError`); `aimlabs_auth.py` (`fetch_session_json` /
@@ -264,7 +264,7 @@ Re-baselined onto the current code (M6b retired the PoC `aimlab_history.py`):
 
 ---
 
-## Implementation spec (settled 2026-06-17; refined through rev 4)
+## Implementation spec (settled 2026-06-17; refined through rev 5)
 
 The last open design questions, now decided so this doc is the complete spec. Simplicity-first:
 these pin only what Codex shouldn't have to guess; everything else is Codex's call.
@@ -288,8 +288,11 @@ these pin only what Codex shouldn't have to guess; everything else is Codex's ca
 - **Resolution precedence** (`resolve_session_cookie`, extended): `--session-file` (explicit
   override) > **`data/session.json`** > `$AIMLAB_SESSION` > `.env`. The state file wins over
   env/`.env` because those hold the *original* capture (C0), which dies one refresh after capture,
-  whereas the state file holds the current chain link. A corrupt/unparseable state file is treated
-  as **absent** (warn, fall through) — never a hard failure. `scores` and `sync` both read through
+  whereas the state file holds the current chain link. **Missing vs corrupt (P2 v5):** a
+  *missing/deleted* state file falls through to `$AIMLAB_SESSION`/`.env` (the normal first-run /
+  post-login case); an *existing-but-unreadable* one (unparseable / partial / unknown `version`) is
+  surfaced **distinctly** — not collapsed to "absent" — so the caller applies policy per §3 (the
+  minting path **fails closed**; `scores` falls through). `scores` and `sync` both read through
   this one function, so both pick up the current link.
 - **`--session-file` is a read-only, *non-rotation-managed* override (P2a).** It still wins for
   *reads* ("use exactly this"), but its rotations are **not** persisted to the shared state file —
@@ -399,9 +402,22 @@ release it **before** the heavy data fetch (never hold it across the whole sync)
 - **Atomic write, done right.** The temp file must live in the **same dir** (`data/`) as
   `session.json` so `os.replace` is genuinely atomic (it isn't across filesystems), and be
   `chmod 0600` **before** the replace so the credential is never briefly world-readable.
-- **Reads are failure-tolerant.** Any failure to read state — missing, deleted mid-read (login can
-  `unlink` it), partial, unparseable, unknown `version` — is treated as **absent** (warn, fall
-  through to `$AIMLAB_SESSION`/`.env`), never a crash.
+- **Read policy: fail closed on corrupt state *iff* the path mints (P2 v5).** Split by cause:
+  - *Missing/deleted* state (a clean `FileNotFoundError`) → **fall through** to
+    `$AIMLAB_SESSION`/`.env` on **any** path (the normal first-run / post-login-reset case). Inside
+    the lock there's no deleted-mid-read ambiguity — `login`'s `unlink` is serialized against the
+    mint — so the minting-path state is cleanly *present / absent / corrupt*.
+  - *Existing-but-unreadable* state (unparseable, partial, unknown `version`, OS read error) →
+    **fatal on minting paths** (`sync`, mid-run re-mint): stop with a clear, specific error — e.g.
+    *"session state at `data/session.json` is corrupt; run `voltmeter login` (which resets it), or
+    remove the file only if `.env` is current."* **Do not** fall through, because `.env` holds the
+    spent C0 → a mint there re-presents it and triggers the family revocation the state file exists
+    to prevent. `scores` (non-rotating) stays **fail-open**: warn and fall through (it never mints,
+    so a stale C0 can't trigger revocation).
+  - Because writes are atomic (same-dir temp + `os.replace`), "corrupt" means *genuine* corruption
+    (disk error / manual edit), not a torn concurrent write — so fail-closed won't misfire. The
+    resolver must therefore expose *corrupt* distinctly from *missing* (it's shared by `sync` and
+    `scores`); the **caller's minting-vs-not** decides policy, not the resolver.
 - **Persist failure after a successful mint must be surfaced, not swallowed.** If the mint succeeded
   (RT already rotated server-side) but the atomic write fails (disk full, perms), the chain has
   advanced without being saved → the next run will need re-login. Raise/log a loud, specific error;
@@ -456,8 +472,8 @@ re-login and retry.
 - A `--session-file` run does **not** write `data/session.json` (explicit overrides are not
   rotation-managed), and a `--session-file` run on the minting path emits the warning that it
   won't persist rotation and must be an independent login.
-- `resolve_session_cookie` prefers `data/session.json` over `$AIMLAB_SESSION`/`.env`; a corrupt
-  state file is ignored with a warning, not a crash.
+- `resolve_session_cookie` prefers `data/session.json` over `$AIMLAB_SESSION`/`.env`, and exposes
+  *corrupt* distinctly from *missing* so the caller can apply the read policy below.
 - `voltmeter login` deletes `data/session.json` then writes `.env` (delete-before-write), **under
   `data/session.lock`**, so a stale last-link cannot shadow the freshly captured cookie.
 - A `login` concurrent with an in-flight `sync` cannot resurrect the old chain: the lock serializes
@@ -469,8 +485,10 @@ re-login and retry.
 - Crash between refresh and persist does not corrupt the state file (atomic temp-file in the same
   dir + `chmod 0600` before `os.replace`); a half-write is impossible. A persist failure *after* a
   successful mint is surfaced loudly (not swallowed).
-- A read that races a delete/replace (missing, partial, deleted mid-read) falls through to
-  `$AIMLAB_SESSION`/`.env`, never crashing.
+- A *missing/deleted* state file falls through to `$AIMLAB_SESSION`/`.env` on any path, never
+  crashing. An *existing-but-corrupt* state file (unparseable / partial / unknown `version`) **fails
+  closed on the minting path** with a clear "run `voltmeter login`" error — never falling through to
+  the spent C0 — while `scores` warns and falls through.
 - Two concurrent rotating runs cannot fork the chain: resolve → mint → persist runs inside one
   `data/session.lock`, with state **re-resolved inside the lock**; reclaiming a stale lock is
   **atomic** (no two contenders both acquire) and survives PID reuse.
