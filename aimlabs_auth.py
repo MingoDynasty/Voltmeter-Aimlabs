@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import stat
 import sys
+import threading
 import time
 from typing import Any, Optional, TextIO, Union
 import urllib.error
@@ -329,9 +330,11 @@ def login_and_capture(
     captured: dict[str, Optional[str]] = {"value": None}
     last_seen_names: dict[str, list[str]] = {"names": []}
 
-    def _poll(window: Any) -> None:
+    stop = threading.Event()
+
+    def _poll(window: Any, stop_event: threading.Event) -> None:
         deadline = time.time() + timeout
-        while time.time() < deadline:
+        while not stop_event.is_set() and time.time() < deadline:
             try:
                 cookies = window.get_cookies()
             except Exception as error:  # pylint: disable=broad-exception-caught
@@ -351,11 +354,16 @@ def login_and_capture(
             if session_value:
                 captured["value"] = session_value
                 break
-            time.sleep(LOGIN_POLL_INTERVAL_SECONDS)
+            if stop_event.wait(LOGIN_POLL_INTERVAL_SECONDS):
+                break
         try:
             window.destroy()
         except Exception:  # pylint: disable=broad-exception-caught
             pass
+
+    def _start_poll(window: Any) -> None:
+        poll_thread = threading.Thread(target=_poll, args=(window, stop), daemon=True)
+        poll_thread.start()
 
     print(
         "login: opening the Aim Lab login window -- log in normally; it closes "
@@ -363,7 +371,10 @@ def login_and_capture(
         file=message_stream,
     )
     login_window = webview.create_window("Log in to Aim Lab", start_url)
-    webview.start(_poll, (login_window,))
+    try:
+        webview.start(_start_poll, (login_window,))
+    finally:
+        stop.set()
 
     session_value = captured["value"]
     if not session_value:
