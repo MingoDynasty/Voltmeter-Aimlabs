@@ -33,6 +33,8 @@ SESSION_LOCK_STALE_SECONDS = 10 * 60
 SESSION_LOCK_WAIT_TIMEOUT_SECONDS = 60.0
 SESSION_LOCK_POLL_SECONDS = 0.1
 WINDOWS_FILETIME_EPOCH_SECONDS = 11_644_473_600
+LOCK_PAYLOAD_READ_ERRORS = (OSError, json.JSONDecodeError)
+POSIX_PROCESS_START_TIME_ERRORS = (IndexError, StopIteration, ValueError, OSError)
 CorruptStatePolicy = Literal["raise", "warn"]
 
 
@@ -241,7 +243,7 @@ def read_session_state_cookie(state_path: Union[str, Path]) -> Optional[str]:
         return None
     except OSError as error:
         raise SessionStateCorruptError(
-            f"session state at {resolved_path} is corrupt; run `voltmeter login` "
+            f"session state at {resolved_path} is unreadable or corrupt; run `voltmeter login` "
             "or remove the file only if .env is current"
         ) from error
 
@@ -249,13 +251,13 @@ def read_session_state_cookie(state_path: Union[str, Path]) -> Optional[str]:
         payload = json.loads(raw_text)
     except json.JSONDecodeError as error:
         raise SessionStateCorruptError(
-            f"session state at {resolved_path} is corrupt; run `voltmeter login` "
+            f"session state at {resolved_path} is unreadable or corrupt; run `voltmeter login` "
             "or remove the file only if .env is current"
         ) from error
 
     if not isinstance(payload, Mapping):
         raise SessionStateCorruptError(
-            f"session state at {resolved_path} is corrupt; run `voltmeter login` "
+            f"session state at {resolved_path} is unreadable or corrupt; run `voltmeter login` "
             "or remove the file only if .env is current"
         )
     if payload.get("version") != SESSION_STATE_VERSION:
@@ -541,7 +543,7 @@ def _session_lock_is_stale(lock_path: Path, *, stale_after_seconds: float) -> bo
 def _read_lock_payload(lock_path: Path) -> Mapping[str, Any]:
     try:
         payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    except OSError, json.JSONDecodeError:
+    except LOCK_PAYLOAD_READ_ERRORS:
         return {}
     if isinstance(payload, Mapping):
         return payload
@@ -582,7 +584,7 @@ def _posix_process_start_time(pid_value: int) -> Optional[float]:
             return None
         clock_ticks = int(sysconf_func("SC_CLK_TCK"))  # pylint: disable=not-callable
         boot_time = next(int(line.split()[1]) for line in proc_stat_text.splitlines() if line.startswith("btime "))
-    except IndexError, StopIteration, ValueError, OSError:
+    except POSIX_PROCESS_START_TIME_ERRORS:
         return None
     return boot_time + (start_ticks / clock_ticks)
 

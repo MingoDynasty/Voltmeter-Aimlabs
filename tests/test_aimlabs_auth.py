@@ -1,14 +1,17 @@
 from http.cookies import SimpleCookie
+import os
 import io
 import json
 import sys
 import tempfile
 import threading
+import time
 from types import SimpleNamespace
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import aimlabs_auth
 from aimlabs_auth import (
     DEFAULT_SESSION_COOKIE,
     AimlabsAuthError,
@@ -26,6 +29,14 @@ from aimlabs_auth import (
     resolve_session_cookie,
     write_env_var,
 )
+
+
+def write_lock_file(lock_path: Path, *, pid_value: int, start_time: float) -> None:
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.write_text(
+        json.dumps({"pid": pid_value, "start_time": start_time, "created_at": time.time()}),
+        encoding="utf-8",
+    )
 
 
 class AimlabsAuthTests(unittest.TestCase):
@@ -310,6 +321,66 @@ class AimlabsAuthTests(unittest.TestCase):
             self.assertEqual(endpoint.calls, ["cookie-0", "cookie-1"])
             self.assertFalse(endpoint.concurrent_fetch_detected)
             self.assertEqual(read_session_state_cookie(state_path), "cookie-2")
+
+    def test_session_lock_is_stale_when_lease_expires(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_path = Path(temp_dir) / "data" / "session.lock"
+            write_lock_file(lock_path, pid_value=os.getpid(), start_time=1.0)
+            stale_time = time.time() - 120.0
+            os.utime(lock_path, (stale_time, stale_time))
+
+            self.assertTrue(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+
+    def test_session_lock_is_stale_when_recorded_process_is_dead(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_path = Path(temp_dir) / "data" / "session.lock"
+            write_lock_file(lock_path, pid_value=12345, start_time=10.0)
+
+            with patch("aimlabs_auth._process_exists", return_value=False):
+                self.assertTrue(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+
+    def test_session_lock_keeps_live_matching_process(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_path = Path(temp_dir) / "data" / "session.lock"
+            write_lock_file(lock_path, pid_value=12345, start_time=10.0)
+
+            with (
+                patch("aimlabs_auth._process_exists", return_value=True),
+                patch("aimlabs_auth._process_start_time", return_value=10.0),
+            ):
+                self.assertFalse(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+
+    def test_session_lock_is_stale_on_pid_reuse_start_time_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_path = Path(temp_dir) / "data" / "session.lock"
+            write_lock_file(lock_path, pid_value=12345, start_time=10.0)
+
+            with (
+                patch("aimlabs_auth._process_exists", return_value=True),
+                patch("aimlabs_auth._process_start_time", return_value=12.5),
+            ):
+                self.assertTrue(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+
+    def test_stale_lock_steal_restores_when_recheck_finds_live_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_path = Path(temp_dir) / "data" / "session.lock"
+            write_lock_file(lock_path, pid_value=12345, start_time=10.0)
+
+            with patch("aimlabs_auth._session_lock_is_stale", side_effect=[True, False]):
+                self.assertFalse(aimlabs_auth._steal_stale_session_lock(lock_path, stale_after_seconds=60.0))
+
+            self.assertTrue(lock_path.exists())
+            self.assertEqual(json.loads(lock_path.read_text(encoding="utf-8"))["pid"], 12345)
+
+    def test_stale_lock_steal_removes_confirmed_stale_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_path = Path(temp_dir) / "data" / "session.lock"
+            write_lock_file(lock_path, pid_value=12345, start_time=10.0)
+
+            with patch("aimlabs_auth._session_lock_is_stale", return_value=True):
+                self.assertTrue(aimlabs_auth._steal_stale_session_lock(lock_path, stale_after_seconds=60.0))
+
+            self.assertFalse(lock_path.exists())
 
 
 class RotatingSessionEndpoint:  # pylint: disable=too-few-public-methods
