@@ -5,6 +5,7 @@
 !.env.example
 *.token
 *.cookie
+data/session.json
 
 # --- Local data store & cached API responses (personal account data) ---
 data/

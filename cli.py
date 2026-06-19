@@ -159,12 +159,13 @@ def _run_sync(args: argparse.Namespace) -> int:  # pylint: disable=too-many-loca
     try:
         # Credential comes from file/env channels only; on failure this raises with
         # "run `voltmeter login`" — sync never opens a login window (decision 23).
-        resolved_session = aimlabs_auth.resolve_session_cookie(session_file=args.session_file)
+        resolved_bearer = aimlabs_auth.resolve_bearer_with_source(
+            session_file=args.session_file,
+            timeout=request_timeout,
+        )
         if args.verbose:
-            print(f"auth: using session from {resolved_session.source}", file=sys.stderr)
-        bearer_holder = {
-            "bearer": aimlabs_auth.get_bearer_from_session(resolved_session.session_cookie, timeout=request_timeout)
-        }
+            print(f"auth: using session from {resolved_bearer.session_source}", file=sys.stderr)
+        bearer_holder = {"bearer": resolved_bearer.bearer}
     except aimlabs_auth.AimlabsAuthError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

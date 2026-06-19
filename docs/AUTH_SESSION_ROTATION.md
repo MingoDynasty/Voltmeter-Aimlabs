@@ -16,12 +16,12 @@
 > - **Corrupt-state read policy** — fail closed on corrupt state *iff* the path mints (never fall
 >   through to the spent C0); `scores` stays fail-open. §1 / §3.
 
-**Status:** **Finalized — ready to implement; no open questions.** The run-history pipeline
-build is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the blocking
-empirical gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (evidence:
-`_monitor_session_control.log`), and the design is fully settled (see **Decisions** +
-**Implementation spec**). This doc is the complete spec for Codex; the remaining work is the build
-itself (one PR off `main`, per the CLAUDE.md workflow).
+**Status:** **Finalized design; implemented in the auth-session-rotation PR.** The run-history
+pipeline build is complete (M1–M6b merged), the go/no-go is resolved (see **Decisions**), the
+blocking empirical gate — the `--no-follow-rotation` control run — **passed 2026-06-17** (the
+PoC logs were retired when the behavior was folded into a synthetic regression fixture), and the
+design is fully settled (see **Decisions** + **Implementation spec**). This doc is retained as the
+design rationale for the implementation.
 **Investigated:** 2026-06-07 (Claude Code). **Re-baselined:** 2026-06-17 onto the productized
 auth layer (`aimlabs_auth.py`) after M6b retired the PoC scripts. **Finalized:** 2026-06-17 after
 review rev 2–5 + a concurrency self-review (design history above).
@@ -434,23 +434,17 @@ outcome.
 
 Nothing here blocks implementation — these accrue *after* the fix ships.
 
-- **Control run — CLEARED (2026-06-17).** Was the blocking gate; result + evidence in
-  Investigation §4 (`_monitor_session_control.log`). Its success-then-die-on-reuse sequence is the
-  regression test (§2 / Acceptance criteria). Reproduce recipe below, retained for future use.
+- **Control run — CLEARED (2026-06-17).** Was the blocking gate; result summarized in
+  Investigation §4. Its success-then-die-on-reuse sequence is now encoded as a mocked rotating
+  session endpoint regression test (§2 / Acceptance criteria).
 - **Rolling vs. absolute session lifetime** — see rule 5; needs a >24 h `expires` comparison, so
   let it accrue in production rather than gate the build.
 - **Second-cycle confirmation** — fold into a long follow-rotation run (`--max-min 150` crosses the
   second ~60-min refresh boundary, ~04:47 in the captured log); hardening only.
 
-**Reproduce the control run** — sole consumer (no `aimlabs.com` tab, no concurrent `sync`/`scores`),
-disable system sleep, run from the repo root (where `.env` lives):
-```
-voltmeter login        # fresh cookie (unspent refresh token)
-python proof-of-concepts/auth-session-rotation/_monitor_session.py \
-    --no-follow-rotation --interval 60 --max-min 90
-```
-If it fails in the first poll or two (well before 60 min), the "fresh" cookie wasn't fresh —
-re-login and retry.
+The throwaway live monitor and its logs are intentionally not retained in the repo. Future live
+diagnostics should be rebuilt as a proper dev tool if needed, not restored as committed PoC
+artifacts.
 
 ---
 
@@ -489,14 +483,11 @@ re-login and retry.
 
 ## Appendix: monitor methodology
 
-`_monitor_session.py` (in this directory): polls `/api/auth/session` on an interval as the sole
-consumer, **follows** the rotated `Set-Cookie` session-token across polls, masks all token
-values, and logs — relative to the first observed `accessTokenExpiresAt` — exactly when
-`accessToken` disappears vs. when it advances. Flags: `--interval`, `--max-min`,
-`--no-follow-rotation`. It reads `AIMLAB_SESSION` from `.env` in the current working directory
-and appends to `_monitor_session.log` there too, so run it from the **repo root** (where `.env`
-lives, after a fresh `voltmeter login`); the committed `_monitor_session.log` in this directory
-is a captured run kept as evidence. When this work is picked up, promote the monitor (or its
-essence) into a proper dev/diagnostic tool or test fixture rather than re-deriving it.
-Healthy cookie ≈ 1377 chars; a terminal `RefreshAccessTokenError` cookie collapses to ≈ 340
-chars (tokens stripped) — a quick at-a-glance health signal.
+The retired `_monitor_session.py` polled `/api/auth/session` on an interval as the sole consumer,
+optionally followed the rotated `Set-Cookie` session-token across polls, masked token values, and
+logged when `accessToken` disappeared vs. when it advanced. Its core behavior now lives in the
+synthetic rotating endpoint fixture in `tests/test_aimlabs_auth.py`: the no-follow control path
+dies after reusing a spent cookie, while the managed path persists each rotated link and survives
+consecutive mints. Healthy cookie ≈ 1377 chars; a terminal `RefreshAccessTokenError` cookie
+collapses to ≈ 340 chars (tokens stripped) — a quick at-a-glance health signal for future live
+diagnostics.

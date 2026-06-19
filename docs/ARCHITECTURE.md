@@ -4,9 +4,10 @@
 > been **retired**. Its behavior now lives in the package — login/session capture in
 > `aimlabs_auth.py` (`login_and_capture`), history pagination/parsing in `aimlabs_history.py` +
 > `history_sync.py`, and the `plays_agg` contamination check in
-> `aimlabs_history.fetch_practice_contamination_count`. This remains the **authentication design of
-> record** (the session→bearer model, the `RefreshAccessTokenError` terminal state, the
-> embedded-browser capture): read it for the *design*, and the package modules for the *current code*.
+> `aimlabs_history.fetch_practice_contamination_count`. This remains useful background for the
+> session→bearer model and embedded-browser capture, but the rotating-session persistence design in
+> [`AUTH_SESSION_ROTATION.md`](AUTH_SESSION_ROTATION.md) supersedes the old
+> `RefreshAccessTokenError` terminal-state framing.
 
 > Self-contained handoff for an agent (or developer) with **no prior context**.
 > Explains what the script does, how data flows through it, and — in depth — the
@@ -314,15 +315,12 @@ Once an `Authorization` header is in hand:
    aimlabs.com reconfigures NextAuth to stop surfacing the token, the script
    **fails loud** (clear "no accessToken … keys seen: […]" error) and you fall
    back to manual bearer capture.
-   - **Observed live (2026-06-06):** the route can return HTTP 200 with
+   - **Observed live (2026-06-06, refined 2026-06-17):** the route can return HTTP 200 with
      `{ accessTokenError: "RefreshAccessTokenError", user, expires }` and **no**
-     `accessToken` — the server-side `offline_access` **refresh token died while
-     the session cookie itself was still valid** (`expires` a month out). This is a
-     **terminal "re-login required"** state, distinct from "cookie expired" and from
-     a transient 5xx. The remedy (verified) is a fresh `--login`. Callers must treat
-     any `accessTokenError` this way and **not** retry-loop. The POC's current
-     message ("session cookie is likely expired/invalid") is misleading here and
-     should name the `RefreshAccessTokenError` case explicitly.
+     `accessToken` while the session cookie itself is still valid (`expires` a month out).
+     The package now persists the rotated `Set-Cookie` session link after successful mints, so
+     normal bearer refresh is recoverable. A remaining `RefreshAccessTokenError` means the chain
+     is already gone/forked/corrupt and should surface "run `voltmeter login`," not retry-loop.
 2. **pywebview `httpOnly` cookie reads are backend-dependent.** Confirmed to work
    on Windows (WebView2). Verify on any new platform; if a backend hides the
    `httpOnly` cookie, `--login` says so explicitly and manual capture remains the
@@ -332,8 +330,9 @@ Once an `Authorization` header is in hand:
    (the `offline_access` refresh token) are independent, and the refresh token can
    die first (see §9.1 above). So "session valid" (cookie not past `expires`) does
    **not** guarantee "can mint a bearer." For periodic use a fresh bearer per run is
-   plenty; a real refresh-token flow was deliberately **not** built (re-login on
-   `RefreshAccessTokenError`/expiry is enough).
+   plenty; the package sustains this by persisting the rotated session cookie returned by
+   successful mints. Re-login remains the fallback for true expiry or residual
+   `RefreshAccessTokenError`.
 4. **Sandbox/CI cannot reach `api.aimlab.gg` or `aimlabs.com`.** All live
    validation is local. Logic is covered by mock tests (see §11).
 5. **`TASK_INFO` is seeded with one scenario only** (Adjustshot Intermediate).

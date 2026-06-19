@@ -13,6 +13,7 @@ class AuthHeaderTests(unittest.TestCase):
         headers = aimlab_scores._auth_headers_from_config(
             env={"AIMLAB_SESSION": "unified-token"},
             dotenv_path=None,
+            state_path=None,
         )
 
         self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=unified-token"})
@@ -25,6 +26,7 @@ class AuthHeaderTests(unittest.TestCase):
             headers = aimlab_scores._auth_headers_from_config(
                 env={"AIMLAB_SESSION": "env-token"},
                 dotenv_path=dotenv_path,
+                state_path=None,
             )
 
         self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=env-token"})
@@ -37,14 +39,32 @@ class AuthHeaderTests(unittest.TestCase):
             headers = aimlab_scores._auth_headers_from_config(
                 env={},
                 dotenv_path=dotenv_path,
+                state_path=None,
             )
 
         self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=dotenv-token"})
 
     def test_no_channels_yields_no_auth_headers(self) -> None:
-        headers = aimlab_scores._auth_headers_from_config(env={}, dotenv_path=None)
+        headers = aimlab_scores._auth_headers_from_config(env={}, dotenv_path=None, state_path=None)
 
         self.assertEqual(headers, {})
+
+    def test_corrupt_state_warns_and_falls_through_for_scores(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_path = Path(temp_dir) / "data" / "session.json"
+            state_path.parent.mkdir()
+            state_path.write_text("{", encoding="utf-8")
+            stderr = io.StringIO()
+
+            with patch("sys.stderr", stderr):
+                headers = aimlab_scores._auth_headers_from_config(
+                    env={"AIMLAB_SESSION": "env-token"},
+                    dotenv_path=None,
+                    state_path=state_path,
+                )
+
+        self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=env-token"})
+        self.assertIn("falling back", stderr.getvalue())
 
 
 class AimlabScoresTests(unittest.TestCase):
