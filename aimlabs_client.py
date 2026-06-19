@@ -36,6 +36,7 @@ BASE_HEADERS = {
         "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     ),
 }
+LEADERBOARD_SHAPE_ERRORS = (KeyError, TypeError)
 
 
 def _post_json(  # pylint: disable=import-outside-toplevel
@@ -86,7 +87,7 @@ def _parse_entry(body_text: str) -> tuple[Optional[dict], Optional[str]]:  # pyl
         return None, "graphql error: " + json.dumps(payload["errors"])[:300]
     try:
         entries = payload["data"]["aimlab"]["leaderboard"]["leaderboardEntries"]
-    except KeyError, TypeError:
+    except LEADERBOARD_SHAPE_ERRORS:
         return None, f"unexpected shape: {body_text[:200]}"
     if not entries:
         return None, "no leaderboard entry (unplayed, or wrong task/weapon id?)"
