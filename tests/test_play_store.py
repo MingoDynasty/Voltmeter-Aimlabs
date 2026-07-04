@@ -48,6 +48,22 @@ def get_play_row(connection: sqlite3.Connection, account_id: str, play_id: str) 
 
 
 class PlayStoreSchemaTests(unittest.TestCase):
+    def test_corrupt_store_closes_connection_before_raising(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "aimlabs.db"
+            db_path.write_text("not a SQLite database", encoding="utf-8")
+            connection = sqlite3.connect(db_path)
+
+            with (
+                patch.object(play_store.sqlite3, "connect", return_value=connection),
+                self.assertRaises(sqlite3.DatabaseError),
+            ):
+                play_store.connect(db_path)
+
+            with self.assertRaisesRegex(sqlite3.ProgrammingError, "closed"):
+                connection.execute("SELECT 1")
+            db_path.unlink()
+
     def test_schema_creates_user_version_and_backfill_phase_check(self) -> None:
         connection = play_store.connect(":memory:")
 

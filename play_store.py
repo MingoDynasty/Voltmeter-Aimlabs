@@ -45,7 +45,7 @@ PLAY_COLUMNS = (
 
 
 class PlayStoreError(RuntimeError):
-    """Raised when play data cannot be projected into the store schema."""
+    """Raised when the play store cannot safely initialize or process play data."""
 
 
 @dataclass(frozen=True)
@@ -94,7 +94,7 @@ def connect(db_path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     try:
         initialize_schema(connection)
-    except PlayStoreError:
+    except Exception:
         connection.close()
         raise
     return connection
