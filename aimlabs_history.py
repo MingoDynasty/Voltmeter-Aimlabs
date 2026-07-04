@@ -6,8 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import json
 from typing import Any, Optional
-import urllib.error
-import urllib.request
+
+import requests
 
 from aimlabs_client import BASE_HEADERS, ENDPOINT
 from benchmark_constants import DEFAULT_TASK_MODE
@@ -278,25 +278,10 @@ def parse_history_page(body_text: str) -> HistoryPage:
     )
 
 
-def _post_json(  # pylint: disable=import-outside-toplevel
-    url: str,
-    payload: dict[str, Any],
-    headers: dict[str, str],
-    timeout: float,
-) -> tuple[int, str]:
+def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> tuple[int, str]:
     body = json.dumps(payload).encode("utf-8")
-    try:
-        import requests  # type: ignore
-
-        response = requests.post(url, data=body, headers=headers, timeout=timeout)
-        return response.status_code, response.text
-    except ImportError:
-        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                return response.getcode(), response.read().decode("utf-8", "replace")
-        except urllib.error.HTTPError as error:
-            return error.code, error.read().decode("utf-8", "replace")
+    response = requests.post(url, data=body, headers=headers, timeout=timeout)
+    return response.status_code, response.text
 
 
 def _plays_block(payload: Mapping[str, Any]) -> Mapping[str, Any]:

@@ -259,7 +259,7 @@ Once an `Authorization` header is in hand:
   $after)` → `aimlabProfile.plays` (a Relay connection).
 - **Pagination** (`fetch_history`): follows the Relay cursor —
   `pageInfo.hasNextPage` + `endCursor` → next `after` — until `max_plays` or the
-  end. Prefers `requests` if installed, falls back to stdlib `urllib`.
+  end. Uses `requests`.
 - **Parse** (`_node_to_play`): maps each GraphQL node to a flat dict
   (`score`, `ended_at`, `performance_scores`, etc.).
 - **Summarize** (`summarize`): `pb` (max), 10% `trimmed_mean`, `mean`/`median`,
