@@ -92,12 +92,27 @@ def connect(db_path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
 
     connection = sqlite3.connect(resolved_path)
     connection.row_factory = sqlite3.Row
-    initialize_schema(connection)
+    try:
+        initialize_schema(connection)
+    except PlayStoreError:
+        connection.close()
+        raise
     return connection
 
 
 def initialize_schema(connection: sqlite3.Connection) -> None:
-    connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    stored_version = connection.execute("PRAGMA user_version").fetchone()[0]
+    if stored_version > SCHEMA_VERSION:
+        raise PlayStoreError(
+            f"Play store schema version {stored_version} was written by a newer "
+            f"version of the tool; this version supports schema version {SCHEMA_VERSION}."
+        )
+    if stored_version not in (0, SCHEMA_VERSION):
+        raise PlayStoreError(
+            f"Play store schema version {stored_version} predates this tool's schema "
+            f"version {SCHEMA_VERSION} and needs migration."
+        )
+
     schema_sql = """
         CREATE TABLE IF NOT EXISTS plays (
           account_id         TEXT NOT NULL,
@@ -132,6 +147,8 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
         );
         """
     connection.executescript(schema_sql)
+    if stored_version == 0:
+        connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
 def upsert_plays(  # pylint: disable=too-many-arguments
