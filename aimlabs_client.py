@@ -6,6 +6,8 @@ import json
 import time
 from typing import Optional
 
+import requests
+
 from benchmark_constants import DEFAULT_DIFFICULTY, DEFAULT_TASK_MODE, get_scenarios
 
 ENDPOINT = "https://api.aimlab.gg/graphql"
@@ -39,25 +41,10 @@ BASE_HEADERS = {
 LEADERBOARD_SHAPE_ERRORS = (KeyError, TypeError)
 
 
-def _post_json(  # pylint: disable=import-outside-toplevel
-    url: str, payload: dict, headers: dict, timeout: float
-) -> tuple[int, str]:
+def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
     body = json.dumps(payload).encode("utf-8")
-    try:
-        import requests  # type: ignore
-
-        response = requests.post(url, data=body, headers=headers, timeout=timeout)
-        return response.status_code, response.text
-    except ImportError:
-        import urllib.error
-        import urllib.request
-
-        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                return response.getcode(), response.read().decode("utf-8", "replace")
-        except urllib.error.HTTPError as error:
-            return error.code, error.read().decode("utf-8", "replace")
+    response = requests.post(url, data=body, headers=headers, timeout=timeout)
+    return response.status_code, response.text
 
 
 def _build_payload(user_id: str, scenario: dict, source: str) -> dict:
