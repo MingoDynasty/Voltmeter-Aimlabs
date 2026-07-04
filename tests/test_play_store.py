@@ -48,6 +48,22 @@ def get_play_row(connection: sqlite3.Connection, account_id: str, play_id: str) 
 
 
 class PlayStoreSchemaTests(unittest.TestCase):
+    def test_corrupt_store_closes_connection_before_raising(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "aimlabs.db"
+            db_path.write_text("not a SQLite database", encoding="utf-8")
+            connection = sqlite3.connect(db_path)
+
+            with (
+                patch.object(play_store.sqlite3, "connect", return_value=connection),
+                self.assertRaises(sqlite3.DatabaseError),
+            ):
+                play_store.connect(db_path)
+
+            with self.assertRaisesRegex(sqlite3.ProgrammingError, "closed"):
+                connection.execute("SELECT 1")
+            db_path.unlink()
+
     def test_schema_creates_user_version_and_backfill_phase_check(self) -> None:
         connection = play_store.connect(":memory:")
 
@@ -77,6 +93,57 @@ class PlayStoreSchemaTests(unittest.TestCase):
                 """,
                 (ACCOUNT_ID, None, None, "BROKEN", None, None, None, FETCHED_AT),
             )
+
+    def test_existing_current_version_store_reopens(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "aimlabs.db"
+            connection = play_store.connect(db_path)
+            connection.close()
+
+            connection = play_store.connect(db_path)
+            user_version = connection.execute("PRAGMA user_version").fetchone()[0]
+            table_names = {
+                row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+            }
+            connection.close()
+
+        self.assertEqual(user_version, 1)
+        self.assertIn("plays", table_names)
+        self.assertIn("sync_state", table_names)
+
+    def test_newer_schema_version_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "aimlabs.db"
+            connection = sqlite3.connect(db_path)
+            connection.execute("PRAGMA user_version = 99")
+            connection.close()
+
+            with self.assertRaisesRegex(play_store.PlayStoreError, "newer version of the tool"):
+                play_store.connect(db_path)
+
+            connection = sqlite3.connect(db_path)
+            user_version = connection.execute("PRAGMA user_version").fetchone()[0]
+            connection.close()
+
+        self.assertEqual(user_version, 99)
+
+    def test_older_schema_version_requires_migration(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "aimlabs.db"
+            connection = play_store.connect(db_path)
+            connection.close()
+
+            with (
+                patch.object(play_store, "SCHEMA_VERSION", 2),
+                self.assertRaisesRegex(play_store.PlayStoreError, "needs migration"),
+            ):
+                play_store.connect(db_path)
+
+            connection = sqlite3.connect(db_path)
+            user_version = connection.execute("PRAGMA user_version").fetchone()[0]
+            connection.close()
+
+        self.assertEqual(user_version, 1)
 
     def test_sync_state_round_trips_and_enforces_resume_cursor_phase(self) -> None:
         connection = play_store.connect(":memory:")
