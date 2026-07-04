@@ -1,7 +1,9 @@
 import json
 import unittest
 from typing import Optional
+from unittest.mock import Mock, patch
 
+import aimlabs_history
 from aimlabs_history import (
     AimlabsCursorRejectedError,
     AimlabsHistoryError,
@@ -45,6 +47,37 @@ def history_body(
 
 
 class AimlabsHistoryTests(unittest.TestCase):
+    def test_post_json_returns_response_status_and_text(self) -> None:
+        response = Mock(status_code=202, text="synthetic response")
+        with patch("aimlabs_history.requests.post", return_value=response) as post_mock:
+            result = aimlabs_history._post_json(
+                "https://example.invalid/graphql",
+                {"synthetic": True},
+                {"X-Synthetic": "header"},
+                4.5,
+            )
+
+        self.assertEqual(result, (202, "synthetic response"))
+        post_mock.assert_called_once_with(
+            "https://example.invalid/graphql",
+            data=b'{"synthetic": true}',
+            headers={"X-Synthetic": "header"},
+            timeout=4.5,
+        )
+
+    def test_post_json_propagates_requests_exceptions(self) -> None:
+        with patch(
+            "aimlabs_history.requests.post",
+            side_effect=aimlabs_history.requests.exceptions.Timeout("synthetic timeout"),
+        ):
+            with self.assertRaises(aimlabs_history.requests.exceptions.Timeout):
+                aimlabs_history._post_json(
+                    "https://example.invalid/graphql",
+                    {"synthetic": True},
+                    {},
+                    4.5,
+                )
+
     def test_build_history_payload_uses_unfiltered_mode_stream(self) -> None:
         payload = build_history_payload(ACCOUNT_ID, page_size=50, after="cursor-1")
 
