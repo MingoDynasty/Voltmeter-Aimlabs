@@ -28,6 +28,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "sync": _run_sync,
         "login": _run_login,
         "refresh-catalog": _run_refresh_catalog,
+        "scores": _run_scores,
     }
     try:
         return handlers[args.command](args)
@@ -123,6 +124,39 @@ def _build_parser() -> argparse.ArgumentParser:
         help="validate/rebuild the bundled scenario catalog and report duplicate task ids "
         "(maintainer diagnostic; not required for normal use)",
         allow_abbrev=False,
+    )
+
+    scores_parser = subparsers.add_parser(
+        "scores",
+        parents=[common],
+        help="fetch current leaderboard PBs and render Voltaic rank/energy snapshots",
+        allow_abbrev=False,
+    )
+    scores_parser.add_argument("--user-id", help="Aimlabs user id; overrides config.toml")
+    scores_parser.add_argument(
+        "--difficulty",
+        default="all",
+        choices=["novice", "intermediate", "advanced", "all"],
+    )
+    scores_parser.add_argument(
+        "--scenario",
+        help="only this scenario key; with --difficulty all, fetches every difficulty where the key appears",
+    )
+    scores_parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
+    scores_parser.add_argument("--raw", action="store_true", help="include full entry data blobs in JSON")
+    scores_parser.add_argument("--out", help="write JSON to this file")
+    scores_parser.add_argument("--source", default="cache")
+    scores_parser.add_argument("--timeout", type=float, default=20.0)
+    scores_parser.add_argument(
+        "--request-delay",
+        type=float,
+        default=0.25,
+        help="seconds to wait between scenario requests",
+    )
+    scores_parser.add_argument(
+        "--run-deadline",
+        type=float,
+        help="optional max run duration in seconds before remaining requests are skipped",
     )
     return parser
 
@@ -262,6 +296,38 @@ def _run_refresh_catalog(args: argparse.Namespace) -> int:
         for task_id in catalog.duplicate_task_ids:
             print(f"duplicate task id: {task_id}", file=sys.stderr)
     return 0
+
+
+def _run_scores(args: argparse.Namespace) -> int:
+    # Scores keeps its public/no-login behavior. Importing here preserves the
+    # report command's strict offline import boundary (design §10/§11).
+    import aimlab_scores  # pylint: disable=import-outside-toplevel
+
+    scores_argv = [
+        "--difficulty",
+        args.difficulty,
+        "--source",
+        args.source,
+        "--timeout",
+        str(args.timeout),
+        "--request-delay",
+        str(args.request_delay),
+    ]
+    if args.config is not None:
+        scores_argv.extend(("--config", args.config))
+    if args.user_id is not None:
+        scores_argv.extend(("--user-id", args.user_id))
+    if args.scenario is not None:
+        scores_argv.extend(("--scenario", args.scenario))
+    if args.json:
+        scores_argv.append("--json")
+    if args.raw:
+        scores_argv.append("--raw")
+    if args.out is not None:
+        scores_argv.extend(("--out", args.out))
+    if args.run_deadline is not None:
+        scores_argv.extend(("--run-deadline", str(args.run_deadline)))
+    return aimlab_scores.main(scores_argv)
 
 
 def _warn_on_practice_contamination(account_id: str, bearer: str, *, timeout: float) -> None:

@@ -1,4 +1,4 @@
-python main.py
+uv run voltmeter scores
 Fetched novice scores in 10.46s (21/21 returned).
 Fetched intermediate scores in 10.50s (21/21 returned).
 Fetched advanced scores in 10.56s (21/21 returned).

@@ -252,17 +252,6 @@ def _records_for_json(rows: list[dict], include_raw: bool) -> list[dict]:
     return [{field_name: field_value for field_name, field_value in row.items() if field_name != "raw"} for row in rows]
 
 
-def _parse_extra_headers(header_texts: list[str]) -> dict:
-    extra_headers = {}
-    for header_text in header_texts:
-        if ":" not in header_text:
-            print(f"ignoring malformed --header {header_text!r}", file=sys.stderr)
-            continue
-        header_key, header_value = header_text.split(":", 1)
-        extra_headers[header_key.strip()] = header_value.strip()
-    return extra_headers
-
-
 def _auth_headers_from_config(
     *,
     env: Optional[Mapping[str, str]] = None,
@@ -428,15 +417,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         type=float,
         help="optional max run duration in seconds before remaining requests are skipped",
     )
-    parser.add_argument(
-        "--header",
-        action="append",
-        default=[],
-        help=(
-            'extra header "Key: Value"; avoid passing secrets here because '
-            "command-line values can be exposed in shell history/process lists"
-        ),
-    )
     args = parser.parse_args(argv)
 
     try:
@@ -460,9 +440,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(error, file=sys.stderr)
         return 2
 
-    extra_headers = _parse_extra_headers(args.header)
-    for header_key, header_value in _auth_headers_from_config().items():
-        extra_headers.setdefault(header_key, header_value)
+    extra_headers = _auth_headers_from_config()
     deadline_at = time.monotonic() + args.run_deadline if args.run_deadline is not None else None
 
     rows = _fetch_scores_with_timing(
@@ -491,7 +469,3 @@ def main(argv: Optional[list[str]] = None) -> int:
         _print_tables(rows)
 
     return _exit_code_for_rows(rows)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

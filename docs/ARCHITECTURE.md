@@ -179,8 +179,10 @@ is effectively "logged in as the user" for a month. Treat it like a password
 On a normal run the script resolves auth in this order (see
 `resolve_authorization`):
 
-1. **Explicit header** — `--header "Authorization: Bearer …"` always wins and
-   bypasses everything below. (Manual override / debugging.)
+1. **Explicit Authorization override (retired POC behavior)** — the old script
+   allowed a literal bearer for manual debugging. The production CLI deliberately
+   removed this channel; credentials now come only from file/env-managed session
+   sources.
 2. **`AIMLAB_SESSION`** (preferred) — a session cookie. The script calls
    `/api/auth/session` (`fetch_bearer_from_session`) to mint a fresh bearer.
 3. **`AIMLAB_TOKEN`** (fallback) — a raw bearer pasted in directly. Lasts ~1h,

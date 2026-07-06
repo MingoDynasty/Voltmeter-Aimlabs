@@ -219,7 +219,7 @@ Built **into the package**, reusing existing modules. New modules:
 | `history_sync.py` | orchestrates the sync state machine: early-break, resume, 401 re-mint, backoff, drift | `aimlabs_auth`, `aimlabs_history`, `play_store` | yes (boundary injected) |
 | `scenario_catalog.py` | union season resources → catalog records; rebuildable; resolver interface for a future API source | `voltaic_benchmarks` resources | no |
 | `history_report.py` | offline runs table + basic rolling stats (store-only) | `play_store`, `scenario_catalog` | **no — ever** |
-| `cli.py` (or extend `main.py`) | argparse subcommands: `sync` / `login` / `report` / `refresh-catalog` | all of the above | — |
+| `cli.py` | argparse subcommands: `sync` / `login` / `report` / `refresh-catalog` / `scores` | all of the above | — |
 
 Keep `aimlabs_history.py` **stateless and separate** from `history_sync.py` (per review) so
 pagination/parse logic is trivially testable. **Reused as-is:** `aimlabs_client.py`,
@@ -677,14 +677,11 @@ Detail in auth doc §8; pipeline-relevant points:
   `data/session.json` > `$AIMLAB_SESSION` > `.env`. **The secret never appears as a literal CLI
   argument** (§11, review round-7 #1) — only file/env channels. `--session-file` is a read-only,
   non-rotation-managed override and must come from an independent login.
-  - **Note (M6b):** both `voltmeter` and `aimlab_scores` resolve auth through these `AIMLAB_SESSION`
+  - **Note (M7a):** both the history commands and `voltmeter scores` resolve auth through these `AIMLAB_SESSION`
     channels by default; the legacy `[aimlabs].session_cookie` config key and `AIMLABS_COOKIE` env
-    var the shipped `aimlab_scores` tool once accepted were **removed at M6b** (no users depended on
-    them pre-release), so the README/`config.example.toml` describe only the unified scheme. The
-    **no-literal-CLI-secret** rule above is a `voltmeter` property (decision 24); `aimlab_scores`
-    keeps a general `--header` debug passthrough that can carry or override a cookie (with a leak
-    warning in its `--help`) — that escape hatch is **outside** the pipeline's secret model, not a
-    contradiction of it.
+    var the original snapshot tool once accepted were **removed at M6b** (no users depended on
+    them pre-release), and its literal-header passthrough was removed at M7a. The
+    README/`config.example.toml` therefore describe only the unified file/env scheme.
 - **Auth policy** is production-specific — see §4 (managed session canonical for sync; bearer
   debug-only; report never auths; **`sync` never opens a login window** — fails with "run
   `login`" for missing/corrupt/residual terminal auth, so unattended is the default).
