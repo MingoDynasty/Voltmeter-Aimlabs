@@ -59,7 +59,11 @@ keying scheme (slug vs task_id), and a divergent resource-loading scope (s1-only
 
 - Add a `scores` subparser to `cli.py` mirroring `aimlab_scores.main`'s arguments (`--difficulty`,
   `--scenario`, `--json`, `--raw`, `--out`, `--source`, `--timeout`, `--request-delay`,
-  `--run-deadline`, `--header`, `--user-id`). Keep `aimlab_scores.py`'s functions as the
+  `--run-deadline`, `--user-id`) — **except `--header`, which is retired at M7a** (Codex review
+  2026-07-05, P1): mirroring it would put a literal-credential-capable flag on the `voltmeter`
+  command line, violating decision 24; the CODING_STANDARDS checklist carve-out ("out of pipeline
+  scope") only held while `aimlab_scores` was a separate binary. Remove the arg from
+  `aimlab_scores.main` too, and update that checklist line. Keep `aimlab_scores.py`'s functions as the
   implementation; the subcommand handler is a thin adapter (mirrors how `sync`/`login` lazy-import
   their heavy deps so the offline `report` path stays clean — §10/§11).
 - Keep `--config`/`--verbose` honored in both positions (consistent with the 2026-06-16 fix).
@@ -78,6 +82,8 @@ keying scheme (slug vs task_id), and a divergent resource-loading scope (s1-only
 - `voltmeter scores [...]` reproduces today's `python main.py [...]` output byte-for-byte (same
   tables / JSON), including the no-login path.
 - `voltmeter --help` lists `scores`; `main.py` no longer exists and nothing imports it.
+- No `--header` anywhere: not on `voltmeter scores`, and removed from `aimlab_scores.main`
+  (decision 24 holds unqualified; the CODING_STANDARDS checklist line drops its carve-out).
 - Offline `report` path still imports no network/auth modules (existing §10/§11 test still green).
 - No **live** `main.py` references remain — code, `.github/workflows/ci.yml`, `README.md`,
   `config.example.toml`, and user-facing docs are all clear; CI stays green with the file deleted.
@@ -133,8 +139,9 @@ The two layers differ in three load-bearing ways that the refactor must reconcil
   catalog itself stays task_id-keyed.
 - **Expose s2/s3 to `scores`?** Confirm the leaderboard endpoint serves them before turning them
   on; if not, gate `scores` to `has_leaderboards` records.
-- **Where thresholds live:** on `ScenarioCatalogRecord` directly vs a side table keyed by
-  (task_id, tier). Direct is simpler; a side table avoids widening the already-large record.
+- **Where thresholds live:** **resolved 2026-07-05** (Codex review, P2 — the §14 M7b row and this
+  question had diverged) — directly on `ScenarioCatalogRecord`; "direct is simpler" wins, revisit
+  only if the record grows unwieldy.
 - **Milestone numbering:** **resolved 2026-07-05** — scheduled as **M7a / M7b** in design §14.
 
 ---

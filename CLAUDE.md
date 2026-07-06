@@ -27,8 +27,9 @@ so the user can distinguish their own GitHub activity from Claude's.
 
 ## `ignore/` scratch directory — layout (set 2026-07-03)
 
-`ignore/` is the gitignored local scratch area. Route new files into its
-subdirectories — never drop them at the top level (see `ignore/README.md`):
+`ignore/` is the gitignored local scratch area. **This section is the canonical layout** —
+`ignore/README.md` is an untracked local mirror that clean clones won't have (recreate it from
+here if useful). Route new files into the subdirectories — never drop them at the top level:
 
 - `ignore/pr-reviews/` — PR review handoff docs (`pr<num>-review.md`) and per-PR pushback notes
 - `ignore/handoffs/` — milestone handoff docs and working-thread notes
@@ -36,7 +37,8 @@ subdirectories — never drop them at the top level (see `ignore/README.md`):
   write their output under `ignore/aimlabs_dump/`)
 - `ignore/aimlabs_dump/` — raw API dump output from those scripts (personal play data)
 
-A file that fits no category gets a new subdirectory (add it to `ignore/README.md`).
+A file that fits no category gets a new subdirectory (record it here; mirror to
+`ignore/README.md` if that file exists locally).
 
 ## Run-history pipeline — build process (consistent across chats)
 
@@ -76,10 +78,13 @@ when a milestone merges (don't rely on it being current when you arrive):
   (decision 20). **M7a/M7b scheduled 2026-07-05** (user decision; 2026-07-04 audit finding 1):
   `docs/SCORES_CONSOLIDATION_PROPOSAL.md` is the spec. **This PR (#41) records the acceptance +
   §14 rows and merges only after Codex's proposal review round** — the standard loop's Codex
-  review never ran for this proposal (all 2026-06-16 revisions were Claude-side), so it runs now:
-  vault note "Voltmeter-Aimlabs — Audit 2026-07-04 — handoff prompts", **Prompt 3a** = review
-  round (fire first, while #41 is open) · **Prompt 3b** = implementation (fire after 3a's PROCEED
-  verdict — or resolved pushback — and #41's merge). **M7a** ⬜ `voltmeter scores` entry-point
+  review never ran for this proposal (all 2026-06-16 revisions were Claude-side), so it ran
+  2026-07-05: **PUSHBACK, all three findings confirmed and resolved on this branch** — P1
+  `--header` mirroring vs decision 24 → `--header` retired at M7a; P2 threshold-storage
+  open-question vs §14 row → resolved on-record; P2 CLAUDE.md pointing clean clones at untracked
+  `ignore/README.md` → this file made canonical. Remaining order: merge #41 (bless) → fire
+  **Prompt 3b** (implementation; vault note "Voltmeter-Aimlabs — Audit 2026-07-04 — handoff
+  prompts", already amended to drop `--header`). **M7a** ⬜ `voltmeter scores` entry-point
   unification (retire `main.py`) · **M7b** ⬜ scenario-metadata unification (retire
   `benchmark_constants.py`, tier thresholds onto the catalog; strictly after M7a lands + review).
 - _M6 was split 2026-06-12 (user decision; supersedes the single-M6 row in design §14):
