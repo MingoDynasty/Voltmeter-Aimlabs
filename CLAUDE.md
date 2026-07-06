@@ -56,7 +56,7 @@ is the user's account).
    `CODING_STANDARDS.md` — CI-green is the floor, not the bar; verify the hard-case tests actually exist.
 3. **Merge.** The user merges after Claude's LGTM, then the next milestone starts.
 
-**Order:** `M1 → M2a → M2b → M3 (∥ after M1) → M4 → M6`. Review+merge each before the next
+**Order:** `M1 → M2a → M2b → M3 (∥ after M1) → M4 → M6 → M7a → M7b`. Review+merge each before the next
 builds on it (serialize the critical path; M3 may run parallel to M2). CI gate =
 mypy/pytest/pylint/ruff; new modules → add to `[tool.setuptools] py-modules`; **fixtures
 synthetic only** (never a real account dump).
@@ -72,19 +72,27 @@ when a milestone merges (don't rely on it being current when you arrive):
   **M6b** ✅ decommission + docs reconciliation — PoC scripts retired, README/`config.example.toml`
   on `AIMLAB_SESSION`, legacy `AIMLABS_COOKIE`/`session_cookie` channels **removed** (no users
   pre-release; user decision this chat), design docs relocated to `docs/` (#22)
-- **M6b is the last milestone**; with it merged the pipeline build is complete (M5/trend deferred),
-  and M4+M6a become user-release-complete (decision 20).
+- **M6b closed the original pipeline build** (M5/trend deferred); M4+M6a are user-release-complete
+  (decision 20). **M7a/M7b scheduled 2026-07-05** (user decision; 2026-07-04 audit finding 1):
+  `docs/SCORES_CONSOLIDATION_PROPOSAL.md` accepted — the proposal is the spec, rows added to design
+  §14. **M7a** ⬜ `voltmeter scores` entry-point unification (retire `main.py`) · **M7b** ⬜
+  scenario-metadata unification (retire `benchmark_constants.py`, tier thresholds onto the catalog;
+  strictly after M7a lands + review). Codex handoff prompt: vault note
+  "Voltmeter-Aimlabs — Audit 2026-07-04 — handoff prompts", Prompt 3.
 - _M6 was split 2026-06-12 (user decision; supersedes the single-M6 row in design §14):
   **M6a** = wire the remaining CLI verbs + sync-side pieces, code only; **M6b** = retire
   `proof-of-concepts/` scripts, reconcile `README.md`/`config.example.toml` onto
   `AIMLAB_SESSION`, relocate the design docs. Also settled: `aimlab_scores.py` gets unified
-  auth but keeps its own entry point (not folded into `voltmeter`). User-release-complete
+  auth but keeps its own entry point (not folded into `voltmeter`) — **the entry-point half of
+  that is superseded by M7a** (proposal accepted 2026-07-05). User-release-complete
   still requires M6b (decision 20)._
 - _M6a review (PR #19) deferred items — now resolved: **P3** routed `play_store` field-drift
   warnings to the caller's `warning_stream` (PR #20); and the **legacy `session_cookie`/`AIMLABS_COOKIE`
   channels** were **removed outright** in M6b (no users pre-release), which also resolved the design
   §4/§11-vs-§12 wording inconsistency by deletion (decision 7 updated)._
-- _Last reconciled: 2026-06-13 (Claude Code); M6b merged as #22 — pipeline build complete._
+- _Last reconciled: 2026-07-05 (Claude Code); no milestone PRs since #22 — post-M6b merges are
+  maintenance (CI lockfile pin #35, client retry tests/cleanup #37/#38, Dependabot config).
+  M7a/M7b scheduled this date; neither started._
 - (`M1_BRIEF.md` was vestigial — briefs were dropped; design §14 is the spec — and was deleted
   2026-06-12; recoverable from git history. **Docs finalization — done in M6b:**
   `RUN_HISTORY_ARCHITECTURE.md` + `ARCHITECTURE.md` promoted to `docs/`; `REVIEW_CHECKLIST.md`

@@ -1,7 +1,8 @@
 # Voltmeter-Aimlabs — Run-History Pipeline: Design
 
 **Status:** Finalized — **rev 9** (incorporates three review rounds plus round-4 → round-8
-general findings; M1–M4 + M6 shipped, M5/trend deferred)
+general findings; M1–M4 + M6 shipped, M5/trend deferred; **M7a/M7b added to §14 on 2026-07-05**
+from the accepted [`SCORES_CONSOLIDATION_PROPOSAL.md`](SCORES_CONSOLIDATION_PROPOSAL.md))
 **Date:** 2026-06-06
 **Author:** MingoDynasty
 **Audience:** senior engineers; one will likely implement this.
@@ -766,8 +767,11 @@ no practice; no `is_practice` column); only the non-blocking cursor-expiry check
 | **M4** | **Runs table + basic stats** | `history_report.py` + `report` command: reverse-chron table, per-`task_id` PB/median/rolling stats; **offline-only (no auth/network)**; scoped by `report_family` (default `all`) + "other" footer; **non-APPROVED excluded by default with a visible note**; **timezone labeled**; **JSON output** included if a dashboard/test consumer exists, else console-only with JSON fast-follow. |
 | **M5** | **(deferred)** trend / cold-score | Not near-term (§10.3, §16). |
 | **M6** | **Decommission the POC** | Split into **M6a** (CLI wiring — `sync`/`login`/`refresh-catalog`, unified `aimlab_scores` auth) and **M6b** (this milestone): retire the `proof-of-concepts/` history scripts; reconcile **`README.md` + `config.example.toml`** onto the unified scheme (`[aimlabs].user_id`, `AIMLAB_SESSION`, `report_family` default); relocate the design docs to `docs/`. The legacy `AIMLABS_COOKIE`/`session_cookie` channels were **removed outright** at M6b (no users pre-release), not merely dropped from docs. |
+| **M7a** | **Scores entry point** | **Part 1 of [`SCORES_CONSOLIDATION_PROPOSAL.md`](SCORES_CONSOLIDATION_PROPOSAL.md) — the proposal is the spec** (accepted 2026-07-05; supersedes the M6-era "keeps its own entry point" note). `voltmeter scores` subcommand runs the `aimlab_scores` logic via a thin lazy-importing adapter; **byte-for-byte output parity** (tables/JSON, incl. the **no-login path**), captured as a golden output that doubles as M7b's regression baseline; `scores` stays non-interactive (decision 23); `main.py` deleted + dropped from `py-modules`; **live-reference sweep** (ci.yml's 4 mentions, README's `uv run aimlab_scores.py` invocations, `docs/example_output.log` regenerated); offline `report` import-isolation stays green. |
+| **M7b** | **One scenario catalog** | **Part 2 of the proposal — starts only after M7a lands + review.** `benchmark_constants.py` retired; `scenario_catalog` is the sole metadata layer with **task_id-unique qualified `name`** (no regression of the 2026-06-16 display fix) and **tier thresholds on the record** (+ a unit test pinning a known scenario's thresholds); `scores` derives its short label/base-name slug at its own layer, `--scenario <slug>` unchanged for `valorant_s1`; **tabular data regression-locked** against M7a's golden output; s2/s3 exposure only if the leaderboard endpoint is confirmed to serve them (else gate on `has_leaderboards`). |
 
-Order: **M1 → M2a → M2b → M3 → M4 → M6** (§5.1 validation done). M4 can begin once M1+M3 exist.
+Order: **M1 → M2a → M2b → M3 → M4 → M6 → M7a → M7b** (§5.1 validation done). M4 can begin once
+M1+M3 exist; M7b strictly after M7a lands and is reviewed.
 
 **Milestones cut across sections** (they are *build* units, not the doc's *section* numbers — one
 milestone implements parts of several sections, each its own gate-green PR):
@@ -780,6 +784,8 @@ milestone implements parts of several sections, each its own gate-green PR):
 | **M3** Catalog | `scenario_catalog.py` | §9 | M1 (parallel to M2) |
 | **M4** Report | `history_report.py`, `cli.py` | §10, §11 | M1 + M3 |
 | **M6** Decommission | — | §12/§14 doc reconciliation; retire POC | M1–M4 |
+| **M7a** Scores CLI | — (extends `cli.py`; retires `main.py`) | `SCORES_CONSOLIDATION_PROPOSAL.md` Part 1 | M6 |
+| **M7b** Catalog unification | — (retires `benchmark_constants.py`) | proposal Part 2; §9 | M7a |
 
 So the critical path is **M1 → M2a → M2b**, with **M3 parallelizable** after M1 and **M4** joining
 once M1+M3 land. §13 (testing) and §15 (decisions) are cross-cutting — every milestone adds its

@@ -1,7 +1,8 @@
 # Proposal: Fold `aimlab_scores` under `voltmeter` and unify the scenario-metadata layer
 
-**Status:** Proposal — authored by **Claude Code**, 2026-06-16. Not yet scheduled; intended to
-become milestones in `RUN_HISTORY_ARCHITECTURE.md` §14 once accepted.
+**Status:** **Accepted 2026-07-05** (2026-07-04 audit finding 1 — user decision) — scheduled as
+**M7a** (Part 1) / **M7b** (Part 2) in `RUN_HISTORY_ARCHITECTURE.md` §14. Authored by
+**Claude Code**, 2026-06-16.
 **Scope:** two parts, sequenced. **Part 1** (entry-point unification) is low-risk CLI plumbing
 and stands alone. **Part 2** (metadata unification) is a larger, riskier refactor that should
 only be picked up after Part 1 lands and is reviewed.
@@ -134,7 +135,7 @@ The two layers differ in three load-bearing ways that the refactor must reconcil
   on; if not, gate `scores` to `has_leaderboards` records.
 - **Where thresholds live:** on `ScenarioCatalogRecord` directly vs a side table keyed by
   (task_id, tier). Direct is simpler; a side table avoids widening the already-large record.
-- **Milestone numbering:** slot Part 1 / Part 2 into design §14 (e.g. M7a / M7b) when accepted.
+- **Milestone numbering:** **resolved 2026-07-05** — scheduled as **M7a / M7b** in design §14.
 
 ---
 
