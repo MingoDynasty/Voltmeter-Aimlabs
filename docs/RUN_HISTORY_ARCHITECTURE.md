@@ -2,7 +2,8 @@
 
 **Status:** Finalized — **rev 9** (incorporates three review rounds plus round-4 → round-8
 general findings; M1–M4 + M6 shipped, M5/trend deferred; **M7a/M7b added to §14 on 2026-07-05**
-from the accepted [`SCORES_CONSOLIDATION_PROPOSAL.md`](SCORES_CONSOLIDATION_PROPOSAL.md))
+from the accepted [`SCORES_CONSOLIDATION_PROPOSAL.md`](SCORES_CONSOLIDATION_PROPOSAL.md) —
+**M7a shipped 2026-07-06 (#45)**, M7b next)
 **Date:** 2026-06-06
 **Author:** MingoDynasty
 **Audience:** senior engineers; one will likely implement this.

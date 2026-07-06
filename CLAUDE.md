@@ -76,17 +76,20 @@ when a milestone merges (don't rely on it being current when you arrive):
   pre-release; user decision this chat), design docs relocated to `docs/` (#22)
 - **M6b closed the original pipeline build** (M5/trend deferred); M4+M6a are user-release-complete
   (decision 20). **M7a/M7b scheduled 2026-07-05** (user decision; 2026-07-04 audit finding 1):
-  `docs/SCORES_CONSOLIDATION_PROPOSAL.md` is the spec. **This PR (#41) records the acceptance +
-  §14 rows and merges only after Codex's proposal review round** — the standard loop's Codex
-  review never ran for this proposal (all 2026-06-16 revisions were Claude-side), so it ran
-  2026-07-05: **PUSHBACK, all three findings confirmed and resolved on this branch** — P1
-  `--header` mirroring vs decision 24 → `--header` retired at M7a; P2 threshold-storage
-  open-question vs §14 row → resolved on-record; P2 CLAUDE.md pointing clean clones at untracked
-  `ignore/README.md` → this file made canonical. Remaining order: merge #41 (bless) → fire
-  **Prompt 3b** (implementation; vault note "Voltmeter-Aimlabs — Audit 2026-07-04 — handoff
-  prompts", already amended to drop `--header`). **M7a** ⬜ `voltmeter scores` entry-point
-  unification (retire `main.py`) · **M7b** ⬜ scenario-metadata unification (retire
-  `benchmark_constants.py`, tier thresholds onto the catalog; strictly after M7a lands + review).
+  `docs/SCORES_CONSOLIDATION_PROPOSAL.md` is the spec, accepted via #41 after the Codex
+  proposal-review round ran 2026-07-05 (PUSHBACK, resolved — notably `--header` retired per
+  decision 24; threshold storage resolved directly-on-record; this file made canonical for the
+  `ignore/` layout).
+- **M7a** ✅ `voltmeter scores` subcommand (thin lazy adapter), `main.py` deleted, `--header`
+  retired, README/docs/ci.yml swept, `docs/example_output.log` regenerated live, full-catalog
+  parity goldens (`tests/fixtures/scores_full_catalog_{table,json}_golden.json`) captured as
+  **M7b's regression baseline** (#45; review trail `ignore/pr-reviews/pr45-review.md`, LGTM
+  after two re-reviews). **M7b** ⬜ scenario-metadata unification — retire
+  `benchmark_constants.py` (rehome its non-metadata exports, e.g. `DEFAULT_DIFFICULTY`), tier
+  thresholds **directly on `ScenarioCatalogRecord`**, scores-layer label/slug derivation, s2/s3
+  gated on `has_leaderboards` — **next up**; Codex handoff = vault note "Voltmeter-Aimlabs —
+  Audit 2026-07-04 — handoff prompts", **Prompt 4** (pr45-review P4 notes: exit-code 2-vs-1
+  harmonization and adapter default absorption stay post-M7b/optional).
 - _M6 was split 2026-06-12 (user decision; supersedes the single-M6 row in design §14):
   **M6a** = wire the remaining CLI verbs + sync-side pieces, code only; **M6b** = retire
   `proof-of-concepts/` scripts, reconcile `README.md`/`config.example.toml` onto
@@ -98,9 +101,11 @@ when a milestone merges (don't rely on it being current when you arrive):
   warnings to the caller's `warning_stream` (PR #20); and the **legacy `session_cookie`/`AIMLABS_COOKIE`
   channels** were **removed outright** in M6b (no users pre-release), which also resolved the design
   §4/§11-vs-§12 wording inconsistency by deletion (decision 7 updated)._
-- _Last reconciled: 2026-07-05 (Claude Code); no milestone PRs since #22 — post-M6b merges are
-  maintenance (CI lockfile pin #35, client retry tests/cleanup #37/#38, Dependabot config).
-  M7a/M7b scheduled this date; neither started._
+- _Last reconciled: 2026-07-06 (Claude Code); #41 (scheduling bless) and **M7a as #45** merged
+  this date, plus maintenance: Linux CI matrix #40, Dependabot batch #42–#44. M7b is the only
+  open milestone (M5/trend still deferred); Prompt 4 handoff written. NB: PR #46 (tooling swap)
+  went CONFLICTING when #45 merged — per plan it gets regenerated, not rebased; sequence it
+  around M7b deliberately (both churn pyproject/ci.yml)._
 - (`M1_BRIEF.md` was vestigial — briefs were dropped; design §14 is the spec — and was deleted
   2026-06-12; recoverable from git history. **Docs finalization — done in M6b:**
   `RUN_HISTORY_ARCHITECTURE.md` + `ARCHITECTURE.md` promoted to `docs/`; `REVIEW_CHECKLIST.md`
