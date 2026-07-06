@@ -1,0 +1,25 @@
+[
+  {
+    "key": "floatshot",
+    "name": "Floatshot",
+    "category": "Flick-tech",
+    "sub": "Dynamic",
+    "difficulty": "novice",
+    "task_id": "CsLevel.Lowgravity56.VT Float.RSM6A6",
+    "weapon_id": "Custom_LG56CLICKER4",
+    "ok": true,
+    "score": 450,
+    "accuracy": 87.5,
+    "rank": 123,
+    "ended_at": "2026-07-05T19:30:00Z",
+    "error": null,
+    "voltaic_scenario": "VT Floatshot VALORANT Easy",
+    "voltaic_rank": "Iron",
+    "voltaic_rank_energy": 100,
+    "voltaic_energy": 150,
+    "voltaic_uncapped_energy": 150,
+    "next_rank": "Bronze",
+    "next_rank_target_score": 500,
+    "next_rank_progress_percent": 50.0
+  }
+]

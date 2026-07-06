@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import sys
 import tempfile
@@ -415,6 +416,239 @@ class CliRefreshCatalogTests(unittest.TestCase):
         self.assertEqual(scenario_catalog.load_catalog.cache_info().currsize, 0)
 
 
+class CliScoresTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self.addCleanup(self._temp_dir.cleanup)
+        self.temp_path = Path(self._temp_dir.name)
+        self.config_path = self.temp_path / "config.toml"
+        self.config_path.write_text(f'[aimlabs]\nuser_id = "{ACCOUNT_ID}"\n', encoding="utf-8")
+        self._original_cwd = Path.cwd()
+        os.chdir(self.temp_path)
+        self.addCleanup(os.chdir, self._original_cwd)
+
+    def test_scores_table_matches_standalone_golden_without_login(self) -> None:
+        expected_lines = json.loads(
+            (Path(__file__).parent / "fixtures" / "scores_table_golden.json").read_text(encoding="utf-8")
+        )
+        expected_stdout = "\n".join(expected_lines) + "\n"
+        seen_headers: list[Optional[dict]] = []
+
+        def fake_fetch_all_scores(
+            *,
+            user_id: str,
+            scenarios: list[dict],
+            extra_headers: Optional[dict],
+            **_kwargs: object,
+        ) -> list[dict]:
+            self.assertEqual(user_id, ACCOUNT_ID)
+            seen_headers.append(extra_headers)
+            return [_synthetic_score_row(scenario) for scenario in scenarios]
+
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            mock.patch("aimlab_scores.fetch_all_scores", side_effect=fake_fetch_all_scores),
+            mock.patch("aimlab_scores.Stopwatch.elapsed", return_value=0.5),
+        ):
+            standalone_exit, standalone_stdout, standalone_stderr = _run_scores_main(
+                [
+                    "--config",
+                    str(self.config_path),
+                    "--scenario",
+                    "floatshot",
+                ]
+            )
+            cli_exit, cli_stdout, cli_stderr = _run_cli(
+                [
+                    "--verbose",
+                    "scores",
+                    "--config",
+                    str(self.config_path),
+                    "--scenario",
+                    "floatshot",
+                ]
+            )
+
+        self.assertEqual(standalone_exit, 0)
+        self.assertEqual(cli_exit, 0)
+        self.assertEqual(standalone_stdout, expected_stdout)
+        self.assertEqual(cli_stdout, expected_stdout)
+        self.assertEqual(cli_stderr, standalone_stderr)
+        self.assertEqual(seen_headers, [None] * 6)
+        self.assertNotIn("webview", sys.modules, "scores must never import the login window machinery")
+
+    def test_scores_json_matches_standalone_golden_with_global_options_after_command(self) -> None:
+        expected_stdout = (Path(__file__).parent / "fixtures" / "scores_json_golden.json").read_text(encoding="utf-8")
+
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            mock.patch(
+                "aimlab_scores.fetch_all_scores",
+                side_effect=lambda *, scenarios, **_kwargs: [_synthetic_score_row(scenario) for scenario in scenarios],
+            ),
+            mock.patch("aimlab_scores.Stopwatch.elapsed", return_value=0.5),
+        ):
+            standalone_exit, standalone_stdout, _ = _run_scores_main(
+                [
+                    "--config",
+                    str(self.config_path),
+                    "--difficulty",
+                    "novice",
+                    "--scenario",
+                    "floatshot",
+                    "--json",
+                ]
+            )
+            cli_exit, cli_stdout, _ = _run_cli(
+                [
+                    "scores",
+                    "--config",
+                    str(self.config_path),
+                    "--verbose",
+                    "--difficulty",
+                    "novice",
+                    "--scenario",
+                    "floatshot",
+                    "--json",
+                ]
+            )
+
+        self.assertEqual(standalone_exit, 0)
+        self.assertEqual(cli_exit, 0)
+        self.assertEqual(standalone_stdout, expected_stdout)
+        self.assertEqual(cli_stdout, expected_stdout)
+
+    def test_scores_full_catalog_matches_golden_outputs_without_login(self) -> None:
+        fixtures_path = Path(__file__).parent / "fixtures"
+        expected_table_lines = json.loads(
+            (fixtures_path / "scores_full_catalog_table_golden.json").read_text(encoding="utf-8")
+        )
+        expected_table = "\n".join(expected_table_lines) + "\n"
+        expected_json = (fixtures_path / "scores_full_catalog_json_golden.json").read_text(encoding="utf-8")
+        fetched_row_counts: list[int] = []
+
+        def fake_fetch_all_scores(
+            *,
+            user_id: str,
+            scenarios: list[dict],
+            extra_headers: Optional[dict],
+            **_kwargs: object,
+        ) -> list[dict]:
+            self.assertEqual(user_id, ACCOUNT_ID)
+            self.assertIsNone(extra_headers)
+            fetched_row_counts.append(len(scenarios))
+            return [_synthetic_score_row(scenario) for scenario in scenarios]
+
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            mock.patch("aimlab_scores.fetch_all_scores", side_effect=fake_fetch_all_scores),
+            mock.patch("aimlab_scores.Stopwatch.elapsed", return_value=0.5),
+        ):
+            standalone_table_exit, standalone_table, standalone_table_stderr = _run_scores_main(
+                ["--config", str(self.config_path)]
+            )
+            cli_table_exit, cli_table, cli_table_stderr = _run_cli(["scores", "--config", str(self.config_path)])
+            standalone_json_exit, standalone_json, standalone_json_stderr = _run_scores_main(
+                ["--config", str(self.config_path), "--json"]
+            )
+            cli_json_exit, cli_json, cli_json_stderr = _run_cli(["scores", "--config", str(self.config_path), "--json"])
+
+        self.assertEqual(
+            (standalone_table_exit, cli_table_exit, standalone_json_exit, cli_json_exit),
+            (0, 0, 0, 0),
+        )
+        self.assertEqual(standalone_table, expected_table)
+        self.assertEqual(cli_table, expected_table)
+        self.assertEqual(cli_table_stderr, standalone_table_stderr)
+        self.assertEqual(standalone_json, expected_json)
+        self.assertEqual(cli_json, expected_json)
+        self.assertEqual(cli_json_stderr, standalone_json_stderr)
+        self.assertEqual(fetched_row_counts, [21] * 12)
+        self.assertEqual(len(json.loads(cli_json)), 63)
+
+    def test_scores_forwards_the_full_argument_surface(self) -> None:
+        output_path = self.temp_path / "scores.json"
+        with mock.patch("aimlab_scores.main", return_value=0) as scores_main:
+            exit_code, _, _ = _run_cli(
+                [
+                    "--config",
+                    str(self.config_path),
+                    "scores",
+                    "--user-id",
+                    "ABCDEF1234567890",
+                    "--difficulty",
+                    "advanced",
+                    "--scenario",
+                    "floatshot",
+                    "--json",
+                    "--raw",
+                    "--out",
+                    str(output_path),
+                    "--source",
+                    "network",
+                    "--timeout",
+                    "7",
+                    "--request-delay",
+                    "0.5",
+                    "--run-deadline",
+                    "30",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        scores_main.assert_called_once_with(
+            [
+                "--difficulty",
+                "advanced",
+                "--source",
+                "network",
+                "--timeout",
+                "7.0",
+                "--request-delay",
+                "0.5",
+                "--config",
+                str(self.config_path),
+                "--user-id",
+                "ABCDEF1234567890",
+                "--scenario",
+                "floatshot",
+                "--json",
+                "--raw",
+                "--out",
+                str(output_path),
+                "--run-deadline",
+                "30.0",
+            ]
+        )
+
+    def test_scores_help_is_listed_and_header_flag_is_retired(self) -> None:
+        import aimlab_scores  # pylint: disable=import-outside-toplevel
+
+        top_level_help = io.StringIO()
+        with redirect_stdout(top_level_help), self.assertRaises(SystemExit) as top_level_exit:
+            cli.main(["--help"])
+        self.assertEqual(top_level_exit.exception.code, 0)
+        self.assertIn("scores", top_level_help.getvalue())
+
+        scores_help = io.StringIO()
+        with redirect_stdout(scores_help), self.assertRaises(SystemExit) as scores_help_exit:
+            cli.main(["scores", "--help"])
+        self.assertEqual(scores_help_exit.exception.code, 0)
+        self.assertNotIn("--header", scores_help.getvalue())
+
+        standalone_help = io.StringIO()
+        with redirect_stdout(standalone_help), self.assertRaises(SystemExit) as standalone_help_exit:
+            aimlab_scores.main(["--help"])
+        self.assertEqual(standalone_help_exit.exception.code, 0)
+        self.assertNotIn("--header", standalone_help.getvalue())
+
+        with redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                cli.main(["scores", "--header", "Cookie: secret"])
+            with self.assertRaises(SystemExit):
+                aimlab_scores.main(["--header", "Cookie: secret"])
+
+
 def _history_page(
     plays: list[dict],
     *,
@@ -436,6 +670,41 @@ def _run_cli(argv: list[str]) -> tuple[int, str, str]:
     with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
         exit_code = cli.main(argv)
     return exit_code, stdout_buffer.getvalue(), stderr_buffer.getvalue()
+
+
+def _run_scores_main(argv: list[str]) -> tuple[int, str, str]:
+    import aimlab_scores  # pylint: disable=import-outside-toplevel
+
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+        exit_code = aimlab_scores.main(argv)
+    return exit_code, stdout_buffer.getvalue(), stderr_buffer.getvalue()
+
+
+def _synthetic_score_row(scenario: dict) -> dict:
+    scores = {
+        "novice": 450,
+        "intermediate": 900,
+        "advanced": 1350,
+    }
+    difficulty = scenario["difficulty"]
+    return {
+        "key": scenario["key"],
+        "name": scenario["name"],
+        "category": scenario["category"],
+        "sub": scenario["sub"],
+        "difficulty": difficulty,
+        "task_id": scenario["task_id"],
+        "weapon_id": scenario["weapon_id"],
+        "ok": True,
+        "score": scores[difficulty],
+        "accuracy": 87.5,
+        "rank": 123,
+        "ended_at": "2026-07-05T19:30:00Z",
+        "error": None,
+        "raw": {"synthetic": True},
+    }
 
 
 def _write_config(temp_path: Path, db_path: Path, *, filename: str = "config.toml") -> Path:

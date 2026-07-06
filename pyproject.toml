@@ -62,7 +62,6 @@ py-modules = [
     "config",
     "history_report",
     "history_sync",
-    "main",
     "play_store",
     "scenario_catalog",
     "stopwatch",

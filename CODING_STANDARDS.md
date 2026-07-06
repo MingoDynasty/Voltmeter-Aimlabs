@@ -50,7 +50,7 @@ not "looks reasonable." Spec = [`docs/RUN_HISTORY_ARCHITECTURE.md`](docs/RUN_HIS
 ### Security
 - [ ] Fixtures **synthetic/sanitized — NO real account dump** committed.
 - [ ] No secrets in the diff (`.env`, cookies, tokens, DB); `.gitignore` still covers them.
-- [ ] No literal credential accepted on the `voltmeter` command line (decision 24); `aimlab_scores.py --header` is a documented debug passthrough that may carry a cookie — out of pipeline scope.
+- [ ] No literal credential accepted on the `voltmeter` command line (decision 24).
 
 ### Tests
 - [ ] The milestone's specific **§13 tests are present** and **mock-only / offline** (CI can't

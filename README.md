@@ -7,12 +7,12 @@ This project is an unofficial personal tracker for Voltaic VALORANT Aimlabs
 benchmark progress. Use it only for accounts and data you are authorized to
 access, and respect Aimlabs and Voltaic terms, rate limits, and availability.
 
-It ships two command-line tools that share the same authentication:
+It ships one command-line tool with complementary commands:
 
-- **`voltmeter`** — the run-history pipeline: sync your play history into a local
+- **`voltmeter sync` / `voltmeter report`** — sync your play history into a local
   store and render an offline runs table with per-scenario stats.
-- **`aimlab_scores.py`** — the original snapshot tool: fetch your current PB for
-  each benchmark scenario and print energy/rank tables (see [Score snapshots](#score-snapshots)).
+- **`voltmeter scores`** — fetch your current PB for each benchmark scenario and
+  print energy/rank tables (see [Score snapshots](#score-snapshots)).
 
 ## Requirements
 
@@ -41,7 +41,7 @@ credential is **not** stored in `config.toml`; see [Authentication](#authenticat
 
 ## Authentication
 
-Both tools authenticate with an Aim Lab session cookie. `voltmeter login` stores
+Commands can attach an Aim Lab session cookie. `voltmeter login` stores
 the captured cookie in a gitignored `.env`, and sync keeps the current rotated
 session link in gitignored `data/session.json`. Provide the initial cookie in one
 of two ways:
@@ -61,12 +61,9 @@ rotation-managed, so scheduled use should prefer `voltmeter login` / `.env`.
 `sync` never opens a login window; if the credential is missing or the managed
 session chain cannot mint a bearer, it exits asking you to run `voltmeter login`.
 `voltmeter report` is fully offline and never touches authentication or the network.
-
-`aimlab_scores.py` reads `AIMLAB_SESSION` automatically too, but additionally accepts
-a general `--header "Key: Value"` passthrough for debugging. Avoid passing a `Cookie:`
-or `Authorization:` secret through it — command-line values can leak into shell history
-and process lists, and an explicit `--header` cookie overrides the resolved
-`AIMLAB_SESSION`.
+`voltmeter scores` works without a login because leaderboard reads are public; when
+`AIMLAB_SESSION` is already configured, it attaches that session without opening a
+login window.
 
 ## Run-history pipeline (`voltmeter`)
 
@@ -93,13 +90,13 @@ editing those resource files to validate the rebuild and report any duplicate
 
 ## Score snapshots
 
-`aimlab_scores.py` prints one table per difficulty, then overall rank and
+`voltmeter scores` prints one table per difficulty, then overall rank and
 subcategory energy summaries for your current PBs. Exact values depend on the
 configured Aimlabs account and PBs. It uses the same `AIMLAB_SESSION` credential
 as `voltmeter` (see [Authentication](#authentication)).
 
 ```bash
-uv run aimlab_scores.py
+uv run voltmeter scores
 ```
 
 See the [full example output](docs/example_output.log) for a complete run.
@@ -153,7 +150,7 @@ The `voltmeter` scenario catalog loads **every** `*.json` file under
 `resources/aimlabs/` — currently `valorant_s1.json`, `aimlabs_s2.json`, and
 `aimlabs_s3.json` — so all three are active for run-history matching.
 
-The `aimlab_scores.py` snapshot tool is narrower: it reads only
+The `voltmeter scores` snapshot command is narrower: it reads only
 `resources/aimlabs/valorant_s1.json` (the Voltaic VALORANT benchmark).
 
 The `resources/kovaaks/` files (`kovaaks_s3.json`, `kovaaks_s4.json`,

@@ -38,7 +38,6 @@ jobs:
           config.py
           history_report.py
           history_sync.py
-          main.py
           play_store.py
           scenario_catalog.py
           stopwatch.py
@@ -68,7 +67,6 @@ jobs:
           config.py
           history_report.py
           history_sync.py
-          main.py
           play_store.py
           scenario_catalog.py
           stopwatch.py
@@ -86,7 +84,6 @@ jobs:
           config.py
           history_report.py
           history_sync.py
-          main.py
           play_store.py
           scenario_catalog.py
           stopwatch.py
@@ -108,7 +105,6 @@ jobs:
           config.py
           history_report.py
           history_sync.py
-          main.py
           play_store.py
           scenario_catalog.py
           stopwatch.py
