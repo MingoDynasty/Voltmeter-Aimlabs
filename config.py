@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
 from typing import Any, Optional, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -17,7 +17,7 @@ class ConfigError(RuntimeError):
 
 
 @dataclass(frozen=True)
-class AppConfig:  # pylint: disable=too-many-instance-attributes
+class AppConfig:
     aimlabs_user_id: Optional[str] = None
     storage_db_path: Optional[str] = None
     sync_page_size: int = 50

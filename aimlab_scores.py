@@ -12,16 +12,16 @@ key is fetched for each difficulty where it appears.
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import re
+import sys
+import time
 from collections.abc import Mapping
 from datetime import datetime, timezone, tzinfo
 from functools import lru_cache
-import json
-import os
 from pathlib import Path
-import re
-import sys
 from tempfile import NamedTemporaryFile
-import time
 from typing import Optional, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -83,7 +83,7 @@ def _format_timestamp(timestamp_text: Optional[str]) -> str:
     return local_timestamp.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def format_table(rows: list[dict]) -> str:  # pylint: disable=too-many-locals
+def format_table(rows: list[dict]) -> str:
     headers = [
         "Scenario",
         "Category/Subcategory",
@@ -336,7 +336,7 @@ def _group_scenarios_by_difficulty(scenarios: list[dict]) -> dict[str, list[dict
     }
 
 
-def _fetch_scores_with_timing(  # pylint: disable=too-many-arguments
+def _fetch_scores_with_timing(  # noqa: PLR0913
     scenarios: list[dict],
     *,
     user_id: str,
@@ -391,7 +391,7 @@ def _write_text_atomic(output_path_text: str, text: str) -> None:
             temp_path = Path(output_file.name)
             output_file.write(text)
         os.replace(temp_path, output_path)
-    except Exception:  # pylint: disable=broad-exception-caught
+    except Exception:
         if temp_path is not None and temp_path.exists():
             temp_path.unlink()
         raise

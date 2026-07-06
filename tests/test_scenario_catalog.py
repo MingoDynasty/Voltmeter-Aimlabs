@@ -5,8 +5,8 @@ from pathlib import Path
 
 import scenario_catalog
 from scenario_catalog import (
-    ScenarioCatalogError,
     UNKNOWN_SCENARIO_NAME,
+    ScenarioCatalogError,
     refresh_catalog,
 )
 

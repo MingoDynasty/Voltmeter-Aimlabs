@@ -31,7 +31,7 @@ BLOCKED_MODULES = (
 
 class CliReportTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self._temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self._temp_dir.cleanup)
         self.temp_path = Path(self._temp_dir.name)
         self.db_path = self.temp_path / "aimlabs.db"
@@ -192,7 +192,7 @@ class CliReportTests(unittest.TestCase):
 
 class CliSyncTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self._temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self._temp_dir.cleanup)
         self.temp_path = Path(self._temp_dir.name)
         self.db_path = self.temp_path / "aimlabs.db"
@@ -557,7 +557,7 @@ class CliRefreshCatalogTests(unittest.TestCase):
 
 class CliScoresTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self._temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self._temp_dir.cleanup)
         self.temp_path = Path(self._temp_dir.name)
         self.config_path = self.temp_path / "config.toml"
@@ -792,7 +792,7 @@ class CliScoresTests(unittest.TestCase):
         )
 
     def test_scores_help_is_listed_and_header_flag_is_retired(self) -> None:
-        import aimlab_scores  # pylint: disable=import-outside-toplevel
+        import aimlab_scores  # noqa: PLC0415
 
         top_level_help = io.StringIO()
         with (
@@ -852,7 +852,7 @@ def _run_cli(argv: list[str]) -> tuple[int, str, str]:
 
 
 def _run_scores_main(argv: list[str]) -> tuple[int, str, str]:
-    import aimlab_scores  # pylint: disable=import-outside-toplevel
+    import aimlab_scores  # noqa: PLC0415
 
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()

@@ -26,7 +26,6 @@ class ScenarioCatalogError(RuntimeError):
     """Raised when bundled scenario catalog resources cannot be loaded."""
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True, slots=True)
 class ScenarioCatalogRecord:
     task_id: str

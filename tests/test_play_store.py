@@ -15,7 +15,7 @@ FETCHED_AT = "2026-06-06T10:00:00.000Z"
 REFETCHED_AT = "2026-06-06T11:00:00.000Z"
 
 
-def synthetic_play(  # pylint: disable=too-many-arguments
+def synthetic_play(
     play_id: str = "play-1",
     *,
     task_id: str = "CsLevel.Lowgravity56.VT Unit.ROAHX3",

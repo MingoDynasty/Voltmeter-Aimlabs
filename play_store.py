@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
+import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import json
 from pathlib import Path
-import sqlite3
-import sys
 from typing import Any, Optional, TextIO, Union
 
 SCHEMA_VERSION = 1
@@ -74,7 +74,7 @@ class UpsertResult:
 
 
 @dataclass(frozen=True)
-class SyncState:  # pylint: disable=too-many-instance-attributes
+class SyncState:
     account_id: str
     resume_cursor: Optional[str]
     backfill_anchor_id: Optional[str]
@@ -151,7 +151,7 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
         connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
-def upsert_plays(  # pylint: disable=too-many-arguments
+def upsert_plays(  # noqa: PLR0913
     connection: sqlite3.Connection,
     account_id: str,
     raw_plays: Iterable[Mapping[str, Any]],

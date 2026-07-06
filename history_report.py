@@ -38,7 +38,6 @@ class ReportPlay:
     performance_scores: Any
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
 class TaskSummary:
     task_id: str
@@ -72,8 +71,7 @@ class HistoryReport:
     other: OtherSummary
 
 
-# pylint: disable-next=too-many-arguments
-def build_report(
+def build_report(  # noqa: PLR0913
     play_rows: Iterable[PlayRow],
     catalog: ScenarioCatalog,
     *,

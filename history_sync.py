@@ -1,16 +1,15 @@
 """Incremental and resilient sync orchestration for Aimlabs play history."""
 
-# pylint: disable=too-many-arguments,too-many-positional-arguments
-
 from __future__ import annotations
 
+import sys
+import time
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import sys
-import time
 from typing import Any, Optional, Protocol, TextIO
 
+import play_store
 from aimlabs_history import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
@@ -20,12 +19,11 @@ from aimlabs_history import (
     HistoryPage,
     validate_page_size,
 )
-import play_store
 
 DEFAULT_RETRY_DELAYS = (0.5, 1.0, 2.0, 4.0, 8.0)
 
 
-class PageFetcher(Protocol):  # pylint: disable=too-few-public-methods
+class PageFetcher(Protocol):
     def __call__(self, *, after: Optional[str], page_size: int) -> HistoryPage:
         """Fetch one newest-to-older history page."""
 
@@ -63,7 +61,7 @@ class DeletedPlaysWarning:
 
 
 @dataclass(frozen=True)
-class FullSyncResult:  # pylint: disable=too-many-instance-attributes
+class FullSyncResult:
     pages_fetched: int
     inserted: int
     updated: int
@@ -76,7 +74,7 @@ class FullSyncResult:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass(frozen=True)
-class IncrementalSyncResult:  # pylint: disable=too-many-instance-attributes
+class IncrementalSyncResult:
     pages_fetched: int
     inserted: int
     skipped: int
@@ -99,7 +97,7 @@ AuthRefresher = Callable[[], None]
 SleepFunc = Callable[[float], None]
 
 
-def sync_incremental(  # pylint: disable=too-many-locals
+def sync_incremental(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     fetch_page: PageFetcher,
@@ -175,7 +173,7 @@ def sync_incremental(  # pylint: disable=too-many-locals
     )
 
 
-def sync_full(  # pylint: disable=too-many-locals
+def sync_full(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     fetch_page: PageFetcher,
@@ -311,7 +309,7 @@ class FetchContext:
     retry_delays: Sequence[float]
 
 
-def _sync_empty_or_initial_backfill(
+def _sync_empty_or_initial_backfill(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     fetch_context: FetchContext,
@@ -389,7 +387,7 @@ def _sync_empty_or_initial_backfill(
     )
 
 
-def _sync_backfill(
+def _sync_backfill(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     previous_state: play_store.SyncState,
@@ -411,7 +409,7 @@ def _sync_backfill(
     )
 
 
-def _finish_backfill_walk(
+def _finish_backfill_walk(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     anchor_id: str,
@@ -464,7 +462,7 @@ def _finish_backfill_walk(
     )
 
 
-def _start_top_sweep(
+def _start_top_sweep(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     anchor_id: str,
@@ -495,7 +493,7 @@ def _start_top_sweep(
     )
 
 
-def _sync_top_sweep(  # pylint: disable=too-many-arguments,too-many-locals
+def _sync_top_sweep(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     previous_state: play_store.SyncState,
@@ -564,7 +562,7 @@ def _sync_top_sweep(  # pylint: disable=too-many-arguments,too-many-locals
     )
 
 
-def _sync_steady_state(  # pylint: disable=too-many-arguments,too-many-locals
+def _sync_steady_state(  # noqa: PLR0913
     connection: Any,
     account_id: str,
     previous_state: play_store.SyncState,
@@ -730,7 +728,7 @@ def _add_upsert_counts(
     counters.skipped += upsert_result.skipped
 
 
-def _result(
+def _result(  # noqa: PLR0913
     counters: SyncCounters,
     *,
     newest_id: Optional[str],

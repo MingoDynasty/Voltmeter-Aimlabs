@@ -301,7 +301,7 @@ def _synthetic_catalog() -> ScenarioCatalog:
         return refresh_catalog(resource_dir)
 
 
-def _write_resource(  # pylint: disable=too-many-arguments
+def _write_resource(
     resource_dir: Path,
     filename: str,
     *,
@@ -353,7 +353,7 @@ def _ended_at(idx: int) -> str:
     return (BASE_TIME + timedelta(hours=idx)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _play_row(  # pylint: disable=too-many-arguments
+def _play_row(
     play_id: str,
     task_id: str,
     *,

@@ -200,11 +200,11 @@ def _run_report(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_sync(args: argparse.Namespace) -> int:  # pylint: disable=too-many-locals
+def _run_sync(args: argparse.Namespace) -> int:
     # Lazy imports keep the offline `report` path free of sync/auth/network modules.
-    import aimlabs_auth  # pylint: disable=import-outside-toplevel
-    import aimlabs_history  # pylint: disable=import-outside-toplevel
-    import history_sync  # pylint: disable=import-outside-toplevel
+    import aimlabs_auth  # noqa: PLC0415
+    import aimlabs_history  # noqa: PLC0415
+    import history_sync  # noqa: PLC0415
 
     if args.show_deleted and not args.full:
         print("error: --show-deleted requires --full.", file=sys.stderr)
@@ -314,7 +314,7 @@ def _run_sync(args: argparse.Namespace) -> int:  # pylint: disable=too-many-loca
 
 
 def _run_login(args: argparse.Namespace) -> int:
-    import aimlabs_auth  # pylint: disable=import-outside-toplevel
+    import aimlabs_auth  # noqa: PLC0415
 
     captured_session = aimlabs_auth.login_and_capture(timeout=args.timeout)
     if captured_session is None:
@@ -341,7 +341,7 @@ def _run_refresh_catalog(args: argparse.Namespace) -> int:
 def _run_scores(args: argparse.Namespace) -> int:
     # Scores keeps its public/no-login behavior. Importing here preserves the
     # report command's strict offline import boundary (design §10/§11).
-    import aimlab_scores  # pylint: disable=import-outside-toplevel
+    import aimlab_scores  # noqa: PLC0415
 
     scores_argv = [
         "--difficulty",
@@ -377,7 +377,7 @@ def _warn_on_practice_contamination(
 
     This is a safety net, not a gate: if the check itself fails, warn and continue.
     """
-    import aimlabs_history  # pylint: disable=import-outside-toplevel
+    import aimlabs_history  # noqa: PLC0415
 
     try:
         practice_count = aimlabs_history.fetch_practice_contamination_count(

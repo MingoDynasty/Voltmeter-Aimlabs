@@ -1,9 +1,8 @@
-# pylint: disable=duplicate-code
-
 import io
 import unittest
 from typing import Optional
 
+import play_store
 from aimlabs_auth import ReloginRequiredError
 from aimlabs_history import (
     AimlabsCursorRejectedError,
@@ -11,7 +10,6 @@ from aimlabs_history import (
     AimlabsUnauthorizedError,
     HistoryPage,
 )
-import play_store
 from history_sync import sync_full, sync_incremental
 
 ACCOUNT_ID = "anthic-account-a"
@@ -78,7 +76,7 @@ def require_state(connection) -> play_store.SyncState:
     return state
 
 
-class FakePageFetcher:  # pylint: disable=too-few-public-methods
+class FakePageFetcher:
     def __init__(
         self,
         pages: list[HistoryPage | Exception],

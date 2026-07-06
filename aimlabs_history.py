@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-import json
 from typing import Any, Optional
 
 import requests
@@ -127,7 +127,7 @@ def build_history_payload(
     }
 
 
-def fetch_history_page(  # pylint: disable=too-many-arguments
+def fetch_history_page(  # noqa: PLR0913
     account_id: str,
     bearer: str,
     *,
@@ -177,7 +177,7 @@ def build_practice_contamination_payload(
     }
 
 
-def fetch_practice_contamination_count(  # pylint: disable=too-many-arguments
+def fetch_practice_contamination_count(
     account_id: str,
     bearer: str,
     *,

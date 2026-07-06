@@ -1,14 +1,14 @@
-from http.cookies import SimpleCookie
-import os
 import io
 import json
+import os
 import sys
 import tempfile
 import threading
 import time
-from types import SimpleNamespace
 import unittest
+from http.cookies import SimpleCookie
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import aimlabs_auth
@@ -18,14 +18,14 @@ from aimlabs_auth import (
     ReloginRequiredError,
     SessionFetchResult,
     SessionStateCorruptError,
-    read_session_state_cookie,
-    resolve_bearer,
     extract_session_cookie,
     fetch_session_json,
     get_bearer_from_session,
     load_dotenv_values,
     login_and_capture,
     read_session_cookie_file,
+    read_session_state_cookie,
+    resolve_bearer,
     resolve_session_cookie,
     write_env_var,
 )
@@ -316,7 +316,7 @@ class AimlabsAuthTests(unittest.TestCase):
                             session_fetcher=endpoint,
                         )
                     )
-                except Exception as error:  # pylint: disable=broad-exception-caught
+                except Exception as error:  # noqa: BLE001
                     errors.append(error)
 
             first_thread = threading.Thread(target=worker)
@@ -423,7 +423,7 @@ class AimlabsAuthTests(unittest.TestCase):
             self.assertFalse(lock_path.exists())
 
 
-class RotatingSessionEndpoint:  # pylint: disable=too-few-public-methods
+class RotatingSessionEndpoint:
     def __init__(self, *, initial_cookie: str) -> None:
         self.current_cookie = initial_cookie
         self.calls: list[str] = []

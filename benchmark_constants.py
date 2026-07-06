@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator, Mapping
 from functools import lru_cache
-import re
 
 from voltaic_benchmarks import (
     category_maps,

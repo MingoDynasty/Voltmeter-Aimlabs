@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
+import json
+import os
+import stat
+import sys
+import threading
+import time
+import urllib.error
+import urllib.request
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from http.cookies import Morsel, SimpleCookie
-import json
-import os
 from pathlib import Path
-import stat
-import sys
-import threading
-import time
 from typing import Any, Literal, Optional, TextIO, Union
-import urllib.error
-import urllib.request
 
 from aimlabs_client import BASE_HEADERS
 
@@ -73,7 +73,7 @@ RawSessionFetchResult = Union[SessionFetchResult, Mapping[str, Any]]
 SessionFetcher = Callable[[str, float], RawSessionFetchResult]
 
 
-def resolve_session_cookie(  # pylint: disable=too-many-arguments
+def resolve_session_cookie(  # noqa: PLR0913
     *,
     session_file: Optional[Union[str, Path]] = None,
     state_path: Optional[Union[str, Path]] = DEFAULT_SESSION_STATE_PATH,
@@ -131,7 +131,7 @@ def resolve_session_cookie(  # pylint: disable=too-many-arguments
     raise AimlabsAuthError("no Aimlabs session cookie found; run `voltmeter login`.")
 
 
-def resolve_bearer(  # pylint: disable=too-many-arguments
+def resolve_bearer(  # noqa: PLR0913
     *,
     session_file: Optional[Union[str, Path]] = None,
     state_path: Union[str, Path] = DEFAULT_SESSION_STATE_PATH,
@@ -156,7 +156,7 @@ def resolve_bearer(  # pylint: disable=too-many-arguments
     return resolved_bearer.bearer
 
 
-def resolve_bearer_with_source(  # pylint: disable=too-many-arguments
+def resolve_bearer_with_source(  # noqa: PLR0913
     *,
     session_file: Optional[Union[str, Path]] = None,
     state_path: Union[str, Path] = DEFAULT_SESSION_STATE_PATH,
@@ -201,7 +201,7 @@ def resolve_bearer_with_source(  # pylint: disable=too-many-arguments
         )
 
 
-def _resolve_bearer_with_source_locked(  # pylint: disable=too-many-arguments
+def _resolve_bearer_with_source_locked(  # noqa: PLR0913
     *,
     state_path: Union[str, Path],
     env: Optional[Mapping[str, str]],
@@ -560,8 +560,9 @@ def _steal_stale_session_lock(lock_path: Path, *, stale_after_seconds: float) ->
     return False
 
 
-# pylint: disable-next=too-many-return-statements
-def _session_lock_is_stale(lock_path: Path, *, stale_after_seconds: float) -> bool:
+def _session_lock_is_stale(  # noqa: PLR0911
+    lock_path: Path, *, stale_after_seconds: float
+) -> bool:
     try:
         lock_stat = lock_path.stat()
     except FileNotFoundError:
@@ -631,7 +632,7 @@ def _posix_process_start_time(pid_value: int) -> Optional[float]:
         sysconf_func = getattr(os, "sysconf", None)
         if not callable(sysconf_func):
             return None
-        clock_ticks = int(sysconf_func("SC_CLK_TCK"))  # pylint: disable=not-callable
+        clock_ticks = int(sysconf_func("SC_CLK_TCK"))
         boot_time = next(
             int(line.split()[1])
             for line in proc_stat_text.splitlines()
@@ -647,8 +648,8 @@ def _windows_process_start_time(pid_value: int) -> Optional[float]:
     if handle is None:
         return None
     try:
-        import ctypes  # pylint: disable=import-outside-toplevel
-        from ctypes import wintypes  # pylint: disable=import-outside-toplevel
+        import ctypes  # noqa: PLC0415
+        from ctypes import wintypes  # noqa: PLC0415
 
         creation_time = wintypes.FILETIME()
         exit_time = wintypes.FILETIME()
@@ -674,7 +675,7 @@ def _windows_process_start_time(pid_value: int) -> Optional[float]:
 def _open_windows_process(pid_value: int) -> Optional[int]:
     if os.name != "nt":
         return None
-    import ctypes  # pylint: disable=import-outside-toplevel
+    import ctypes  # noqa: PLC0415
 
     process_query_limited_information = 0x1000
     handle = ctypes.windll.kernel32.OpenProcess(  # type: ignore[attr-defined]  # Windows-only API
@@ -686,7 +687,7 @@ def _open_windows_process(pid_value: int) -> Optional[int]:
 def _close_windows_handle(handle: int) -> None:
     if os.name != "nt":
         return
-    import ctypes  # pylint: disable=import-outside-toplevel
+    import ctypes  # noqa: PLC0415
 
     ctypes.windll.kernel32.CloseHandle(handle)  # type: ignore[attr-defined]  # Windows-only API
 
@@ -807,7 +808,7 @@ def write_env_var(env_path: Union[str, Path], key: str, value: str) -> None:
         pass
 
 
-def login_and_capture(  # pylint: disable=too-many-arguments
+def login_and_capture(  # noqa: PLR0913
     env_path: Union[str, Path] = ".env",
     *,
     timeout: float = DEFAULT_LOGIN_TIMEOUT_SECONDS,
@@ -822,7 +823,7 @@ def login_and_capture(  # pylint: disable=too-many-arguments
     window closed before login).
     """
     try:
-        import webview  # type: ignore  # pylint: disable=import-outside-toplevel
+        import webview  # type: ignore  # noqa: PLC0415
     except ImportError:
         print(
             "login needs the optional dependency 'pywebview'.\n"
@@ -846,7 +847,7 @@ def login_and_capture(  # pylint: disable=too-many-arguments
         while not stop_event.is_set() and time.time() < deadline:
             try:
                 cookies = window.get_cookies()
-            except Exception as error:  # pylint: disable=broad-exception-caught
+            except Exception as error:  # noqa: BLE001
                 # The backend may not be ready to serve cookies yet.
                 cookies = None
                 if last_seen_names["names"] != ["<error>"]:
@@ -873,7 +874,7 @@ def login_and_capture(  # pylint: disable=too-many-arguments
                 break
         try:
             window.destroy()
-        except Exception:  # pylint: disable=broad-exception-caught
+        except Exception:  # noqa: BLE001
             pass
 
     def _start_poll(window: Any) -> None:
