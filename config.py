@@ -30,7 +30,9 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
 
 
 def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
-    resolved_path = Path(config_path) if config_path is not None else DEFAULT_CONFIG_PATH
+    resolved_path = (
+        Path(config_path) if config_path is not None else DEFAULT_CONFIG_PATH
+    )
     if not resolved_path.exists():
         return AppConfig()
 
@@ -52,7 +54,9 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> AppConfig:
 
     return AppConfig(
         aimlabs_user_id=aimlabs_user_id,
-        storage_db_path=_optional_non_empty_string(storage_config, "db_path", resolved_path, "storage"),
+        storage_db_path=_optional_non_empty_string(
+            storage_config, "db_path", resolved_path, "storage"
+        ),
         sync_page_size=_sync_page_size(sync_config, resolved_path),
         sync_request_delay_seconds=_optional_number(
             sync_config,
@@ -99,7 +103,9 @@ def _load_toml(config_path: Path) -> dict[str, Any]:
     return config_data
 
 
-def _optional_table(config_data: dict[str, Any], section: str, config_path: Path) -> dict[str, Any]:
+def _optional_table(
+    config_data: dict[str, Any], section: str, config_path: Path
+) -> dict[str, Any]:
     section_config = config_data.get(section, {})
     if not isinstance(section_config, dict):
         raise ConfigError(f"{config_path} [{section}] must be a table.")
@@ -148,7 +154,9 @@ def _report_timezone(report_config: dict[str, Any], config_path: Path) -> str:
     try:
         ZoneInfo(value)
     except (ZoneInfoNotFoundError, ValueError) as error:
-        raise ConfigError(f'{config_path} [report].timezone must be "local" or a valid IANA zone name.') from error
+        raise ConfigError(
+            f'{config_path} [report].timezone must be "local" or a valid IANA zone name.'
+        ) from error
     return value
 
 
@@ -164,7 +172,9 @@ def _positive_integer(
     if isinstance(value, bool) or not isinstance(value, int):
         raise ConfigError(f"{config_path} [{section}].{key} must be an integer.")
     if value < 1:
-        raise ConfigError(f"{config_path} [{section}].{key} must be a positive integer.")
+        raise ConfigError(
+            f"{config_path} [{section}].{key} must be a positive integer."
+        )
     return value
 
 
@@ -180,5 +190,7 @@ def _optional_number(
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ConfigError(f"{config_path} [{section}].{key} must be numeric.")
     if value < 0:
-        raise ConfigError(f"{config_path} [{section}].{key} must be greater than or equal to zero.")
+        raise ConfigError(
+            f"{config_path} [{section}].{key} must be greater than or equal to zero."
+        )
     return float(value)

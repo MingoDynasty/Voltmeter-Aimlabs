@@ -176,7 +176,9 @@ def upsert_plays(  # pylint: disable=too-many-arguments
     # Field drift only arises on the full=True re-derive path; the param lets a caller
     # (e.g. history_sync) route those warnings to the same stream as its other warnings.
     # Resolve sys.stderr at call time (not as a default) so it honors stream redirection.
-    _emit_field_drift_warnings(result.drift_warnings, sys.stderr if warning_stream is None else warning_stream)
+    _emit_field_drift_warnings(
+        result.drift_warnings, sys.stderr if warning_stream is None else warning_stream
+    )
     return result
 
 
@@ -232,7 +234,9 @@ def _upsert_plays_in_transaction(
                 _insert_play_incremental(connection, play_projection)
                 inserted += 1
             else:
-                drift_warnings.extend(_find_field_drifts(existing_play, play_projection))
+                drift_warnings.extend(
+                    _find_field_drifts(existing_play, play_projection)
+                )
                 _update_play_from_raw(connection, play_projection)
                 updated += 1
         elif _insert_play_incremental(connection, play_projection):
@@ -248,7 +252,9 @@ def _upsert_plays_in_transaction(
     )
 
 
-def get_play(connection: sqlite3.Connection, account_id: str, play_id: str) -> Optional[sqlite3.Row]:
+def get_play(
+    connection: sqlite3.Connection, account_id: str, play_id: str
+) -> Optional[sqlite3.Row]:
     return connection.execute(
         "SELECT * FROM plays WHERE account_id = ? AND id = ?",
         (account_id, play_id),
@@ -331,7 +337,9 @@ def list_recent_plays(
     )
 
 
-def count_plays(connection: sqlite3.Connection, account_id: Optional[str] = None) -> int:
+def count_plays(
+    connection: sqlite3.Connection, account_id: Optional[str] = None
+) -> int:
     if account_id is None:
         row = connection.execute("SELECT COUNT(*) AS play_count FROM plays").fetchone()
     else:
@@ -342,7 +350,9 @@ def count_plays(connection: sqlite3.Connection, account_id: Optional[str] = None
     return int(row["play_count"])
 
 
-def get_sync_state(connection: sqlite3.Connection, account_id: str) -> Optional[SyncState]:
+def get_sync_state(
+    connection: sqlite3.Connection, account_id: str
+) -> Optional[SyncState]:
     row = connection.execute(
         "SELECT * FROM sync_state WHERE account_id = ?",
         (account_id,),
@@ -358,7 +368,9 @@ def save_sync_state(connection: sqlite3.Connection, sync_state: SyncState) -> No
         _save_sync_state_in_transaction(connection, sync_state)
 
 
-def _save_sync_state_in_transaction(connection: sqlite3.Connection, sync_state: SyncState) -> None:
+def _save_sync_state_in_transaction(
+    connection: sqlite3.Connection, sync_state: SyncState
+) -> None:
     connection.execute(
         """
         INSERT INTO sync_state (
@@ -402,7 +414,9 @@ def _resolve_db_path(db_path: Optional[Union[str, Path]]) -> Union[str, Path]:
     return Path(db_path)
 
 
-def _project_play(account_id: str, raw_play: Mapping[str, Any], seen_at: str) -> dict[str, Any]:
+def _project_play(
+    account_id: str, raw_play: Mapping[str, Any], seen_at: str
+) -> dict[str, Any]:
     play_id = _required_text(raw_play.get("id"), "id")
     task_value = raw_play.get("task")
     task = task_value if isinstance(task_value, Mapping) else {}
@@ -410,13 +424,17 @@ def _project_play(account_id: str, raw_play: Mapping[str, Any], seen_at: str) ->
 
     manifest_value = raw_play.get("manifest")
     manifest = manifest_value if isinstance(manifest_value, Mapping) else {}
-    performance_scores = raw_play.get("performanceScores", raw_play.get("performance_scores"))
+    performance_scores = raw_play.get(
+        "performanceScores", raw_play.get("performance_scores")
+    )
 
     return {
         "account_id": account_id,
         "id": play_id,
         "task_id": task_id,
-        "ended_at": _required_text(raw_play.get("endedAt", raw_play.get("ended_at")), "endedAt"),
+        "ended_at": _required_text(
+            raw_play.get("endedAt", raw_play.get("ended_at")), "endedAt"
+        ),
         "score": _optional_real(raw_play.get("score"), "score"),
         "play_duration": _optional_integer(
             manifest.get("playDuration", raw_play.get("play_duration")),
@@ -430,14 +448,18 @@ def _project_play(account_id: str, raw_play: Mapping[str, Any], seen_at: str) ->
             raw_play.get("gridshieldStatus", raw_play.get("gridshield_status")),
             "gridshieldStatus",
         ),
-        "performance_scores": _canonical_json_or_none(performance_scores, "performanceScores"),
+        "performance_scores": _canonical_json_or_none(
+            performance_scores, "performanceScores"
+        ),
         "raw": _canonical_json(raw_play, "raw"),
         "first_fetched_at": seen_at,
         "last_seen_at": seen_at,
     }
 
 
-def _insert_play_incremental(connection: sqlite3.Connection, play_projection: Mapping[str, Any]) -> bool:
+def _insert_play_incremental(
+    connection: sqlite3.Connection, play_projection: Mapping[str, Any]
+) -> bool:
     placeholders = ", ".join(f":{column}" for column in PLAY_COLUMNS)
     columns = ", ".join(PLAY_COLUMNS)
     cursor = connection.execute(
@@ -451,7 +473,9 @@ def _insert_play_incremental(connection: sqlite3.Connection, play_projection: Ma
     return cursor.rowcount == 1
 
 
-def _update_play_from_raw(connection: sqlite3.Connection, play_projection: Mapping[str, Any]) -> None:
+def _update_play_from_raw(
+    connection: sqlite3.Connection, play_projection: Mapping[str, Any]
+) -> None:
     connection.execute(
         """
         UPDATE plays
@@ -501,7 +525,9 @@ def _emit_field_drift_warnings(
 
 def _required_text(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value:
-        raise PlayStoreError(f"{field_name} is required and must be a non-empty string.")
+        raise PlayStoreError(
+            f"{field_name} is required and must be a non-empty string."
+        )
     return value
 
 
@@ -536,7 +562,9 @@ def _canonical_json_or_none(value: Any, field_name: str) -> Optional[str]:
         try:
             value = json.loads(value)
         except json.JSONDecodeError as error:
-            raise PlayStoreError(f"{field_name} must be valid JSON when supplied as text.") from error
+            raise PlayStoreError(
+                f"{field_name} must be valid JSON when supplied as text."
+            ) from error
     return _canonical_json(value, field_name)
 
 
@@ -576,12 +604,23 @@ def _validate_sync_state(sync_state: SyncState) -> None:
     if not sync_state.account_id:
         raise PlayStoreError("sync_state.account_id is required.")
     if sync_state.backfill_phase not in BACKFILL_PHASES:
-        raise PlayStoreError(f"sync_state.backfill_phase must be one of {BACKFILL_PHASES}.")
-    if sync_state.resume_cursor is not None and sync_state.backfill_phase != BACKFILLING:
-        raise PlayStoreError("sync_state.resume_cursor is only valid while BACKFILLING.")
+        raise PlayStoreError(
+            f"sync_state.backfill_phase must be one of {BACKFILL_PHASES}."
+        )
+    if (
+        sync_state.resume_cursor is not None
+        and sync_state.backfill_phase != BACKFILLING
+    ):
+        raise PlayStoreError(
+            "sync_state.resume_cursor is only valid while BACKFILLING."
+        )
     if not sync_state.updated_at:
         raise PlayStoreError("sync_state.updated_at is required.")
 
 
 def _utc_now_text() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )

@@ -162,7 +162,9 @@ class AimlabsClientTests(unittest.TestCase):
             "ended_at": "2026-01-02T03:04:05Z",
         }
         with (
-            patch("aimlabs_client._post_json", return_value=(200, _entry_body(entry_data))) as post_mock,
+            patch(
+                "aimlabs_client._post_json", return_value=(200, _entry_body(entry_data))
+            ) as post_mock,
             patch("aimlabs_client.time.sleep") as sleep_mock,
         ):
             result = aimlabs_client.fetch_one(_scenario(), "synthetic-user")
@@ -182,7 +184,10 @@ class AimlabsClientTests(unittest.TestCase):
         with (
             patch(
                 "aimlabs_client._post_json",
-                side_effect=[RuntimeError("synthetic connection failure"), (200, _entry_body(entry_data))],
+                side_effect=[
+                    RuntimeError("synthetic connection failure"),
+                    (200, _entry_body(entry_data)),
+                ],
             ) as post_mock,
             patch("aimlabs_client.time.sleep") as sleep_mock,
         ):
@@ -196,7 +201,9 @@ class AimlabsClientTests(unittest.TestCase):
 
     def test_fetch_one_retries_http_403_through_final_attempt(self) -> None:
         with (
-            patch("aimlabs_client._post_json", return_value=(403, "synthetic forbidden")) as post_mock,
+            patch(
+                "aimlabs_client._post_json", return_value=(403, "synthetic forbidden")
+            ) as post_mock,
             patch("aimlabs_client.time.sleep") as sleep_mock,
         ):
             result = aimlabs_client.fetch_one(_scenario(), "synthetic-user", retries=2)
@@ -211,7 +218,10 @@ class AimlabsClientTests(unittest.TestCase):
         with (
             patch(
                 "aimlabs_client._post_json",
-                side_effect=[(500, "synthetic first failure"), (502, "synthetic last failure")],
+                side_effect=[
+                    (500, "synthetic first failure"),
+                    (502, "synthetic last failure"),
+                ],
             ) as post_mock,
             patch("aimlabs_client.time.sleep") as sleep_mock,
         ):
@@ -260,7 +270,10 @@ class AimlabsClientTests(unittest.TestCase):
     def test_fetch_all_scores_sleeps_between_requests(self) -> None:
         scenarios = [_scenario(1), _scenario(2), _scenario(3)]
         with (
-            patch("aimlabs_client._post_json", return_value=(200, _entry_body({"score": 123}))) as post_mock,
+            patch(
+                "aimlabs_client._post_json",
+                return_value=(200, _entry_body({"score": 123})),
+            ) as post_mock,
             patch("aimlabs_client.time.sleep") as sleep_mock,
         ):
             results = aimlabs_client.fetch_all_scores(

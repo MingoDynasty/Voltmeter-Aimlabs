@@ -8,7 +8,12 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from voltaic_benchmarks import category_maps, difficulty_maps, lookup_label, tier_difficulty
+from voltaic_benchmarks import (
+    category_maps,
+    difficulty_maps,
+    lookup_label,
+    tier_difficulty,
+)
 
 DEFAULT_RESOURCE_DIR = Path(__file__).resolve().parent / "resources" / "aimlabs"
 DEFAULT_TASK_MODE = 42
@@ -68,7 +73,9 @@ class ScenarioCatalog:
     def records_for_task_id(self, task_id: str) -> tuple[ScenarioCatalogRecord, ...]:
         return self._records_by_task_id.get(task_id, ())
 
-    def shadowed_records_for_task_id(self, task_id: str) -> tuple[ScenarioCatalogRecord, ...]:
+    def shadowed_records_for_task_id(
+        self, task_id: str
+    ) -> tuple[ScenarioCatalogRecord, ...]:
         return self._shadowed_records_by_task_id.get(task_id, ())
 
     def resolve_task_id(self, task_id: str) -> tuple[ScenarioCatalogRecord, ...]:
@@ -77,11 +84,15 @@ class ScenarioCatalog:
             return records
         return (unknown_scenario_record(task_id),)
 
-    def resolve_task_ids(self, task_ids: Iterable[str]) -> dict[str, tuple[ScenarioCatalogRecord, ...]]:
+    def resolve_task_ids(
+        self, task_ids: Iterable[str]
+    ) -> dict[str, tuple[ScenarioCatalogRecord, ...]]:
         return {task_id: self.resolve_task_id(task_id) for task_id in task_ids}
 
     def unknown_task_ids(self, task_ids: Iterable[str]) -> tuple[str, ...]:
-        return tuple(task_id for task_id in task_ids if not self.records_for_task_id(task_id))
+        return tuple(
+            task_id for task_id in task_ids if not self.records_for_task_id(task_id)
+        )
 
 
 def unknown_scenario_record(task_id: str) -> ScenarioCatalogRecord:
@@ -130,18 +141,26 @@ def _records_from_resource_file(path: Path) -> tuple[ScenarioCatalogRecord, ...]
     try:
         resource_text = path.read_text(encoding="utf-8")
     except OSError as error:
-        raise ScenarioCatalogError(f"Could not read scenario resource {path}: {error}") from error
+        raise ScenarioCatalogError(
+            f"Could not read scenario resource {path}: {error}"
+        ) from error
 
     try:
         resource_data = json.loads(resource_text)
     except json.JSONDecodeError as error:
-        raise ScenarioCatalogError(f"Could not parse scenario resource {path}: {error}") from error
+        raise ScenarioCatalogError(
+            f"Could not parse scenario resource {path}: {error}"
+        ) from error
     if not isinstance(resource_data, dict):
-        raise ScenarioCatalogError(f"Scenario resource {path} must contain a JSON object.")
+        raise ScenarioCatalogError(
+            f"Scenario resource {path} must contain a JSON object."
+        )
     try:
         return _records_from_resource(resource_data)
     except (KeyError, TypeError, ValueError) as error:
-        raise ScenarioCatalogError(f"Malformed scenario resource {path}: {error}") from error
+        raise ScenarioCatalogError(
+            f"Malformed scenario resource {path}: {error}"
+        ) from error
 
 
 def _records_from_resource(resource_data: dict) -> tuple[ScenarioCatalogRecord, ...]:
@@ -150,7 +169,9 @@ def _records_from_resource(resource_data: dict) -> tuple[ScenarioCatalogRecord, 
     records: list[ScenarioCatalogRecord] = []
     for resource_scenario in resource_data["scenarios"]:
         for tier in resource_scenario["tiers"]:
-            difficulty = tier_difficulty(difficulties_by_tier_id, tier, resource_scenario)
+            difficulty = tier_difficulty(
+                difficulties_by_tier_id, tier, resource_scenario
+            )
             records.append(
                 _scenario_record(
                     resource_data,
@@ -174,7 +195,9 @@ def _scenario_record(
     task_id = resource_scenario.get("task_id")
     weapon_id = resource_scenario.get("weapon_id")
     if not task_id or not weapon_id:
-        raise ValueError(f"Scenario {resource_scenario.get('name', '<unnamed>')!r} is missing task/weapon ids.")
+        raise ValueError(
+            f"Scenario {resource_scenario.get('name', '<unnamed>')!r} is missing task/weapon ids."
+        )
 
     return ScenarioCatalogRecord(
         task_id=task_id,
@@ -231,15 +254,20 @@ def _apply_duplicate_task_id_policy(
                 kept_records.append(record)
             else:
                 shadowed_records.append(record)
-    return tuple(sorted(kept_records, key=_record_sort_key)), tuple(sorted(shadowed_records, key=_record_sort_key))
+    return tuple(sorted(kept_records, key=_record_sort_key)), tuple(
+        sorted(shadowed_records, key=_record_sort_key)
+    )
 
 
-def _records_by_task_id(records: Iterable[ScenarioCatalogRecord]) -> dict[str, tuple[ScenarioCatalogRecord, ...]]:
+def _records_by_task_id(
+    records: Iterable[ScenarioCatalogRecord],
+) -> dict[str, tuple[ScenarioCatalogRecord, ...]]:
     grouped_records: dict[str, list[ScenarioCatalogRecord]] = {}
     for record in records:
         grouped_records.setdefault(record.task_id, []).append(record)
     return {
-        task_id: tuple(sorted(task_records, key=_record_sort_key)) for task_id, task_records in grouped_records.items()
+        task_id: tuple(sorted(task_records, key=_record_sort_key))
+        for task_id, task_records in grouped_records.items()
     }
 
 
@@ -256,7 +284,9 @@ def _source_sort_key(source_key: tuple[str, str]) -> tuple[int, str, str]:
     return season_number, season, alias
 
 
-def _record_sort_key(record: ScenarioCatalogRecord) -> tuple[int, str, str, str, int, str]:
+def _record_sort_key(
+    record: ScenarioCatalogRecord,
+) -> tuple[int, str, str, str, int, str]:
     season_number, season, alias = _source_sort_key(_source_key(record))
     difficulty_idx = DIFFICULTY_ORDER.get(record.difficulty, len(DIFFICULTY_ORDER))
     return season_number, season, alias, record.name, difficulty_idx, record.task_id

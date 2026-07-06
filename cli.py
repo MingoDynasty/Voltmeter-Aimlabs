@@ -50,16 +50,28 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Voltaic Aimlabs progress tracking tools.",
         allow_abbrev=False,
     )
-    parser.add_argument("--config", metavar="PATH", default=None, help="path to config.toml")
-    parser.add_argument("--verbose", action="store_true", help="print progress details to stderr")
+    parser.add_argument(
+        "--config", metavar="PATH", default=None, help="path to config.toml"
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="print progress details to stderr"
+    )
 
     # The same options, accepted *after* the subcommand too (`voltmeter report --verbose`).
     # SUPPRESS defaults so an absent flag here never clobbers a value given before the
     # subcommand; the top-level parser above carries the real defaults.
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--config", metavar="PATH", default=argparse.SUPPRESS, help="path to config.toml")
     common.add_argument(
-        "--verbose", action="store_true", default=argparse.SUPPRESS, help="print progress details to stderr"
+        "--config",
+        metavar="PATH",
+        default=argparse.SUPPRESS,
+        help="path to config.toml",
+    )
+    common.add_argument(
+        "--verbose",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="print progress details to stderr",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -132,7 +144,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="fetch current leaderboard PBs and render Voltaic rank/energy snapshots",
         allow_abbrev=False,
     )
-    scores_parser.add_argument("--user-id", help="Aimlabs user id; overrides config.toml")
+    scores_parser.add_argument(
+        "--user-id", help="Aimlabs user id; overrides config.toml"
+    )
     scores_parser.add_argument(
         "--difficulty",
         default="all",
@@ -142,8 +156,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--scenario",
         help="only this scenario key; with --difficulty all, fetches every difficulty where the key appears",
     )
-    scores_parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
-    scores_parser.add_argument("--raw", action="store_true", help="include full entry data blobs in JSON")
+    scores_parser.add_argument(
+        "--json", action="store_true", help="emit JSON instead of a table"
+    )
+    scores_parser.add_argument(
+        "--raw", action="store_true", help="include full entry data blobs in JSON"
+    )
     scores_parser.add_argument("--out", help="write JSON to this file")
     scores_parser.add_argument("--source", default="cache")
     scores_parser.add_argument("--timeout", type=float, default=20.0)
@@ -165,11 +183,20 @@ def _run_report(args: argparse.Namespace) -> int:
     app_config = load_config(args.config)
     account_id = app_config.aimlabs_user_id
     if not account_id:
-        print("error: [aimlabs].user_id must be set in config.toml (or the file passed via --config).", file=sys.stderr)
+        print(
+            "error: [aimlabs].user_id must be set in config.toml (or the file passed via --config).",
+            file=sys.stderr,
+        )
         return 1
 
-    play_rows = _load_play_rows(app_config.storage_db_path, account_id, verbose=args.verbose)
-    print(_render_report(play_rows, app_config, include_all_statuses=args.include_all_statuses))
+    play_rows = _load_play_rows(
+        app_config.storage_db_path, account_id, verbose=args.verbose
+    )
+    print(
+        _render_report(
+            play_rows, app_config, include_all_statuses=args.include_all_statuses
+        )
+    )
     return 0
 
 
@@ -186,7 +213,10 @@ def _run_sync(args: argparse.Namespace) -> int:  # pylint: disable=too-many-loca
     app_config = load_config(args.config)
     account_id = app_config.aimlabs_user_id
     if not account_id:
-        print("error: [aimlabs].user_id must be set in config.toml (or the file passed via --config).", file=sys.stderr)
+        print(
+            "error: [aimlabs].user_id must be set in config.toml (or the file passed via --config).",
+            file=sys.stderr,
+        )
         return 1
 
     request_timeout = app_config.sync_request_timeout_seconds
@@ -198,7 +228,10 @@ def _run_sync(args: argparse.Namespace) -> int:  # pylint: disable=too-many-loca
             timeout=request_timeout,
         )
         if args.verbose:
-            print(f"auth: using session from {resolved_bearer.session_source}", file=sys.stderr)
+            print(
+                f"auth: using session from {resolved_bearer.session_source}",
+                file=sys.stderr,
+            )
         bearer_holder = {"bearer": resolved_bearer.bearer}
     except aimlabs_auth.AimlabsAuthError as error:
         print(f"error: {error}", file=sys.stderr)
@@ -212,7 +245,9 @@ def _run_sync(args: argparse.Namespace) -> int:  # pylint: disable=too-many-loca
 
     fetched_pages = 0
 
-    def fetch_page(*, after: Optional[str], page_size: int) -> aimlabs_history.HistoryPage:
+    def fetch_page(
+        *, after: Optional[str], page_size: int
+    ) -> aimlabs_history.HistoryPage:
         nonlocal fetched_pages
         if fetched_pages and app_config.sync_request_delay_seconds > 0:
             # Inter-page politeness delay ([sync].request_delay_seconds).
@@ -257,11 +292,16 @@ def _run_sync(args: argparse.Namespace) -> int:  # pylint: disable=too-many-loca
                     f"{incremental_result.skipped} skipped; Aimlabs reports "
                     f"{incremental_result.api_total_count} plays."
                 )
-        except (aimlabs_auth.AimlabsAuthError, aimlabs_history.AimlabsHistoryError) as error:
+        except (
+            aimlabs_auth.AimlabsAuthError,
+            aimlabs_history.AimlabsHistoryError,
+        ) as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
 
-        _warn_on_practice_contamination(account_id, bearer_holder["bearer"], timeout=request_timeout)
+        _warn_on_practice_contamination(
+            account_id, bearer_holder["bearer"], timeout=request_timeout
+        )
         print(summary)
 
         if args.report:
@@ -330,7 +370,9 @@ def _run_scores(args: argparse.Namespace) -> int:
     return aimlab_scores.main(scores_argv)
 
 
-def _warn_on_practice_contamination(account_id: str, bearer: str, *, timeout: float) -> None:
+def _warn_on_practice_contamination(
+    account_id: str, bearer: str, *, timeout: float
+) -> None:
     """Once per sync, check the aggregate endpoint for practice plays in the mode-42 stream (§8.3).
 
     This is a safety net, not a gate: if the check itself fails, warn and continue.
@@ -338,9 +380,14 @@ def _warn_on_practice_contamination(account_id: str, bearer: str, *, timeout: fl
     import aimlabs_history  # pylint: disable=import-outside-toplevel
 
     try:
-        practice_count = aimlabs_history.fetch_practice_contamination_count(account_id, bearer, timeout=timeout)
+        practice_count = aimlabs_history.fetch_practice_contamination_count(
+            account_id, bearer, timeout=timeout
+        )
     except (aimlabs_history.AimlabsHistoryError, OSError) as error:
-        print(f"warning: practice-contamination check failed ({error}); continuing.", file=sys.stderr)
+        print(
+            f"warning: practice-contamination check failed ({error}); continuing.",
+            file=sys.stderr,
+        )
         return
     if practice_count > 0:
         print(
@@ -349,7 +396,9 @@ def _warn_on_practice_contamination(account_id: str, bearer: str, *, timeout: fl
         )
 
 
-def _render_report(play_rows: list[sqlite3.Row], app_config: AppConfig, *, include_all_statuses: bool) -> str:
+def _render_report(
+    play_rows: list[sqlite3.Row], app_config: AppConfig, *, include_all_statuses: bool
+) -> str:
     report = history_report.build_report(
         play_rows,
         scenario_catalog.load_catalog(),
@@ -358,19 +407,30 @@ def _render_report(play_rows: list[sqlite3.Row], app_config: AppConfig, *, inclu
         rolling_median_window=app_config.report_rolling_median_window,
         rolling_max_window=app_config.report_rolling_max_window,
     )
-    return history_report.render_report(report, timezone_setting=app_config.report_timezone)
+    return history_report.render_report(
+        report, timezone_setting=app_config.report_timezone
+    )
 
 
 def _db_path(app_config: AppConfig) -> Path:
-    return Path(app_config.storage_db_path) if app_config.storage_db_path else play_store.DEFAULT_DB_PATH
+    return (
+        Path(app_config.storage_db_path)
+        if app_config.storage_db_path
+        else play_store.DEFAULT_DB_PATH
+    )
 
 
-def _load_play_rows(db_path_setting: Optional[str], account_id: str, *, verbose: bool) -> list[sqlite3.Row]:
+def _load_play_rows(
+    db_path_setting: Optional[str], account_id: str, *, verbose: bool
+) -> list[sqlite3.Row]:
     db_path = Path(db_path_setting) if db_path_setting else play_store.DEFAULT_DB_PATH
     if not db_path.exists():
         # report is offline-only and must not create the store as a side effect
         if verbose:
-            print(f"store not found at {db_path}; rendering an empty report", file=sys.stderr)
+            print(
+                f"store not found at {db_path}; rendering an empty report",
+                file=sys.stderr,
+            )
         return []
 
     connection = play_store.connect(db_path)

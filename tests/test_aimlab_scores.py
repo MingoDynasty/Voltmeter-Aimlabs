@@ -16,7 +16,9 @@ class AuthHeaderTests(unittest.TestCase):
             state_path=None,
         )
 
-        self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=unified-token"})
+        self.assertEqual(
+            headers, {"Cookie": "__Secure-next-auth.session-token=unified-token"}
+        )
 
     def test_env_aimlab_session_wins_over_dotenv(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -29,7 +31,9 @@ class AuthHeaderTests(unittest.TestCase):
                 state_path=None,
             )
 
-        self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=env-token"})
+        self.assertEqual(
+            headers, {"Cookie": "__Secure-next-auth.session-token=env-token"}
+        )
 
     def test_dotenv_aimlab_session_resolves_when_env_absent(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -42,10 +46,14 @@ class AuthHeaderTests(unittest.TestCase):
                 state_path=None,
             )
 
-        self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=dotenv-token"})
+        self.assertEqual(
+            headers, {"Cookie": "__Secure-next-auth.session-token=dotenv-token"}
+        )
 
     def test_no_channels_yields_no_auth_headers(self) -> None:
-        headers = aimlab_scores._auth_headers_from_config(env={}, dotenv_path=None, state_path=None)
+        headers = aimlab_scores._auth_headers_from_config(
+            env={}, dotenv_path=None, state_path=None
+        )
 
         self.assertEqual(headers, {})
 
@@ -63,7 +71,9 @@ class AuthHeaderTests(unittest.TestCase):
                     state_path=state_path,
                 )
 
-        self.assertEqual(headers, {"Cookie": "__Secure-next-auth.session-token=env-token"})
+        self.assertEqual(
+            headers, {"Cookie": "__Secure-next-auth.session-token=env-token"}
+        )
         self.assertIn("falling back", stderr.getvalue())
 
 
@@ -149,7 +159,9 @@ class AimlabScoresTests(unittest.TestCase):
             "error": "request failed",
         }
 
-        with patch("aimlab_scores._fetch_scores_with_timing", return_value=[failed_row]):
+        with patch(
+            "aimlab_scores._fetch_scores_with_timing", return_value=[failed_row]
+        ):
             with patch("sys.stdout", new=io.StringIO()):
                 with patch("sys.stderr", new=io.StringIO()):
                     exit_code = aimlab_scores.main(

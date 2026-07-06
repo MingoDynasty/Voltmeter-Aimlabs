@@ -90,8 +90,14 @@ def resolve_session_cookie(  # pylint: disable=too-many-arguments
     """
     if session_file is not None:
         session_path = Path(session_file)
-        session_cookie = read_session_cookie_file(session_path, warning_stream=warning_stream)
-        return ResolvedSession(session_cookie=session_cookie, source=str(session_path), rotation_managed=False)
+        session_cookie = read_session_cookie_file(
+            session_path, warning_stream=warning_stream
+        )
+        return ResolvedSession(
+            session_cookie=session_cookie,
+            source=str(session_path),
+            rotation_managed=False,
+        )
 
     if state_path is not None:
         try:
@@ -99,10 +105,15 @@ def resolve_session_cookie(  # pylint: disable=too-many-arguments
         except SessionStateCorruptError as error:
             if corrupt_state_policy == "raise":
                 raise
-            print(f"auth: warning: {error}; falling back to environment credentials.", file=warning_stream)
+            print(
+                f"auth: warning: {error}; falling back to environment credentials.",
+                file=warning_stream,
+            )
         else:
             if state_cookie is not None:
-                return ResolvedSession(session_cookie=state_cookie, source=str(Path(state_path)))
+                return ResolvedSession(
+                    session_cookie=state_cookie, source=str(Path(state_path))
+                )
 
     environment = os.environ if env is None else env
     env_cookie = _non_empty(environment.get(ENV_SESSION_KEY))
@@ -113,7 +124,9 @@ def resolve_session_cookie(  # pylint: disable=too-many-arguments
         dotenv_values = load_dotenv_values(dotenv_path)
         dotenv_cookie = _non_empty(dotenv_values.get(ENV_SESSION_KEY))
         if dotenv_cookie is not None:
-            return ResolvedSession(session_cookie=dotenv_cookie, source=str(Path(dotenv_path)))
+            return ResolvedSession(
+                session_cookie=dotenv_cookie, source=str(Path(dotenv_path))
+            )
 
     raise AimlabsAuthError("no Aimlabs session cookie found; run `voltmeter login`.")
 
@@ -203,7 +216,9 @@ def _resolve_bearer_with_source_locked(  # pylint: disable=too-many-arguments
         dotenv_path=dotenv_path,
         warning_stream=warning_stream,
     )
-    session_result = _fetch_session(resolved_session.session_cookie, timeout, session_fetcher)
+    session_result = _fetch_session(
+        resolved_session.session_cookie, timeout, session_fetcher
+    )
     bearer = bearer_from_session_result(session_result)
     if session_result.rotated_session_cookie:
         write_session_state(
@@ -225,13 +240,17 @@ def read_session_cookie_file(
     try:
         raw_lines = session_path.read_text(encoding="utf-8").splitlines()
     except OSError as error:
-        raise AimlabsAuthError(f"could not read session file {session_path}: {error}") from error
+        raise AimlabsAuthError(
+            f"could not read session file {session_path}: {error}"
+        ) from error
 
     for raw_line in raw_lines:
         session_cookie = raw_line.strip()
         if session_cookie:
             return session_cookie
-    raise AimlabsAuthError(f"session file {session_path} does not contain a session cookie.")
+    raise AimlabsAuthError(
+        f"session file {session_path} does not contain a session cookie."
+    )
 
 
 def read_session_state_cookie(state_path: Union[str, Path]) -> Optional[str]:
@@ -319,10 +338,13 @@ def bearer_from_session_result(session_result: SessionFetchResult) -> str:
     access_token_error = session_json.get("accessTokenError")
     if access_token_error:
         relogin_message = (
-            "aimlabs.com accepted the session but could not refresh an access token; " + "run `voltmeter login`."
+            "aimlabs.com accepted the session but could not refresh an access token; "
+            + "run `voltmeter login`."
         )
         raise ReloginRequiredError(relogin_message)
-    raise AimlabsAuthError("aimlabs.com returned no access token for this session; run `voltmeter login`.")
+    raise AimlabsAuthError(
+        "aimlabs.com returned no access token for this session; run `voltmeter login`."
+    )
 
 
 def _fetch_session(
@@ -337,7 +359,9 @@ def _fetch_session(
     return SessionFetchResult(session_json=session_result)
 
 
-def fetch_session_json(session_cookie: str, timeout: float = 20.0) -> SessionFetchResult:
+def fetch_session_json(
+    session_cookie: str, timeout: float = 20.0
+) -> SessionFetchResult:
     request = urllib.request.Request(
         SESSION_URL,
         headers={
@@ -355,28 +379,38 @@ def fetch_session_json(session_cookie: str, timeout: float = 20.0) -> SessionFet
             )
     except urllib.error.HTTPError as error:
         body_text = error.read().decode("utf-8", "replace")
-        raise AimlabsAuthError(f"session route HTTP {error.code}: {body_text[:200]}") from error
+        raise AimlabsAuthError(
+            f"session route HTTP {error.code}: {body_text[:200]}"
+        ) from error
     except OSError as error:
         raise AimlabsAuthError(f"session route request failed: {error}") from error
 
     try:
         payload = json.loads(body_text)
     except json.JSONDecodeError as error:
-        raise AimlabsAuthError(f"session route returned non-JSON: {body_text[:200]}") from error
+        raise AimlabsAuthError(
+            f"session route returned non-JSON: {body_text[:200]}"
+        ) from error
     if not isinstance(payload, Mapping):
         raise AimlabsAuthError("session route returned a non-object JSON payload.")
-    return SessionFetchResult(session_json=payload, rotated_session_cookie=rotated_session_cookie)
+    return SessionFetchResult(
+        session_json=payload, rotated_session_cookie=rotated_session_cookie
+    )
 
 
 def session_cookie_header(session_cookie: str) -> str:
     """Build a Cookie header value from a bare token or pass a full cookie string through."""
-    looks_like_full_cookie = ("session-token" in session_cookie) or ("; " in session_cookie)
+    looks_like_full_cookie = ("session-token" in session_cookie) or (
+        "; " in session_cookie
+    )
     if looks_like_full_cookie:
         return session_cookie
     return f"{DEFAULT_SESSION_COOKIE}={session_cookie}"
 
 
-def extract_session_cookie_from_set_cookie_headers(set_cookie_headers: list[str]) -> Optional[str]:
+def extract_session_cookie_from_set_cookie_headers(
+    set_cookie_headers: list[str],
+) -> Optional[str]:
     """Extract the rotated NextAuth session cookie from response Set-Cookie headers."""
     parsed_cookies = []
     for set_cookie_header in set_cookie_headers:
@@ -401,9 +435,13 @@ def write_session_state(
         "expires": expires_value if isinstance(expires_value, str) else None,
         "updated_at": _utc_now_text(),
     }
-    temp_path = resolved_path.with_name(f".{resolved_path.name}.{os.getpid()}.{time.monotonic_ns()}.tmp")
+    temp_path = resolved_path.with_name(
+        f".{resolved_path.name}.{os.getpid()}.{time.monotonic_ns()}.tmp"
+    )
     try:
-        file_descriptor = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        file_descriptor = os.open(
+            temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
+        )
         with os.fdopen(file_descriptor, "w", encoding="utf-8") as state_file:
             json.dump(payload, state_file, indent=2)
             state_file.write("\n")
@@ -413,7 +451,9 @@ def write_session_state(
             pass
         os.replace(temp_path, resolved_path)
     except OSError as error:
-        raise AimlabsAuthError(f"could not persist rotated session state to {resolved_path}: {error}") from error
+        raise AimlabsAuthError(
+            f"could not persist rotated session state to {resolved_path}: {error}"
+        ) from error
     finally:
         try:
             temp_path.unlink()
@@ -462,10 +502,14 @@ def _acquire_session_lock(
             _create_session_lock_file(lock_path)
             return
         except FileExistsError as error:
-            if _steal_stale_session_lock(lock_path, stale_after_seconds=stale_after_seconds):
+            if _steal_stale_session_lock(
+                lock_path, stale_after_seconds=stale_after_seconds
+            ):
                 continue
             if time.monotonic() >= deadline:
-                raise AimlabsAuthError(f"timed out waiting for session lock at {lock_path}") from error
+                raise AimlabsAuthError(
+                    f"timed out waiting for session lock at {lock_path}"
+                ) from error
             sleep_func(SESSION_LOCK_POLL_SECONDS)
 
 
@@ -490,7 +534,9 @@ def _create_session_lock_file(lock_path: Path) -> None:
 def _steal_stale_session_lock(lock_path: Path, *, stale_after_seconds: float) -> bool:
     if not _session_lock_is_stale(lock_path, stale_after_seconds=stale_after_seconds):
         return False
-    stolen_path = lock_path.with_name(f"{lock_path.name}.stale.{os.getpid()}.{time.monotonic_ns()}")
+    stolen_path = lock_path.with_name(
+        f"{lock_path.name}.stale.{os.getpid()}.{time.monotonic_ns()}"
+    )
     try:
         os.replace(lock_path, stolen_path)
     except FileNotFoundError:
@@ -535,7 +581,10 @@ def _session_lock_is_stale(lock_path: Path, *, stale_after_seconds: float) -> bo
         return True
     if isinstance(start_time_value, (int, float)):
         live_start_time = _process_start_time(pid_value)
-        if live_start_time is not None and abs(live_start_time - float(start_time_value)) > 1.0:
+        if (
+            live_start_time is not None
+            and abs(live_start_time - float(start_time_value)) > 1.0
+        ):
             return True
     return False
 
@@ -583,7 +632,11 @@ def _posix_process_start_time(pid_value: int) -> Optional[float]:
         if not callable(sysconf_func):
             return None
         clock_ticks = int(sysconf_func("SC_CLK_TCK"))  # pylint: disable=not-callable
-        boot_time = next(int(line.split()[1]) for line in proc_stat_text.splitlines() if line.startswith("btime "))
+        boot_time = next(
+            int(line.split()[1])
+            for line in proc_stat_text.splitlines()
+            if line.startswith("btime ")
+        )
     except POSIX_PROCESS_START_TIME_ERRORS:
         return None
     return boot_time + (start_ticks / clock_ticks)
@@ -610,7 +663,9 @@ def _windows_process_start_time(pid_value: int) -> Optional[float]:
         )
         if not success:
             return None
-        filetime_ticks = (creation_time.dwHighDateTime << 32) + creation_time.dwLowDateTime
+        filetime_ticks = (
+            creation_time.dwHighDateTime << 32
+        ) + creation_time.dwLowDateTime
         return (filetime_ticks / 10_000_000) - WINDOWS_FILETIME_EPOCH_SECONDS
     finally:
         _close_windows_handle(handle)
@@ -655,7 +710,9 @@ def _iter_cookie_pairs(cookies: Any) -> Iterator[tuple[str, Optional[str]]]:
       - some backends/versions -> list[http.cookiejar.Cookie] (.name / .value)
       - occasionally a bare Morsel, or a plain {name: value} dict (not in a list)
     """
-    if isinstance(cookies, (Morsel, dict)):  # a bare cookie container, not a list of them
+    if isinstance(
+        cookies, (Morsel, dict)
+    ):  # a bare cookie container, not a list of them
         cookies = [cookies]
     for cookie in cookies or []:
         if isinstance(cookie, Morsel):
@@ -675,7 +732,9 @@ def _iter_cookie_pairs(cookies: Any) -> Iterator[tuple[str, Optional[str]]]:
 
 def _cookie_names(cookies: Any) -> list[str]:
     """Sorted, de-duplicated cookie names (no values) — safe for diagnostics."""
-    return sorted({cookie_name for cookie_name, _ in _iter_cookie_pairs(cookies) if cookie_name})
+    return sorted(
+        {cookie_name for cookie_name, _ in _iter_cookie_pairs(cookies) if cookie_name}
+    )
 
 
 def extract_session_cookie(cookies: Any) -> Optional[str]:
@@ -690,7 +749,11 @@ def extract_session_cookie(cookies: Any) -> Optional[str]:
     chunked_values: dict[str, str] = {}
     single_cookie: Optional[tuple[str, str]] = None
     for cookie_name, cookie_value in _iter_cookie_pairs(cookies):
-        if not cookie_name or cookie_value is None or "session-token" not in cookie_name:
+        if (
+            not cookie_name
+            or cookie_value is None
+            or "session-token" not in cookie_name
+        ):
             continue
         suffix = cookie_name.split("session-token", 1)[1]  # "" or ".0", ".1", ...
         if suffix.startswith(".") and suffix[1:].isdigit():
@@ -698,11 +761,19 @@ def extract_session_cookie(cookies: Any) -> Optional[str]:
         else:
             single_cookie = (cookie_name, cookie_value)
     if chunked_values:
-        ordered_chunks = sorted(chunked_values.items(), key=lambda chunk: int(chunk[0].rsplit(".", 1)[-1]))
-        return "; ".join(f"{chunk_name}={chunk_value}" for chunk_name, chunk_value in ordered_chunks)
+        ordered_chunks = sorted(
+            chunked_values.items(), key=lambda chunk: int(chunk[0].rsplit(".", 1)[-1])
+        )
+        return "; ".join(
+            f"{chunk_name}={chunk_value}" for chunk_name, chunk_value in ordered_chunks
+        )
     if single_cookie is not None:
         cookie_name, cookie_value = single_cookie
-        return cookie_value if cookie_name == DEFAULT_SESSION_COOKIE else f"{cookie_name}={cookie_value}"
+        return (
+            cookie_value
+            if cookie_name == DEFAULT_SESSION_COOKIE
+            else f"{cookie_name}={cookie_value}"
+        )
     return None
 
 
@@ -779,7 +850,10 @@ def login_and_capture(  # pylint: disable=too-many-arguments
                 # The backend may not be ready to serve cookies yet.
                 cookies = None
                 if last_seen_names["names"] != ["<error>"]:
-                    print(f"login: (get_cookies not ready yet: {error})", file=message_stream)
+                    print(
+                        f"login: (get_cookies not ready yet: {error})",
+                        file=message_stream,
+                    )
                     last_seen_names["names"] = ["<error>"]
             session_value = extract_session_cookie(cookies) if cookies else None
             # Diagnostic: when the set of visible cookie names changes, log the names
@@ -788,7 +862,10 @@ def login_and_capture(  # pylint: disable=too-many-arguments
                 cookie_names = _cookie_names(cookies)
                 if cookie_names != last_seen_names["names"]:
                     last_seen_names["names"] = cookie_names
-                    print(f"login: cookies visible now: {cookie_names or '(none)'}", file=message_stream)
+                    print(
+                        f"login: cookies visible now: {cookie_names or '(none)'}",
+                        file=message_stream,
+                    )
             if session_value:
                 captured["value"] = session_value
                 break
@@ -847,10 +924,15 @@ def reset_login_session_locked(
     except FileNotFoundError:
         pass
     except OSError as error:
-        raise AimlabsAuthError(f"could not reset session state at {resolved_state_path}: {error}") from error
+        raise AimlabsAuthError(
+            f"could not reset session state at {resolved_state_path}: {error}"
+        ) from error
 
     write_env_var(env_path, ENV_SESSION_KEY, session_value)
-    print(f"login: captured session cookie -> wrote {ENV_SESSION_KEY} to {Path(env_path)}", file=message_stream)
+    print(
+        f"login: captured session cookie -> wrote {ENV_SESSION_KEY} to {Path(env_path)}",
+        file=message_stream,
+    )
     _verify_and_report_identity(
         session_value,
         message_stream,
@@ -861,14 +943,22 @@ def reset_login_session_locked(
 
 def _print_no_capture_message(seen_names: list[str], message_stream: TextIO) -> None:
     hint = ""
-    if seen_names and seen_names != ["<error>"] and not any("session-token" in name for name in seen_names):
+    if (
+        seen_names
+        and seen_names != ["<error>"]
+        and not any("session-token" in name for name in seen_names)
+    ):
         hint = (
             " The login cookies were visible but none contained 'session-token' -- this"
             " backend may be hiding the httpOnly session cookie (cookie capture is"
-            " verified on Windows WebView2 only). Last seen: " + ", ".join(seen_names) + "."
+            " verified on Windows WebView2 only). Last seen: "
+            + ", ".join(seen_names)
+            + "."
         )
     print(
-        "login: no session captured (window closed or timed out before login completed)." + hint + " Nothing written.",
+        "login: no session captured (window closed or timed out before login completed)."
+        + hint
+        + " Nothing written.",
         file=message_stream,
     )
 
@@ -891,7 +981,11 @@ def _verify_and_report_identity(
         )
         return
     if session_result.rotated_session_cookie:
-        write_session_state(session_result.rotated_session_cookie, session_result.session_json, state_path)
+        write_session_state(
+            session_result.rotated_session_cookie,
+            session_result.session_json,
+            state_path,
+        )
     session_json = session_result.session_json
     user_value = session_json.get("user")
     user = user_value if isinstance(user_value, Mapping) else {}
@@ -902,7 +996,9 @@ def _verify_and_report_identity(
     print(f"login: verified login{who}{until}.", file=message_stream)
 
 
-def _warn_if_loose_posix_permissions(session_path: Path, warning_stream: TextIO) -> None:
+def _warn_if_loose_posix_permissions(
+    session_path: Path, warning_stream: TextIO
+) -> None:
     if os.name == "nt":
         return
     try:
@@ -924,4 +1020,8 @@ def _non_empty(value: Optional[str]) -> Optional[str]:
 
 
 def _utc_now_text() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )

@@ -41,7 +41,9 @@ BASE_HEADERS = {
 LEADERBOARD_SHAPE_ERRORS = (KeyError, TypeError)
 
 
-def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
+def _post_json(
+    url: str, payload: dict, headers: dict, timeout: float
+) -> tuple[int, str]:
     body = json.dumps(payload).encode("utf-8")
     response = requests.post(url, data=body, headers=headers, timeout=timeout)
     return response.status_code, response.text

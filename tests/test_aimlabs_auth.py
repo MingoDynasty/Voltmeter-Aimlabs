@@ -34,7 +34,9 @@ from aimlabs_auth import (
 def write_lock_file(lock_path: Path, *, pid_value: int, start_time: float) -> None:
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     lock_path.write_text(
-        json.dumps({"pid": pid_value, "start_time": start_time, "created_at": time.time()}),
+        json.dumps(
+            {"pid": pid_value, "start_time": start_time, "created_at": time.time()}
+        ),
         encoding="utf-8",
     )
 
@@ -54,7 +56,9 @@ class AimlabsAuthTests(unittest.TestCase):
                     return_value=SimpleNamespace(st_mode=0o100644),
                 ),
             ):
-                session_cookie = read_session_cookie_file(session_path, warning_stream=warning_stream)
+                session_cookie = read_session_cookie_file(
+                    session_path, warning_stream=warning_stream
+                )
 
         self.assertEqual(session_cookie, "file-cookie")
         self.assertIn("group/world-readable", warning_stream.getvalue())
@@ -63,7 +67,9 @@ class AimlabsAuthTests(unittest.TestCase):
     def test_session_file_takes_precedence_and_reads_first_non_empty_line(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             session_path = Path(temp_dir) / "session.cookie"
-            session_path.write_text("\n  file-cookie  \nsecond-line\n", encoding="utf-8")
+            session_path.write_text(
+                "\n  file-cookie  \nsecond-line\n", encoding="utf-8"
+            )
             dotenv_path = Path(temp_dir) / ".env"
             dotenv_path.write_text('AIMLAB_SESSION="dotenv-cookie"\n', encoding="utf-8")
 
@@ -118,7 +124,9 @@ class AimlabsAuthTests(unittest.TestCase):
         self.assertEqual(resolved.session_cookie, "state-cookie")
         self.assertEqual(resolved.source, str(state_path))
 
-    def test_dotenv_values_parse_simple_quotes_without_mutating_environment(self) -> None:
+    def test_dotenv_values_parse_simple_quotes_without_mutating_environment(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             dotenv_path = Path(temp_dir) / ".env"
             dotenv_path.write_text(
@@ -181,7 +189,9 @@ class AimlabsAuthTests(unittest.TestCase):
     def test_bearer_exchange_uses_access_token(self) -> None:
         bearer = get_bearer_from_session(
             "session-cookie",
-            session_fetcher=lambda session_cookie, timeout: {"accessToken": "fresh-token"},
+            session_fetcher=lambda session_cookie, timeout: {
+                "accessToken": "fresh-token"
+            },
         )
 
         self.assertEqual(bearer, "fresh-token")
@@ -195,7 +205,9 @@ class AimlabsAuthTests(unittest.TestCase):
                 },
             )
 
-    def test_managed_mint_persists_rotation_and_control_without_persist_fails(self) -> None:
+    def test_managed_mint_persists_rotation_and_control_without_persist_fails(
+        self,
+    ) -> None:
         endpoint = RotatingSessionEndpoint(initial_cookie="cookie-0")
 
         self.assertEqual(
@@ -277,7 +289,9 @@ class AimlabsAuthTests(unittest.TestCase):
                     lock_path=lock_path,
                     env={"AIMLAB_SESSION": "env-cookie"},
                     dotenv_path=None,
-                    session_fetcher=lambda session_cookie, timeout: calls.append(session_cookie),
+                    session_fetcher=lambda session_cookie, timeout: calls.append(
+                        session_cookie
+                    ),
                 )
 
             self.assertEqual(calls, [])
@@ -329,7 +343,9 @@ class AimlabsAuthTests(unittest.TestCase):
             stale_time = time.time() - 120.0
             os.utime(lock_path, (stale_time, stale_time))
 
-            self.assertTrue(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+            self.assertTrue(
+                aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0)
+            )
 
     def test_session_lock_is_stale_when_recorded_process_is_dead(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -337,7 +353,11 @@ class AimlabsAuthTests(unittest.TestCase):
             write_lock_file(lock_path, pid_value=12345, start_time=10.0)
 
             with patch("aimlabs_auth._process_exists", return_value=False):
-                self.assertTrue(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+                self.assertTrue(
+                    aimlabs_auth._session_lock_is_stale(
+                        lock_path, stale_after_seconds=60.0
+                    )
+                )
 
     def test_session_lock_keeps_live_matching_process(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -348,7 +368,11 @@ class AimlabsAuthTests(unittest.TestCase):
                 patch("aimlabs_auth._process_exists", return_value=True),
                 patch("aimlabs_auth._process_start_time", return_value=10.0),
             ):
-                self.assertFalse(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+                self.assertFalse(
+                    aimlabs_auth._session_lock_is_stale(
+                        lock_path, stale_after_seconds=60.0
+                    )
+                )
 
     def test_session_lock_is_stale_on_pid_reuse_start_time_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -359,18 +383,30 @@ class AimlabsAuthTests(unittest.TestCase):
                 patch("aimlabs_auth._process_exists", return_value=True),
                 patch("aimlabs_auth._process_start_time", return_value=12.5),
             ):
-                self.assertTrue(aimlabs_auth._session_lock_is_stale(lock_path, stale_after_seconds=60.0))
+                self.assertTrue(
+                    aimlabs_auth._session_lock_is_stale(
+                        lock_path, stale_after_seconds=60.0
+                    )
+                )
 
     def test_stale_lock_steal_restores_when_recheck_finds_live_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             lock_path = Path(temp_dir) / "data" / "session.lock"
             write_lock_file(lock_path, pid_value=12345, start_time=10.0)
 
-            with patch("aimlabs_auth._session_lock_is_stale", side_effect=[True, False]):
-                self.assertFalse(aimlabs_auth._steal_stale_session_lock(lock_path, stale_after_seconds=60.0))
+            with patch(
+                "aimlabs_auth._session_lock_is_stale", side_effect=[True, False]
+            ):
+                self.assertFalse(
+                    aimlabs_auth._steal_stale_session_lock(
+                        lock_path, stale_after_seconds=60.0
+                    )
+                )
 
             self.assertTrue(lock_path.exists())
-            self.assertEqual(json.loads(lock_path.read_text(encoding="utf-8"))["pid"], 12345)
+            self.assertEqual(
+                json.loads(lock_path.read_text(encoding="utf-8"))["pid"], 12345
+            )
 
     def test_stale_lock_steal_removes_confirmed_stale_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -378,7 +414,11 @@ class AimlabsAuthTests(unittest.TestCase):
             write_lock_file(lock_path, pid_value=12345, start_time=10.0)
 
             with patch("aimlabs_auth._session_lock_is_stale", return_value=True):
-                self.assertTrue(aimlabs_auth._steal_stale_session_lock(lock_path, stale_after_seconds=60.0))
+                self.assertTrue(
+                    aimlabs_auth._steal_stale_session_lock(
+                        lock_path, stale_after_seconds=60.0
+                    )
+                )
 
             self.assertFalse(lock_path.exists())
 
@@ -400,7 +440,10 @@ class RotatingSessionEndpoint:  # pylint: disable=too-few-public-methods
         next_cookie = f"cookie-{call_number}"
         self.current_cookie = next_cookie
         return SessionFetchResult(
-            {"accessToken": f"bearer-{call_number}", "expires": "2026-07-01T00:00:00.000Z"},
+            {
+                "accessToken": f"bearer-{call_number}",
+                "expires": "2026-07-01T00:00:00.000Z",
+            },
             rotated_session_cookie=next_cookie,
         )
 
@@ -491,9 +534,13 @@ class LoginCaptureTests(unittest.TestCase):
     def test_extract_session_cookie_from_cookiejar_objects(self) -> None:
         cookiejar_cookie = SimpleNamespace(name="custom-session-token", value="abc")
 
-        self.assertEqual(extract_session_cookie([cookiejar_cookie]), "custom-session-token=abc")
+        self.assertEqual(
+            extract_session_cookie([cookiejar_cookie]), "custom-session-token=abc"
+        )
 
-    def test_extract_session_cookie_joins_chunked_cookies_in_numeric_order(self) -> None:
+    def test_extract_session_cookie_joins_chunked_cookies_in_numeric_order(
+        self,
+    ) -> None:
         chunked_cookies = {
             f"{DEFAULT_SESSION_COOKIE}.1": "bbb",
             f"{DEFAULT_SESSION_COOKIE}.0": "aaa",
@@ -506,9 +553,13 @@ class LoginCaptureTests(unittest.TestCase):
 
     def test_extract_session_cookie_from_bare_dict_not_wrapped_in_a_list(self) -> None:
         # Some backends return a single {name: value} dict, not a list of them.
-        self.assertEqual(extract_session_cookie({DEFAULT_SESSION_COOKIE: "token"}), "token")
+        self.assertEqual(
+            extract_session_cookie({DEFAULT_SESSION_COOKIE: "token"}), "token"
+        )
 
-    def test_extract_session_cookie_from_bare_simple_cookie_not_wrapped_in_a_list(self) -> None:
+    def test_extract_session_cookie_from_bare_simple_cookie_not_wrapped_in_a_list(
+        self,
+    ) -> None:
         simple_cookie: SimpleCookie = SimpleCookie()
         simple_cookie[DEFAULT_SESSION_COOKIE] = "captured-token"
 
@@ -521,7 +572,9 @@ class LoginCaptureTests(unittest.TestCase):
     def test_write_env_var_replaces_existing_line_and_preserves_others(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             env_path = Path(temp_dir) / ".env"
-            env_path.write_text('OTHER=1\nAIMLAB_SESSION="old"\n# comment\n', encoding="utf-8")
+            env_path.write_text(
+                'OTHER=1\nAIMLAB_SESSION="old"\n# comment\n', encoding="utf-8"
+            )
 
             write_env_var(env_path, "AIMLAB_SESSION", "new")
 
@@ -596,7 +649,9 @@ class LoginCaptureTests(unittest.TestCase):
                 )
 
             self.assertEqual(captured_session, "captured-token")
-            self.assertIn('AIMLAB_SESSION="captured-token"', env_path.read_text(encoding="utf-8"))
+            self.assertIn(
+                'AIMLAB_SESSION="captured-token"', env_path.read_text(encoding="utf-8")
+            )
             self.assertEqual(read_session_state_cookie(state_path), "rotated-token")
         self.assertTrue(login_window.destroyed)
         messages = message_stream.getvalue()
@@ -616,7 +671,10 @@ class LoginCaptureTests(unittest.TestCase):
             lock_path = temp_path / "data" / "session.lock"
             with (
                 patch.dict(sys.modules, {"webview": fake_webview_module(login_window)}),
-                patch("aimlabs_auth.fetch_session_json", side_effect=AimlabsAuthError("offline")),
+                patch(
+                    "aimlabs_auth.fetch_session_json",
+                    side_effect=AimlabsAuthError("offline"),
+                ),
             ):
                 captured_session = login_and_capture(
                     env_path,
@@ -636,8 +694,12 @@ class LoginCaptureTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             env_path = Path(temp_dir) / ".env"
-            with patch.dict(sys.modules, {"webview": fake_webview_module(login_window)}):
-                captured_session = login_and_capture(env_path, timeout=0.0, message_stream=message_stream)
+            with patch.dict(
+                sys.modules, {"webview": fake_webview_module(login_window)}
+            ):
+                captured_session = login_and_capture(
+                    env_path, timeout=0.0, message_stream=message_stream
+                )
 
             self.assertIsNone(captured_session)
             self.assertFalse(env_path.exists())
@@ -671,7 +733,9 @@ class LoginCaptureTests(unittest.TestCase):
                 patch("aimlabs_auth.threading.Thread", side_effect=recording_thread),
                 patch("aimlabs_auth.LOGIN_POLL_INTERVAL_SECONDS", 30.0),
             ):
-                captured_session = login_and_capture(env_path, timeout=60.0, message_stream=message_stream)
+                captured_session = login_and_capture(
+                    env_path, timeout=60.0, message_stream=message_stream
+                )
 
             self.assertIsNone(captured_session)
             self.assertFalse(env_path.exists())
@@ -707,9 +771,13 @@ class LoginCaptureTests(unittest.TestCase):
             try:
                 with (
                     patch.dict(sys.modules, {"webview": fake_webview}),
-                    patch("aimlabs_auth.threading.Thread", side_effect=recording_thread),
+                    patch(
+                        "aimlabs_auth.threading.Thread", side_effect=recording_thread
+                    ),
                 ):
-                    captured_session = login_and_capture(env_path, timeout=60.0, message_stream=message_stream)
+                    captured_session = login_and_capture(
+                        env_path, timeout=60.0, message_stream=message_stream
+                    )
 
                 self.assertIsNone(captured_session)
                 self.assertFalse(env_path.exists())
@@ -735,7 +803,9 @@ class LoginCaptureTests(unittest.TestCase):
                 patch("aimlabs_auth.LOGIN_POLL_INTERVAL_SECONDS", 0.0),
                 patch("aimlabs_auth.time.time", side_effect=[0.0, 0.5, 2.0]),
             ):
-                captured_session = login_and_capture(env_path, timeout=1.0, message_stream=message_stream)
+                captured_session = login_and_capture(
+                    env_path, timeout=1.0, message_stream=message_stream
+                )
 
             self.assertIsNone(captured_session)
             self.assertFalse(env_path.exists())

@@ -127,7 +127,10 @@ def sync_incremental(  # pylint: disable=too-many-locals
         retry_delays=retry_delays,
     )
 
-    if previous_state is not None and previous_state.backfill_phase == play_store.BACKFILLING:
+    if (
+        previous_state is not None
+        and previous_state.backfill_phase == play_store.BACKFILLING
+    ):
         counters = SyncCounters()
         return _sync_backfill(
             connection,
@@ -138,7 +141,10 @@ def sync_incremental(  # pylint: disable=too-many-locals
             warning_stream,
             counters,
         )
-    if previous_state is not None and previous_state.backfill_phase == play_store.TOP_SWEEP:
+    if (
+        previous_state is not None
+        and previous_state.backfill_phase == play_store.TOP_SWEEP
+    ):
         counters = SyncCounters()
         return _sync_top_sweep(
             connection,
@@ -233,7 +239,9 @@ def sync_full(  # pylint: disable=too-many-locals
         updated += upsert_result.updated
         field_drift_warnings.extend(upsert_result.drift_warnings)
         if collect_deleted:
-            upstream_play_ids.update(_required_play_text(raw_play, "id") for raw_play in raw_plays)
+            upstream_play_ids.update(
+                _required_play_text(raw_play, "id") for raw_play in raw_plays
+            )
 
         if not page.has_next_page:
             break
@@ -261,7 +269,9 @@ def sync_full(  # pylint: disable=too-many-locals
     )
     deleted_warning = None
     if collect_deleted:
-        deleted_warning = _deleted_plays_warning(connection, account_id, upstream_play_ids, warning_stream)
+        deleted_warning = _deleted_plays_warning(
+            connection, account_id, upstream_play_ids, warning_stream
+        )
     return FullSyncResult(
         pages_fetched=pages_fetched,
         inserted=inserted,
@@ -281,7 +291,9 @@ def _deleted_plays_warning(
     upstream_play_ids: set[str],
     warning_stream: TextIO,
 ) -> Optional[DeletedPlaysWarning]:
-    stored_play_ids = {row["id"] for row in play_store.list_plays_by_account(connection, account_id)}
+    stored_play_ids = {
+        row["id"] for row in play_store.list_plays_by_account(connection, account_id)
+    }
     deleted_play_ids = tuple(sorted(stored_play_ids - upstream_play_ids))
     if not deleted_play_ids:
         return None
@@ -508,7 +520,9 @@ def _sync_top_sweep(  # pylint: disable=too-many-arguments,too-many-locals
             sweep_top_ended_at = _required_play_text(raw_plays[0], "endedAt")
             sweep_top_total_count = page.total_count
 
-        upsert_result = play_store.upsert_plays(connection, account_id, raw_plays, seen_at=sync_timestamp)
+        upsert_result = play_store.upsert_plays(
+            connection, account_id, raw_plays, seen_at=sync_timestamp
+        )
         _add_upsert_counts(counters, upsert_result)
 
         if _page_contains_play_id(raw_plays, anchor_id):
@@ -518,7 +532,9 @@ def _sync_top_sweep(  # pylint: disable=too-many-arguments,too-many-locals
             break
         after = page.end_cursor
 
-    finalized_total_count = sweep_top_total_count if sweep_top_total_count is not None else 0
+    finalized_total_count = (
+        sweep_top_total_count if sweep_top_total_count is not None else 0
+    )
     play_store.save_sync_state(
         connection,
         play_store.SyncState(
@@ -573,17 +589,23 @@ def _sync_steady_state(  # pylint: disable=too-many-arguments,too-many-locals
             run_top_ended_at = _required_play_text(raw_plays[0], "endedAt")
             run_top_total_count = page.total_count
 
-        upsert_result = play_store.upsert_plays(connection, account_id, raw_plays, seen_at=sync_timestamp)
+        upsert_result = play_store.upsert_plays(
+            connection, account_id, raw_plays, seen_at=sync_timestamp
+        )
         _add_upsert_counts(counters, upsert_result)
 
-        if high_water_id is not None and _page_contains_play_id(raw_plays, high_water_id):
+        if high_water_id is not None and _page_contains_play_id(
+            raw_plays, high_water_id
+        ):
             stopped_on_high_water = True
             break
         if not page.has_next_page:
             break
         after = page.end_cursor
 
-    finalized_total_count = run_top_total_count if run_top_total_count is not None else 0
+    finalized_total_count = (
+        run_top_total_count if run_top_total_count is not None else 0
+    )
     play_store.save_sync_state(
         connection,
         play_store.SyncState(
@@ -613,12 +635,16 @@ def _sync_steady_state(  # pylint: disable=too-many-arguments,too-many-locals
     )
 
 
-def _fetch_page_with_resilience(fetch_context: FetchContext, *, after: Optional[str]) -> HistoryPage:
+def _fetch_page_with_resilience(
+    fetch_context: FetchContext, *, after: Optional[str]
+) -> HistoryPage:
     transient_failures = 0
     refreshed_for_request = False
     while True:
         try:
-            return fetch_context.fetch_page(after=after, page_size=fetch_context.page_size)
+            return fetch_context.fetch_page(
+                after=after, page_size=fetch_context.page_size
+            )
         except AimlabsUnauthorizedError:
             if fetch_context.refresh_auth is None or refreshed_for_request:
                 raise
@@ -627,7 +653,9 @@ def _fetch_page_with_resilience(fetch_context: FetchContext, *, after: Optional[
         except AimlabsTransientHistoryError:
             if transient_failures >= len(fetch_context.retry_delays):
                 raise
-            fetch_context.sleep_func(float(fetch_context.retry_delays[transient_failures]))
+            fetch_context.sleep_func(
+                float(fetch_context.retry_delays[transient_failures])
+            )
             transient_failures += 1
 
 
@@ -658,7 +686,9 @@ def _next_resume_cursor(page: HistoryPage) -> Optional[str]:
 
 def _required_state_anchor(sync_state: play_store.SyncState) -> str:
     if sync_state.backfill_anchor_id is None:
-        raise play_store.PlayStoreError("sync_state.backfill_anchor_id is required for backfill recovery.")
+        raise play_store.PlayStoreError(
+            "sync_state.backfill_anchor_id is required for backfill recovery."
+        )
     return sync_state.backfill_anchor_id
 
 
@@ -687,11 +717,15 @@ def _total_count_drift_warnings(
 def _required_play_text(raw_play: dict[str, Any], field_name: str) -> str:
     value = raw_play.get(field_name)
     if not isinstance(value, str) or not value:
-        raise play_store.PlayStoreError(f"{field_name} is required and must be a non-empty string.")
+        raise play_store.PlayStoreError(
+            f"{field_name} is required and must be a non-empty string."
+        )
     return value
 
 
-def _add_upsert_counts(counters: SyncCounters, upsert_result: play_store.UpsertResult) -> None:
+def _add_upsert_counts(
+    counters: SyncCounters, upsert_result: play_store.UpsertResult
+) -> None:
     counters.inserted += upsert_result.inserted
     counters.skipped += upsert_result.skipped
 
@@ -718,7 +752,11 @@ def _result(
 
 
 def _utc_now_text() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 __all__ = [

@@ -8,7 +8,9 @@ from math import floor
 from pathlib import Path
 from typing import Optional
 
-RESOURCE_PATH = Path(__file__).resolve().parent / "resources" / "aimlabs" / "valorant_s1.json"
+RESOURCE_PATH = (
+    Path(__file__).resolve().parent / "resources" / "aimlabs" / "valorant_s1.json"
+)
 
 
 class BenchmarkResourceError(RuntimeError):
@@ -20,14 +22,20 @@ def load_valorant_s1() -> dict:
     try:
         resource_text = RESOURCE_PATH.read_text(encoding="utf-8")
     except OSError as error:
-        raise BenchmarkResourceError(f"Could not read benchmark resource {RESOURCE_PATH}: {error}") from error
+        raise BenchmarkResourceError(
+            f"Could not read benchmark resource {RESOURCE_PATH}: {error}"
+        ) from error
 
     try:
         resource_data = json.loads(resource_text)
     except json.JSONDecodeError as error:
-        raise BenchmarkResourceError(f"Could not parse benchmark resource {RESOURCE_PATH}: {error}") from error
+        raise BenchmarkResourceError(
+            f"Could not parse benchmark resource {RESOURCE_PATH}: {error}"
+        ) from error
     if not isinstance(resource_data, dict):
-        raise BenchmarkResourceError(f"Benchmark resource {RESOURCE_PATH} must contain a JSON object.")
+        raise BenchmarkResourceError(
+            f"Benchmark resource {RESOURCE_PATH} must contain a JSON object."
+        )
     return resource_data
 
 
@@ -46,18 +54,24 @@ def category_maps(resource_data: dict) -> tuple[dict[int, str], dict[int, str]]:
     return categories_by_id, subcategories_by_id
 
 
-def difficulty_maps(resource_data: dict, *, allowed_difficulties: Optional[tuple[str, ...]] = None) -> dict[int, str]:
+def difficulty_maps(
+    resource_data: dict, *, allowed_difficulties: Optional[tuple[str, ...]] = None
+) -> dict[int, str]:
     """Map tier ids to lowercase difficulty names, validated against an allowed set when given."""
     difficulties_by_tier_id = {}
     for tier in resource_data["tiers"]:
         difficulty = tier["name"].lower()
         if allowed_difficulties is not None and difficulty not in allowed_difficulties:
-            raise ValueError(f"Unknown difficulty {difficulty!r} for tier id {tier['id']!r}.")
+            raise ValueError(
+                f"Unknown difficulty {difficulty!r} for tier id {tier['id']!r}."
+            )
         difficulties_by_tier_id[tier["id"]] = difficulty
     return difficulties_by_tier_id
 
 
-def lookup_label(labels_by_id: dict[int, str], label_type: str, resource_scenario: dict) -> str:
+def lookup_label(
+    labels_by_id: dict[int, str], label_type: str, resource_scenario: dict
+) -> str:
     """Resolve a scenario's category/subcategory id to its label, raising on unknown ids."""
     label_id = resource_scenario[f"{label_type}_id"]
     label = labels_by_id.get(label_id)
@@ -68,12 +82,16 @@ def lookup_label(labels_by_id: dict[int, str], label_type: str, resource_scenari
     return label
 
 
-def tier_difficulty(difficulties_by_tier_id: dict[int, str], tier: dict, resource_scenario: dict) -> str:
+def tier_difficulty(
+    difficulties_by_tier_id: dict[int, str], tier: dict, resource_scenario: dict
+) -> str:
     """Resolve a scenario tier's difficulty, raising on unknown tier ids."""
     tier_id = tier["tier_id"]
     difficulty = difficulties_by_tier_id.get(tier_id)
     if difficulty is None:
-        raise ValueError(f"Unknown tier_id {tier_id!r} for scenario {resource_scenario.get('name', '<unnamed>')!r}.")
+        raise ValueError(
+            f"Unknown tier_id {tier_id!r} for scenario {resource_scenario.get('name', '<unnamed>')!r}."
+        )
     return difficulty
 
 
@@ -105,7 +123,8 @@ def _tier_index_by_id() -> dict[int, int]:
 @lru_cache(maxsize=1)
 def _tier_energies() -> tuple[tuple[int, ...], ...]:
     return tuple(
-        tuple(rank["energy_threshold"] for rank in _ranks_by_tier().get(tier["id"], [])) for tier in _tier_order()
+        tuple(rank["energy_threshold"] for rank in _ranks_by_tier().get(tier["id"], []))
+        for tier in _tier_order()
     )
 
 
@@ -144,7 +163,9 @@ def _threshold_entries(resource_scenario: dict) -> list[dict]:
     return sorted(entries, key=lambda entry: entry["energy"])
 
 
-def _resource_tier_for_difficulty(resource_scenario: dict, difficulty: Optional[str]) -> Optional[dict]:
+def _resource_tier_for_difficulty(
+    resource_scenario: dict, difficulty: Optional[str]
+) -> Optional[dict]:
     if difficulty is not None:
         benchmark_tier = _tiers_by_difficulty().get(difficulty)
         if benchmark_tier is not None:
@@ -169,7 +190,9 @@ def _extended_rank_energies(current_tier_idx: int) -> list[float]:
     extended_energies = [0.0]
     if current_tier_idx != 0:
         extended_energies.append(float(max(tier_energies[current_tier_idx - 1])))
-    extended_energies.extend(float(energy) for energy in tier_energies[current_tier_idx])
+    extended_energies.extend(
+        float(energy) for energy in tier_energies[current_tier_idx]
+    )
     return extended_energies
 
 
@@ -191,7 +214,9 @@ def _last_reached_threshold_idx(thresholds: list[float], score: float) -> int:
     return reached_idx
 
 
-def _uncapped_scenario_energy(score: float, thresholds: list[float], current_tier_idx: int) -> float:
+def _uncapped_scenario_energy(
+    score: float, thresholds: list[float], current_tier_idx: int
+) -> float:
     extended_thresholds = _extended_thresholds(thresholds, current_tier_idx)
     extended_energies = _extended_rank_energies(current_tier_idx)
     reached_idx = _last_reached_threshold_idx(extended_thresholds, score)
@@ -204,7 +229,8 @@ def _uncapped_scenario_energy(score: float, thresholds: list[float], current_tie
 
     score_above_threshold = score - extended_thresholds[reached_idx]
     return (
-        extended_energies[reached_idx] + score_above_threshold / threshold_difference * energy_differences[reached_idx]
+        extended_energies[reached_idx]
+        + score_above_threshold / threshold_difference * energy_differences[reached_idx]
     )
 
 
@@ -215,13 +241,17 @@ def _tier_energy_cap(current_tier_idx: int) -> float:
     return float(tier_energies[current_tier_idx + 1][0] - 1)
 
 
-def _official_scenario_energies(resource_scenario: dict, difficulty: Optional[str], score: float) -> dict:
+def _official_scenario_energies(
+    resource_scenario: dict, difficulty: Optional[str], score: float
+) -> dict:
     resource_tier = _resource_tier_for_difficulty(resource_scenario, difficulty)
     if resource_tier is None:
         return {"voltaic_energy": 0, "voltaic_uncapped_energy": 0}
 
     current_tier_idx = _tier_index_by_id()[resource_tier["tier_id"]]
-    uncapped_energy = _uncapped_scenario_energy(score, resource_tier["thresholds"], current_tier_idx)
+    uncapped_energy = _uncapped_scenario_energy(
+        score, resource_tier["thresholds"], current_tier_idx
+    )
     energy_cap = _tier_energy_cap(current_tier_idx)
     return {
         "voltaic_energy": floor(min(energy_cap, uncapped_energy)),
@@ -229,7 +259,9 @@ def _official_scenario_energies(resource_scenario: dict, difficulty: Optional[st
     }
 
 
-def _progress_percent(score: float, current_entry: Optional[dict], next_entry: dict) -> float:
+def _progress_percent(
+    score: float, current_entry: Optional[dict], next_entry: dict
+) -> float:
     if current_entry is None:
         return min(max(score / next_entry["threshold"] * 100.0, 0.0), 100.0)
 
@@ -240,7 +272,9 @@ def _progress_percent(score: float, current_entry: Optional[dict], next_entry: d
     return min(max(progress, 0.0), 100.0)
 
 
-def _energy_progress_percent(energy: float, current_rank: Optional[dict], next_rank: dict) -> float:
+def _energy_progress_percent(
+    energy: float, current_rank: Optional[dict], next_rank: dict
+) -> float:
     if current_rank is None:
         return min(max(energy / next_rank["energy_threshold"] * 100.0, 0.0), 100.0)
 
@@ -324,11 +358,17 @@ def evaluate_score(scenario: dict, score: Optional[float]) -> dict:
 
     result["voltaic_rank"] = current_entry["rank"] if current_entry else "Unranked"
     result["voltaic_rank_energy"] = current_entry["energy"] if current_entry else 0
-    result.update(_official_scenario_energies(resource_scenario, scenario.get("difficulty"), float(score)))
+    result.update(
+        _official_scenario_energies(
+            resource_scenario, scenario.get("difficulty"), float(score)
+        )
+    )
     if next_entry is not None:
         result["next_rank"] = next_entry["rank"]
         result["next_rank_target_score"] = next_entry["threshold"]
-        result["next_rank_progress_percent"] = round(_progress_percent(float(score), current_entry, next_entry), 1)
+        result["next_rank_progress_percent"] = round(
+            _progress_percent(float(score), current_entry, next_entry), 1
+        )
     return result
 
 
@@ -367,7 +407,10 @@ def calculate_subcategory_energy(rows: list[dict]) -> list[dict]:
             previous is None
             or previous["source_scenario"] is None
             or energy > previous["energy"]
-            or (energy == previous["energy"] and uncapped_energy > previous["uncapped_energy"])
+            or (
+                energy == previous["energy"]
+                and uncapped_energy > previous["uncapped_energy"]
+            )
         ):
             energy_by_subcategory[subcategory_key] = {
                 "difficulty": row["difficulty"],
@@ -396,15 +439,23 @@ def calculate_difficulty_overall_rank(rows: list[dict]) -> list[dict]:
     for summary in subcategory_summaries:
         summaries_by_difficulty.setdefault(summary["difficulty"], []).append(summary)
 
-    difficulty_order = {difficulty: difficulty_idx for difficulty_idx, difficulty in enumerate(_tiers_by_difficulty())}
+    difficulty_order = {
+        difficulty: difficulty_idx
+        for difficulty_idx, difficulty in enumerate(_tiers_by_difficulty())
+    }
     overall_summaries = []
     for difficulty in sorted(
         summaries_by_difficulty,
-        key=lambda summary_difficulty: difficulty_order.get(summary_difficulty, len(difficulty_order)),
+        key=lambda summary_difficulty: difficulty_order.get(
+            summary_difficulty, len(difficulty_order)
+        ),
     ):
         summaries = summaries_by_difficulty[difficulty]
         capped_energies = [float(summary["energy"]) for summary in summaries]
-        uncapped_energies = [float(summary.get("uncapped_energy", summary["energy"])) for summary in summaries]
+        uncapped_energies = [
+            float(summary.get("uncapped_energy", summary["energy"]))
+            for summary in summaries
+        ]
         capped_overall_energy = floor(_harmonic_mean(capped_energies))
         uncapped_overall_energy = floor(_harmonic_mean(uncapped_energies))
         max_rank_energy = max(max(tier_energies) for tier_energies in _tier_energies())
@@ -421,7 +472,9 @@ def calculate_difficulty_overall_rank(rows: list[dict]) -> list[dict]:
                 "rank_energy": rank_summary["rank_energy"],
                 "next_rank": rank_summary["next_rank"],
                 "next_rank_energy": rank_summary["next_rank_energy"],
-                "next_rank_progress_percent": rank_summary["next_rank_progress_percent"],
+                "next_rank_progress_percent": rank_summary[
+                    "next_rank_progress_percent"
+                ],
                 "subcategory_count": len(summaries),
             }
         )
