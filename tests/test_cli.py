@@ -1,4 +1,5 @@
 import io
+import hashlib
 import json
 import os
 import sys
@@ -518,6 +519,51 @@ class CliScoresTests(unittest.TestCase):
         self.assertEqual(standalone_stdout, expected_stdout)
         self.assertEqual(cli_stdout, expected_stdout)
 
+    def test_scores_full_catalog_matches_golden_digests_without_login(self) -> None:
+        golden = json.loads(
+            (Path(__file__).parent / "fixtures" / "scores_full_catalog_golden.json").read_text(encoding="utf-8")
+        )
+        fetched_row_counts: list[int] = []
+
+        def fake_fetch_all_scores(
+            *,
+            user_id: str,
+            scenarios: list[dict],
+            extra_headers: Optional[dict],
+            **_kwargs: object,
+        ) -> list[dict]:
+            self.assertEqual(user_id, ACCOUNT_ID)
+            self.assertIsNone(extra_headers)
+            fetched_row_counts.append(len(scenarios))
+            return [_synthetic_score_row(scenario) for scenario in scenarios]
+
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            mock.patch("aimlab_scores.fetch_all_scores", side_effect=fake_fetch_all_scores),
+            mock.patch("aimlab_scores.Stopwatch.elapsed", return_value=0.5),
+        ):
+            standalone_table_exit, standalone_table, standalone_table_stderr = _run_scores_main(
+                ["--config", str(self.config_path)]
+            )
+            cli_table_exit, cli_table, cli_table_stderr = _run_cli(["scores", "--config", str(self.config_path)])
+            standalone_json_exit, standalone_json, standalone_json_stderr = _run_scores_main(
+                ["--config", str(self.config_path), "--json"]
+            )
+            cli_json_exit, cli_json, cli_json_stderr = _run_cli(["scores", "--config", str(self.config_path), "--json"])
+
+        self.assertEqual(
+            (standalone_table_exit, cli_table_exit, standalone_json_exit, cli_json_exit),
+            (0, 0, 0, 0),
+        )
+        self.assertEqual(cli_table, standalone_table)
+        self.assertEqual(cli_table_stderr, standalone_table_stderr)
+        self.assertEqual(cli_json, standalone_json)
+        self.assertEqual(cli_json_stderr, standalone_json_stderr)
+        self.assertEqual(fetched_row_counts, [21] * 12)
+        self.assertEqual(len(json.loads(cli_json)), golden["catalog_rows"])
+        self.assertEqual(_sha256(cli_table), golden["table_sha256"])
+        self.assertEqual(_sha256(cli_json), golden["json_sha256"])
+
     def test_scores_forwards_the_full_argument_surface(self) -> None:
         output_path = self.temp_path / "scores.json"
         with mock.patch("aimlab_scores.main", return_value=0) as scores_main:
@@ -632,6 +678,10 @@ def _run_scores_main(argv: list[str]) -> tuple[int, str, str]:
     with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
         exit_code = aimlab_scores.main(argv)
     return exit_code, stdout_buffer.getvalue(), stderr_buffer.getvalue()
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _synthetic_score_row(scenario: dict) -> dict:

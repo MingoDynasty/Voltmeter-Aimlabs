@@ -1,110 +1,110 @@
 uv run voltmeter scores
-Fetched novice scores in 10.46s (21/21 returned).
-Fetched intermediate scores in 10.50s (21/21 returned).
-Fetched advanced scores in 10.56s (21/21 returned).
+Fetched novice scores in 10.94s (21/21 returned).
+Fetched intermediate scores in 10.61s (21/21 returned).
+Fetched advanced scores in 11.16s (21/21 returned).
 === NOVICE (21 scenarios) ===
 Scenario           Category/Subcategory  Code    PB    Score Rank  Next Rank                       Energy  Acc%  LB Rank  Timestamp                Error
 -----------------  --------------------  ------  ----  ----------  ------------------------------  ------  ----  -------  -----------------------  -----
-Floatshot          Flick-tech/Dynamic    RSM6A6  776   Gold        Max                             476     77.9  35704    2025-05-23 00:18:30 PDT
-Angleshot          Flick-tech/Dynamic    ROAHX3  765   Gold        Max                             499     69.2  45589    2025-05-23 00:19:37 PDT
-Adjustshot         Flick-tech/Dynamic    RTUQMP  1070  Immortal    Max                             499     96.5  1584     2026-06-04 20:49:19 PDT
-DotTS              Flick-tech/Core       ROCEI4  2231  Gold        Max                             465     64.9  61850    2025-05-23 00:23:11 PDT
-Miniphase          Flick-tech/Core       RO6WXU  1272  Immortal    44.0% to Radiant (target 1300)  499     93.0  7283     2026-06-05 17:07:58 PDT
-Fourshot Adaptive  Flick-tech/Core       RO4LXQ  1250  Immortal    33.3% to Radiant (target 1300)  499     96.9  3328     2026-06-05 17:29:30 PDT
-1w1t               Flick-tech/Reflex     ROCDQR  6498  Gold        Max                             474     69.5  38776    2025-05-23 01:01:41 PDT
-Widereflex         Flick-tech/Reflex     ROEHRQ  6223  Gold        Max                             499     82.1  24996    2025-05-23 00:58:44 PDT
-Microshot          Micros/Evasive        ROI4IE  697   Gold        Max                             499     61.4  56691    2025-05-23 00:29:12 PDT
-Angleshot Micro    Micros/Evasive        ROG6Y1  1065  Gold        Max                             499     77.6  17330    2025-05-23 00:30:43 PDT
-Skyclick Multi     Micros/Evasive        RONRUV  1153  Gold        Max                             499     76.3  4103     2025-05-23 01:00:04 PDT
-Angelic Click      Micros/Core           RSOD8J  97    Gold        Max                             485     78.6  62411    2025-05-23 00:32:58 PDT
-MiniTS             Micros/Core           RSM77B  96    Gold        Max                             406     35.8  23885    2025-05-23 00:57:18 PDT
-Micro 2 Sphere     Micros/Core           RSM85K  1332  Gold        Max                             499     82.1  24912    2025-05-23 00:35:31 PDT
-Peekshot           Micros/Reflex         ROCNRK  3953  Gold        Max                             475     80.9  16374    2025-05-23 00:36:46 PDT
-Micropace          Micros/Reflex         RTUMO2  1311  Immortal    Max                             499     86.5  6013     2026-05-24 19:32:00 PDT
-Microcluster       Micros/Reflex         ROLMYC  1116  Immortal    16.0% to Radiant (target 1200)  499     94.3  7292     2026-05-30 21:21:18 PDT
-Controlstrafes     Stability/Strafe      RU7JIR  3425  Gold        Max                             404     57.9  129873   2025-05-23 00:40:28 PDT
-Peektrack          Stability/Strafe      ROLW7A  2518  Gold        Max                             428     53.8  89803    2025-05-23 00:41:35 PDT
-Angle Track        Stability/Precise     RSOCZG  3881  Gold        Max                             499     64.7  2086     2026-05-24 16:57:56 PDT
-Adjust Track       Stability/Precise     ROJF3J  3031  Gold        Max                             499     51.9  55146    2025-05-23 00:44:29 PDT
+Floatshot          Flick-tech/Dynamic    RSM6A6  776   Gold        Max                             476     77.9  36569    2025-05-23 00:18:30 PDT       
+Angleshot          Flick-tech/Dynamic    ROAHX3  765   Gold        Max                             499     69.2  46512    2025-05-23 00:19:37 PDT       
+Adjustshot         Flick-tech/Dynamic    RTUQMP  1070  Immortal    Max                             499     96.5  1614     2026-06-04 20:49:19 PDT       
+DotTS              Flick-tech/Core       ROCEI4  2231  Gold        Max                             465     64.9  63705    2025-05-23 00:23:11 PDT       
+Miniphase          Flick-tech/Core       RO6WXU  1272  Immortal    44.0% to Radiant (target 1300)  499     93.0  7369     2026-06-05 17:07:58 PDT       
+Fourshot Adaptive  Flick-tech/Core       RO4LXQ  1250  Immortal    33.3% to Radiant (target 1300)  499     96.9  3368     2026-06-05 17:29:30 PDT       
+1w1t               Flick-tech/Reflex     ROCDQR  6498  Gold        Max                             474     69.5  39957    2025-05-23 01:01:41 PDT       
+Widereflex         Flick-tech/Reflex     ROEHRQ  6223  Gold        Max                             499     82.1  25385    2025-05-23 00:58:44 PDT       
+Microshot          Micros/Evasive        ROI4IE  697   Gold        Max                             499     61.4  58645    2025-05-23 00:29:12 PDT       
+Angleshot Micro    Micros/Evasive        ROG6Y1  1065  Gold        Max                             499     77.6  17648    2025-05-23 00:30:43 PDT       
+Skyclick Multi     Micros/Evasive        RONRUV  1153  Gold        Max                             499     76.3  4180     2025-05-23 01:00:04 PDT       
+Angelic Click      Micros/Core           RSOD8J  97    Gold        Max                             485     78.6  63886    2025-05-23 00:32:58 PDT       
+MiniTS             Micros/Core           RSM77B  96    Gold        Max                             406     35.8  24246    2025-05-23 00:57:18 PDT       
+Micro 2 Sphere     Micros/Core           RSM85K  1332  Gold        Max                             499     82.1  25591    2025-05-23 00:35:31 PDT       
+Peekshot           Micros/Reflex         ROCNRK  3953  Gold        Max                             475     80.9  16628    2025-05-23 00:36:46 PDT       
+Micropace          Micros/Reflex         RTUMO2  1311  Immortal    Max                             499     86.5  6207     2026-05-24 19:32:00 PDT       
+Microcluster       Micros/Reflex         ROLMYC  1116  Immortal    16.0% to Radiant (target 1200)  499     94.3  7404     2026-05-30 21:21:18 PDT       
+Controlstrafes     Stability/Strafe      RU7JIR  3425  Gold        Max                             404     57.9  131750   2025-05-23 00:40:28 PDT       
+Peektrack          Stability/Strafe      ROLW7A  2518  Gold        Max                             428     53.8  92857    2025-05-23 00:41:35 PDT       
+Angle Track        Stability/Precise     RSOCZG  3881  Gold        Max                             499     64.7  2139     2026-05-24 16:57:56 PDT       
+Adjust Track       Stability/Precise     ROJF3J  3031  Gold        Max                             499     51.9  55743    2025-05-23 00:44:29 PDT       
 
 21/21 scenarios returned a score.
 
 === INTERMEDIATE (21 scenarios) ===
 Scenario           Category/Subcategory  Code    PB    Score Rank  Next Rank                       Energy  Acc%  LB Rank  Timestamp                Error
 -----------------  --------------------  ------  ----  ----------  ------------------------------  ------  ----  -------  -----------------------  -----
-Adjustshot         Flick-tech/Dynamic    RTUQMP  1070  Immortal    Max                             820     96.5  1584     2026-06-04 20:49:19 PDT
-Floatshot          Flick-tech/Dynamic    RSM61S  1022  Immortal    Max                             822     93.0  3137     2026-05-27 19:55:17 PDT
-Angleshot          Flick-tech/Dynamic    ROAHK9  1039  Immortal    Max                             826     86.2  799      2026-06-04 18:10:27 PDT
-Miniphase          Flick-tech/Core       RO6WXU  1272  Immortal    44.0% to Radiant (target 1300)  822     93.0  7283     2026-06-05 17:07:58 PDT
-Fourshot Adaptive  Flick-tech/Core       RO4LXQ  1250  Immortal    33.3% to Radiant (target 1300)  825     96.9  3328     2026-06-05 17:29:30 PDT
-DotTS              Flick-tech/Core       ROCEC8  2750  Immortal    Max                             800     44.3  3321     2026-05-24 18:10:50 PDT
-1w1t               Flick-tech/Reflex     ROCDJW  7726  Immortal    Max                             881     84.4  2314     2026-05-27 19:44:22 PDT
-Widereflex         Flick-tech/Reflex     ROEHBY  7684  Immortal    Max                             888     99.0  2466     2026-05-24 18:26:07 PDT
-Microshot          Micros/Evasive        ROI47X  1010  Immortal    Max                             805     82.8  1657     2026-06-04 19:42:23 PDT
-Angleshot Micro    Micros/Evasive        ROG6UF  1394  Immortal    Max                             829     87.6  1943     2026-05-30 16:57:47 PDT
-Skyclick Multi     Micros/Evasive        RONRPF  1278  Immortal    Max                             828     83.3  1345     2026-05-24 18:58:36 PDT
-Angelic Click      Micros/Core           RSOD4F  135   Immortal    Max                             800     91.0  6707     2026-05-24 19:03:36 PDT
-MiniTS             Micros/Core           RSM6Z5  122   Ascendant   70.0% to Immortal (target 125)  770     31.5  2563     2026-06-04 17:49:05 PDT
-Micro 2 Sphere     Micros/Core           RSM7Y0  1553  Immortal    Max                             802     86.5  5897     2026-06-04 19:13:41 PDT
-Micropace          Micros/Reflex         RTUMO2  1311  Immortal    Max                             872     86.5  6013     2026-05-24 19:32:00 PDT
-Microcluster       Micros/Reflex         ROLMYC  1116  Immortal    16.0% to Radiant (target 1200)  816     94.3  7292     2026-05-30 21:21:18 PDT
-Peekshot           Micros/Reflex         ROCNDN  5280  Immortal    Max                             841     88.8  492      2026-06-04 19:23:41 PDT
-Controlstrafes     Stability/Strafe      RU7INB  5464  Immortal    Max                             819     45.6  5166     2026-05-30 21:35:29 PDT
-Peektrack          Stability/Strafe      ROLVU0  2928  Immortal    Max                             802     49.1  3906     2026-05-31 20:51:34 PDT
-Angle Track        Stability/Precise     RSOCTO  4210  Immortal    Max                             899     70.3  1082     2026-05-24 20:29:53 PDT
-Adjust Track       Stability/Precise     ROJETY  3019  Immortal    Max                             809     50.6  9761     2026-05-24 20:35:33 PDT
+Adjustshot         Flick-tech/Dynamic    RTUQMP  1070  Immortal    Max                             820     96.5  1614     2026-06-04 20:49:19 PDT       
+Floatshot          Flick-tech/Dynamic    RSM61S  1022  Immortal    Max                             822     93.0  3193     2026-05-27 19:55:17 PDT       
+Angleshot          Flick-tech/Dynamic    ROAHK9  1039  Immortal    Max                             826     86.2  817      2026-06-04 18:10:27 PDT       
+Miniphase          Flick-tech/Core       RO6WXU  1272  Immortal    44.0% to Radiant (target 1300)  822     93.0  7369     2026-06-05 17:07:58 PDT       
+Fourshot Adaptive  Flick-tech/Core       RO4LXQ  1250  Immortal    33.3% to Radiant (target 1300)  825     96.9  3368     2026-06-05 17:29:30 PDT       
+DotTS              Flick-tech/Core       ROCEC8  2750  Immortal    Max                             800     44.3  3370     2026-05-24 18:10:50 PDT       
+1w1t               Flick-tech/Reflex     ROCDJW  7726  Immortal    Max                             881     84.4  2361     2026-05-27 19:44:22 PDT       
+Widereflex         Flick-tech/Reflex     ROEHBY  7684  Immortal    Max                             888     99.0  2513     2026-05-24 18:26:07 PDT       
+Microshot          Micros/Evasive        ROI47X  1010  Immortal    Max                             805     82.8  1686     2026-06-04 19:42:23 PDT       
+Angleshot Micro    Micros/Evasive        ROG6UF  1394  Immortal    Max                             829     87.6  1979     2026-05-30 16:57:47 PDT       
+Skyclick Multi     Micros/Evasive        RONRPF  1278  Immortal    Max                             828     83.3  1373     2026-05-24 18:58:36 PDT       
+Angelic Click      Micros/Core           RSOD4F  135   Immortal    Max                             800     91.0  6809     2026-05-24 19:03:36 PDT       
+MiniTS             Micros/Core           RSM6Z5  125   Immortal    Max                             800     32.4  1616     2026-06-18 23:38:27 PDT       
+Micro 2 Sphere     Micros/Core           RSM7Y0  1553  Immortal    Max                             802     86.5  5984     2026-06-04 19:13:41 PDT       
+Micropace          Micros/Reflex         RTUMO2  1311  Immortal    Max                             872     86.5  6207     2026-05-24 19:32:00 PDT       
+Microcluster       Micros/Reflex         ROLMYC  1116  Immortal    16.0% to Radiant (target 1200)  816     94.3  7404     2026-05-30 21:21:18 PDT       
+Peekshot           Micros/Reflex         ROCNDN  5280  Immortal    Max                             841     88.8  500      2026-06-04 19:23:41 PDT       
+Controlstrafes     Stability/Strafe      RU7INB  5464  Immortal    Max                             819     45.6  5245     2026-05-30 21:35:29 PDT       
+Peektrack          Stability/Strafe      ROLVU0  2928  Immortal    Max                             802     49.1  3963     2026-05-31 20:51:34 PDT       
+Angle Track        Stability/Precise     RSOCTO  4210  Immortal    Max                             899     70.3  1102     2026-05-24 20:29:53 PDT       
+Adjust Track       Stability/Precise     ROJETY  3019  Immortal    Max                             809     50.6  9869     2026-05-24 20:35:33 PDT       
 
 21/21 scenarios returned a score.
 
 === ADVANCED (21 scenarios) ===
 Scenario           Category/Subcategory  Code    PB    Score Rank  Next Rank                       Energy  Acc%  LB Rank  Timestamp                Error
 -----------------  --------------------  ------  ----  ----------  ------------------------------  ------  ----  -------  -----------------------  -----
-Floatshot          Flick-tech/Dynamic    RRKM0A  867   Unranked    91.3% to Radiant (target 950)   817     86.9  5874     2026-05-25 19:14:19 PDT
-Angleshot          Flick-tech/Dynamic    RO5NQH  891   Unranked    99.0% to Radiant (target 900)   894     81.1  1952     2026-06-03 21:20:54 PDT
-Adjustshot         Flick-tech/Dynamic    RTUOMZ  882   Unranked    92.8% to Radiant (target 950)   832     92.0  2248     2026-06-04 20:39:34 PDT
-Miniphase          Flick-tech/Core       RO6WXU  1272  Immortal    44.0% to Radiant (target 1300)  872     93.0  7283     2026-06-05 17:07:58 PDT
-Fourshot Adaptive  Flick-tech/Core       RO4LXQ  1250  Immortal    33.3% to Radiant (target 1300)  833     96.9  3328     2026-06-05 17:29:30 PDT
-DotTS              Flick-tech/Core       RO5AHK  2675  Radiant     16.7% to Elysian (target 2800)  916     43.2  1970     2026-05-25 19:49:22 PDT
-1w1t               Flick-tech/Reflex     RO5GEB  5929  Unranked    81.8% to Radiant (target 7250)  697     87.4  6876     2026-05-25 19:56:52 PDT
-Widereflex         Flick-tech/Reflex     ROE3C6  6933  Unranked    97.6% to Radiant (target 7100)  869     97.1  2767     2026-05-25 20:04:29 PDT
-Microshot          Micros/Evasive        ROGGPP  845   Unranked    99.4% to Radiant (target 850)   897     79.2  1537     2026-06-04 19:36:20 PDT
-Angleshot Micro    Micros/Evasive        ROG08P  1042  Unranked    78.6% to Radiant (target 1325)  709     76.8  6438     2026-05-25 20:17:00 PDT
-Skyclick Multi     Micros/Evasive        RONNX5  1000  Unranked    88.9% to Radiant (target 1125)  780     75.7  2197     2026-05-25 20:19:23 PDT
-Angelic Click      Micros/Core           RRJ0K0  124   Unranked    95.4% to Radiant (target 130)   860     93.5  5324     2026-05-25 20:29:17 PDT
-MiniTS             Micros/Core           RRKPVO  110   Unranked    95.7% to Radiant (target 115)   850     28.6  2112     2026-06-05 19:22:56 PDT
-Micro 2 Sphere     Micros/Core           RRKNSK  1361  Unranked    90.7% to Radiant (target 1500)  807     84.6  4472     2026-06-04 19:09:05 PDT
-Microcluster       Micros/Reflex         ROLMYC  1116  Immortal    16.0% to Radiant (target 1200)  816     94.3  7292     2026-05-30 21:21:18 PDT
-Peekshot           Micros/Reflex         ROCEZS  4974  Radiant     34.8% to Elysian (target 5300)  934     88.8  1739     2026-06-03 19:25:23 PDT
-Micropace          Micros/Reflex         RTUMYE  1036  Unranked    82.9% to Radiant (target 1250)  690     78.5  8523     2026-05-25 20:59:53 PDT
-Controlstrafes     Stability/Strafe      RU7D62  3812  Unranked    74.7% to Radiant (target 5100)  648     31.9  5055     2026-05-25 21:05:55 PDT
-Peektrack          Stability/Strafe      ROLS0T  2280  Unranked    82.9% to Radiant (target 2750)  701     38.8  7152     2026-05-25 21:10:42 PDT
-Angle Track        Stability/Precise     RRKPJ5  3724  Unranked    94.9% to Radiant (target 3925)  810     62.1  3021     2026-05-25 21:18:11 PDT
-Adjust Track       Stability/Precise     ROJCI3  1936  Unranked    74.5% to Radiant (target 2600)  645     32.4  5697     2026-05-25 21:22:27 PDT
+Floatshot          Flick-tech/Dynamic    RRKM0A  867   Unranked    91.3% to Radiant (target 950)   817     86.9  5947     2026-05-25 19:14:19 PDT       
+Angleshot          Flick-tech/Dynamic    RO5NQH  891   Unranked    99.0% to Radiant (target 900)   894     81.1  1981     2026-06-03 21:20:54 PDT       
+Adjustshot         Flick-tech/Dynamic    RTUOMZ  882   Unranked    92.8% to Radiant (target 950)   832     92.0  2283     2026-06-04 20:39:34 PDT       
+Miniphase          Flick-tech/Core       RO6WXU  1272  Immortal    44.0% to Radiant (target 1300)  872     93.0  7369     2026-06-05 17:07:58 PDT       
+Fourshot Adaptive  Flick-tech/Core       RO4LXQ  1250  Immortal    33.3% to Radiant (target 1300)  833     96.9  3368     2026-06-05 17:29:30 PDT       
+DotTS              Flick-tech/Core       RO5AHK  2675  Radiant     16.7% to Elysian (target 2800)  916     43.2  1992     2026-05-25 19:49:22 PDT       
+1w1t               Flick-tech/Reflex     RO5GEB  5929  Unranked    81.8% to Radiant (target 7250)  697     87.4  6958     2026-05-25 19:56:52 PDT       
+Widereflex         Flick-tech/Reflex     ROE3C6  6933  Unranked    97.6% to Radiant (target 7100)  869     97.1  2795     2026-05-25 20:04:29 PDT       
+Microshot          Micros/Evasive        ROGGPP  845   Unranked    99.4% to Radiant (target 850)   897     79.2  1565     2026-06-04 19:36:20 PDT       
+Angleshot Micro    Micros/Evasive        ROG08P  1042  Unranked    78.6% to Radiant (target 1325)  709     76.8  6505     2026-05-25 20:17:00 PDT       
+Skyclick Multi     Micros/Evasive        RONNX5  1000  Unranked    88.9% to Radiant (target 1125)  780     75.7  2226     2026-05-25 20:19:23 PDT       
+Angelic Click      Micros/Core           RRJ0K0  124   Unranked    95.4% to Radiant (target 130)   860     93.5  5391     2026-05-25 20:29:17 PDT       
+MiniTS             Micros/Core           RRKPVO  114   Unranked    99.1% to Radiant (target 115)   890     29.5  1669     2026-06-17 21:41:06 PDT       
+Micro 2 Sphere     Micros/Core           RRKNSK  1361  Unranked    90.7% to Radiant (target 1500)  807     84.6  4517     2026-06-04 19:09:05 PDT       
+Microcluster       Micros/Reflex         ROLMYC  1116  Immortal    16.0% to Radiant (target 1200)  816     94.3  7404     2026-05-30 21:21:18 PDT       
+Peekshot           Micros/Reflex         ROCEZS  4974  Radiant     34.8% to Elysian (target 5300)  934     88.8  1760     2026-06-03 19:25:23 PDT       
+Micropace          Micros/Reflex         RTUMYE  1036  Unranked    82.9% to Radiant (target 1250)  690     78.5  8689     2026-05-25 20:59:53 PDT       
+Controlstrafes     Stability/Strafe      RU7D62  4138  Unranked    81.1% to Radiant (target 5100)  704     34.5  3655     2026-06-19 01:57:25 PDT       
+Peektrack          Stability/Strafe      ROLS0T  2781  Radiant     20.7% to Elysian (target 2900)  920     46.4  1914     2026-06-19 02:10:27 PDT       
+Angle Track        Stability/Precise     RRKPJ5  3914  Unranked    99.7% to Radiant (target 3925)  895     65.2  2272     2026-06-19 02:44:09 PDT       
+Adjust Track       Stability/Precise     ROJCI3  1936  Unranked    74.5% to Radiant (target 2600)  645     32.4  5766     2026-05-25 21:22:27 PDT       
 
 21/21 scenarios returned a score.
 
 === OVERALL RANK ===
 Difficulty    Overall Rank  Energy  Next Rank                      Subcats
 ------------  ------------  ------  -----------------------------  -------
-NOVICE        Gold          488     Max                            8
-INTERMEDIATE  Immortal      843     Max                            8
-ADVANCED      Unranked      853     94.8% to Radiant (energy 900)  8
+NOVICE        Gold          488     Max                            8      
+INTERMEDIATE  Immortal      843     Max                            8      
+ADVANCED      Radiant       901     1.0% to Elysian (energy 1000)  8      
 
 === SUBCATEGORY ENERGY BY DIFFICULTY ===
 --- NOVICE ---
-Category/Subcategory  Energy  Source Scenario  Rank
+Category/Subcategory  Energy  Source Scenario  Rank    
 --------------------  ------  ---------------  --------
 Flick-tech/Dynamic    499     Adjustshot       Immortal
 Flick-tech/Core       499     Miniphase        Immortal
-Flick-tech/Reflex     499     Widereflex       Gold
-Micros/Evasive        499     Microshot        Gold
-Micros/Core           499     Micro 2 Sphere   Gold
+Flick-tech/Reflex     499     Widereflex       Gold    
+Micros/Evasive        499     Microshot        Gold    
+Micros/Core           499     Micro 2 Sphere   Gold    
 Micros/Reflex         499     Micropace        Immortal
-Stability/Strafe      428     Peektrack        Gold
-Stability/Precise     499     Adjust Track     Gold
+Stability/Strafe      428     Peektrack        Gold    
+Stability/Precise     499     Adjust Track     Gold    
 
 --- INTERMEDIATE ---
-Category/Subcategory  Energy  Source Scenario    Rank
+Category/Subcategory  Energy  Source Scenario    Rank    
 --------------------  ------  -----------------  --------
 Flick-tech/Dynamic    826     Angleshot          Immortal
 Flick-tech/Core       825     Fourshot Adaptive  Immortal
@@ -116,14 +116,13 @@ Stability/Strafe      819     Controlstrafes     Immortal
 Stability/Precise     899     Angle Track        Immortal
 
 --- ADVANCED ---
-Category/Subcategory  Energy  Source Scenario  Rank
+Category/Subcategory  Energy  Source Scenario  Rank    
 --------------------  ------  ---------------  --------
 Flick-tech/Dynamic    894     Angleshot        Unranked
-Flick-tech/Core       916     DotTS            Radiant
+Flick-tech/Core       916     DotTS            Radiant 
 Flick-tech/Reflex     869     Widereflex       Unranked
 Micros/Evasive        897     Microshot        Unranked
-Micros/Core           860     Angelic Click    Unranked
-Micros/Reflex         934     Peekshot         Radiant
-Stability/Strafe      701     Peektrack        Unranked
-Stability/Precise     810     Angle Track      Unranked
-
+Micros/Core           890     MiniTS           Unranked
+Micros/Reflex         934     Peekshot         Radiant 
+Stability/Strafe      920     Peektrack        Radiant 
+Stability/Precise     895     Angle Track      Unranked
