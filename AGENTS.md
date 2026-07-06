@@ -35,17 +35,16 @@ Do not commit Codex-authored work as the repo owner or the user's global Git ide
 
 ## Validation
 
-Use the `uv` workflow where possible. Prefer CI-equivalent file scopes or touched-file scopes for tools that do not need to scan the full repo:
+Use the `uv` workflow where possible:
 
 ```powershell
-uv run pytest
-uv run black --check <CI file list or touched files>
-uv run mypy <CI source file list or touched source files>
-uv run pylint <CI source file list or touched source files>
+uv run ruff format --check .
 uv run ruff check .
+uv run mypy
+uv run pytest
 ```
 
-`ruff check .` is full-repo in CI. The proof-of-concept Python scripts were retired in M6b, so full-repo checks no longer flag untouched POC noise; the remaining `proof-of-concepts/` contents are gitignored local data and are not linted.
+`ruff format` wraps at 88 characters, while Ruff's E501 rule enforces a 120-character hard ceiling. `ruff check .` is full-repo in CI. The proof-of-concept Python scripts were retired in M6b, so full-repo checks no longer flag untouched POC noise; the remaining `proof-of-concepts/` contents are gitignored local data and are not linted.
 
 ## Coding Standards
 

@@ -21,7 +21,7 @@ not "looks reasonable." Spec = [`docs/RUN_HISTORY_ARCHITECTURE.md`](docs/RUN_HIS
 (§14 acceptance, §15 decisions).
 
 ### Objective gate (necessary, not sufficient)
-- [ ] **CI green** — mypy, pytest, pylint, ruff all pass.
+- [ ] **CI green** — Ruff format, Ruff check, mypy, and pytest all pass.
 - [ ] New modules added to `[tool.setuptools] py-modules`.
 - [ ] Follows the standards above.
 
