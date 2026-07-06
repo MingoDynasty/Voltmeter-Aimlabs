@@ -1,5 +1,4 @@
 import io
-import hashlib
 import json
 import os
 import sys
@@ -519,10 +518,13 @@ class CliScoresTests(unittest.TestCase):
         self.assertEqual(standalone_stdout, expected_stdout)
         self.assertEqual(cli_stdout, expected_stdout)
 
-    def test_scores_full_catalog_matches_golden_digests_without_login(self) -> None:
-        golden = json.loads(
-            (Path(__file__).parent / "fixtures" / "scores_full_catalog_golden.json").read_text(encoding="utf-8")
+    def test_scores_full_catalog_matches_golden_outputs_without_login(self) -> None:
+        fixtures_path = Path(__file__).parent / "fixtures"
+        expected_table_lines = json.loads(
+            (fixtures_path / "scores_full_catalog_table_golden.json").read_text(encoding="utf-8")
         )
+        expected_table = "\n".join(expected_table_lines) + "\n"
+        expected_json = (fixtures_path / "scores_full_catalog_json_golden.json").read_text(encoding="utf-8")
         fetched_row_counts: list[int] = []
 
         def fake_fetch_all_scores(
@@ -555,14 +557,14 @@ class CliScoresTests(unittest.TestCase):
             (standalone_table_exit, cli_table_exit, standalone_json_exit, cli_json_exit),
             (0, 0, 0, 0),
         )
-        self.assertEqual(cli_table, standalone_table)
+        self.assertEqual(standalone_table, expected_table)
+        self.assertEqual(cli_table, expected_table)
         self.assertEqual(cli_table_stderr, standalone_table_stderr)
-        self.assertEqual(cli_json, standalone_json)
+        self.assertEqual(standalone_json, expected_json)
+        self.assertEqual(cli_json, expected_json)
         self.assertEqual(cli_json_stderr, standalone_json_stderr)
         self.assertEqual(fetched_row_counts, [21] * 12)
-        self.assertEqual(len(json.loads(cli_json)), golden["catalog_rows"])
-        self.assertEqual(_sha256(cli_table), golden["table_sha256"])
-        self.assertEqual(_sha256(cli_json), golden["json_sha256"])
+        self.assertEqual(len(json.loads(cli_json)), 63)
 
     def test_scores_forwards_the_full_argument_surface(self) -> None:
         output_path = self.temp_path / "scores.json"
@@ -678,10 +680,6 @@ def _run_scores_main(argv: list[str]) -> tuple[int, str, str]:
     with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
         exit_code = aimlab_scores.main(argv)
     return exit_code, stdout_buffer.getvalue(), stderr_buffer.getvalue()
-
-
-def _sha256(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _synthetic_score_row(scenario: dict) -> dict:
