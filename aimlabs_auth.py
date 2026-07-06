@@ -601,7 +601,7 @@ def _windows_process_start_time(pid_value: int) -> Optional[float]:
         exit_time = wintypes.FILETIME()
         kernel_time = wintypes.FILETIME()
         user_time = wintypes.FILETIME()
-        success = ctypes.windll.kernel32.GetProcessTimes(
+        success = ctypes.windll.kernel32.GetProcessTimes(  # type: ignore[attr-defined]  # Windows-only API
             handle,
             ctypes.byref(creation_time),
             ctypes.byref(exit_time),
@@ -622,7 +622,9 @@ def _open_windows_process(pid_value: int) -> Optional[int]:
     import ctypes  # pylint: disable=import-outside-toplevel
 
     process_query_limited_information = 0x1000
-    handle = ctypes.windll.kernel32.OpenProcess(process_query_limited_information, False, pid_value)
+    handle = ctypes.windll.kernel32.OpenProcess(  # type: ignore[attr-defined]  # Windows-only API
+        process_query_limited_information, False, pid_value
+    )
     return int(handle) if handle else None
 
 
@@ -631,7 +633,7 @@ def _close_windows_handle(handle: int) -> None:
         return
     import ctypes  # pylint: disable=import-outside-toplevel
 
-    ctypes.windll.kernel32.CloseHandle(handle)
+    ctypes.windll.kernel32.CloseHandle(handle)  # type: ignore[attr-defined]  # Windows-only API
 
 
 # ---------------------------------------------------------------------------
