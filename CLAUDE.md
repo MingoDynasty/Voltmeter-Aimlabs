@@ -25,6 +25,19 @@ so the user can distinguish their own GitHub activity from Claude's.
 
 - Commits made **before** this request are left as-is (the change is "from now on").
 
+## `ignore/` scratch directory — layout (set 2026-07-03)
+
+`ignore/` is the gitignored local scratch area. Route new files into its
+subdirectories — never drop them at the top level (see `ignore/README.md`):
+
+- `ignore/pr-reviews/` — PR review handoff docs (`pr<num>-review.md`) and per-PR pushback notes
+- `ignore/handoffs/` — milestone handoff docs and working-thread notes
+- `ignore/scripts/` — ad-hoc probe/exploration scripts (run from repo root; they
+  write their output under `ignore/aimlabs_dump/`)
+- `ignore/aimlabs_dump/` — raw API dump output from those scripts (personal play data)
+
+A file that fits no category gets a new subdirectory (add it to `ignore/README.md`).
+
 ## Run-history pipeline — build process (consistent across chats)
 
 The work is built over many chats (≈ a new chat per milestone). To stay consistent, every
