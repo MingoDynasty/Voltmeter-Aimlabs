@@ -52,6 +52,9 @@ class ScenarioCatalogTests(unittest.TestCase):
         self.assertEqual(valorant_record.category, "Flick-tech")
         self.assertEqual(valorant_record.sub, "Dynamic")
         self.assertEqual(valorant_record.difficulty, "novice")
+        self.assertEqual(valorant_record.task_mode, 42)
+        self.assertEqual(valorant_record.tier_id, 2)
+        self.assertEqual(valorant_record.thresholds, (400, 500, 600, 700))
         self.assertEqual(valorant_record.season, "1")
         self.assertEqual(valorant_record.benchmark_alias, "valorant_s1")
         self.assertEqual(valorant_record.benchmark_name, "Voltaic Valorant Benchmarks")
@@ -199,7 +202,29 @@ class ScenarioCatalogTests(unittest.TestCase):
         self.assertEqual(
             [record.difficulty for record in records], ["novice", "intermediate"]
         )
+        self.assertEqual([record.thresholds for record in records], [(100,), (100,)])
         self.assertEqual(catalog.duplicate_task_ids, ())
+
+    def test_unknown_category_id_raises_clear_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            resource_dir = Path(temp_dir)
+            _write_resource(
+                resource_dir,
+                "valorant_s1.json",
+                alias="valorant_s1",
+                benchmark_name="Voltaic Valorant Benchmarks",
+                season="1",
+                scenarios=[_scenario("VT Known VALORANT Easy", "known-task")],
+            )
+            resource_path = resource_dir / "valorant_s1.json"
+            resource_data = json.loads(resource_path.read_text(encoding="utf-8"))
+            resource_data["scenarios"][0]["category_id"] = 999999
+            resource_path.write_text(json.dumps(resource_data), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ScenarioCatalogError, "Unknown category_id 999999"
+            ):
+                refresh_catalog(resource_dir)
 
     def test_malformed_resource_shape_raises_catalog_error_with_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

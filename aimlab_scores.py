@@ -17,7 +17,7 @@ import os
 import re
 import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import datetime, timezone, tzinfo
 from functools import lru_cache
 from pathlib import Path
@@ -26,13 +26,8 @@ from typing import Optional, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import aimlabs_auth
+import scenario_catalog
 from aimlabs_client import fetch_all_scores, fetch_one
-from benchmark_constants import (
-    BENCHMARKS,
-    DEFAULT_DIFFICULTY,
-    DIFFICULTIES,
-    get_scenarios,
-)
 from config import DEFAULT_CONFIG_PATH, ConfigError, load_config
 from stopwatch import Stopwatch
 from voltaic_benchmarks import (
@@ -42,6 +37,9 @@ from voltaic_benchmarks import (
     calculate_subcategory_energy,
 )
 
+DEFAULT_DIFFICULTY = "all"
+DIFFICULTIES = scenario_catalog.DIFFICULTIES
+SCORES_BENCHMARK_ALIASES = ("valorant_s1",)
 USER_ID_PATTERN = re.compile(r"^[0-9A-F]{16}$")
 
 __all__ = [
@@ -54,6 +52,90 @@ __all__ = [
     "get_scenarios",
     "main",
 ]
+
+
+class _LazyBenchmarks(Mapping[str, list[dict]]):
+    def __getitem__(self, difficulty: str) -> list[dict]:
+        return get_benchmarks()[difficulty]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(get_benchmarks())
+
+    def __len__(self) -> int:
+        return len(get_benchmarks())
+
+    def __contains__(self, difficulty: object) -> bool:
+        return isinstance(difficulty, str) and difficulty in get_benchmarks()
+
+
+def _slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def _scores_name(catalog_name: str) -> str:
+    for suffix in (
+        " VALORANT Easy",
+        " VALORANT Hard",
+        " VALORANT",
+        " Novice S3",
+        " Intermediate S3",
+        " Advanced S3",
+        " Novice",
+        " Intermediate",
+        " Advanced",
+    ):
+        if catalog_name.endswith(suffix):
+            return catalog_name[: -len(suffix)]
+    return catalog_name
+
+
+def _scores_record(record: scenario_catalog.ScenarioCatalogRecord) -> dict:
+    scores_name = _scores_name(record.name)
+    return {
+        "key": _slug(scores_name),
+        "name": scores_name,
+        "category": record.category,
+        "sub": record.sub,
+        "task_id": record.task_id,
+        "weapon_id": record.weapon_id,
+        "task_mode": record.task_mode,
+        "difficulty": record.difficulty,
+    }
+
+
+def _scores_catalog_records() -> tuple[scenario_catalog.ScenarioCatalogRecord, ...]:
+    return tuple(
+        record
+        for record in scenario_catalog.load_catalog().records
+        if record.has_leaderboards
+        and record.benchmark_alias in SCORES_BENCHMARK_ALIASES
+    )
+
+
+@lru_cache(maxsize=1)
+def get_benchmarks() -> dict[str, list[dict]]:
+    benchmarks: dict[str, list[dict]] = {difficulty: [] for difficulty in DIFFICULTIES}
+    for record in _scores_catalog_records():
+        benchmarks[record.difficulty].append(_scores_record(record))
+    return benchmarks
+
+
+BENCHMARKS: Mapping[str, list[dict]] = _LazyBenchmarks()
+
+
+def get_scenarios(selected_difficulty: str = DEFAULT_DIFFICULTY) -> list[dict]:
+    """Return scores scenario records for a difficulty, or all scenarios by default."""
+    if selected_difficulty == "all":
+        all_scenarios: list[dict] = []
+        for difficulty in DIFFICULTIES:
+            all_scenarios += get_scenarios(difficulty)
+        return all_scenarios
+    if selected_difficulty not in DIFFICULTIES:
+        raise ValueError(
+            f"unknown difficulty {selected_difficulty!r}; pick from {DIFFICULTIES} or 'all'"
+        )
+
+    return [dict(scenario) for scenario in get_benchmarks()[selected_difficulty]]
 
 
 def _code(task_id: Optional[str]) -> str:

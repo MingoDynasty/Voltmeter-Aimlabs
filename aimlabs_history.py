@@ -10,7 +10,7 @@ from typing import Any, Optional
 import requests
 
 from aimlabs_client import BASE_HEADERS, ENDPOINT
-from benchmark_constants import DEFAULT_TASK_MODE
+from scenario_catalog import DEFAULT_TASK_MODE
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200

@@ -8,7 +8,7 @@ from typing import Optional
 
 import requests
 
-from benchmark_constants import DEFAULT_DIFFICULTY, DEFAULT_TASK_MODE, get_scenarios
+from scenario_catalog import DEFAULT_TASK_MODE
 
 ENDPOINT = "https://api.aimlab.gg/graphql"
 
@@ -166,17 +166,13 @@ def fetch_one(  # noqa: PLR0913
 
 def fetch_all_scores(
     user_id: str,
-    scenarios: Optional[list[dict]] = None,
+    scenarios: list[dict],
     *,
-    difficulty: str = DEFAULT_DIFFICULTY,
     request_delay: float = 0.25,
     deadline_at: Optional[float] = None,
     **kwargs,
 ) -> list[dict]:
-    """Fetch a list of scenarios, defaulting to all difficulties."""
-    if scenarios is None:
-        scenarios = get_scenarios(difficulty)
-
+    """Fetch scores for provided scenarios."""
     rows = []
     for scenario_idx, scenario in enumerate(scenarios):
         if deadline_at is not None and time.monotonic() >= deadline_at:
