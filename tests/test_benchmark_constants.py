@@ -11,7 +11,10 @@ class BenchmarkConstantsTests(unittest.TestCase):
         benchmark_constants.get_benchmarks.cache_clear()
 
     def test_difficulties_do_not_require_resource_load(self) -> None:
-        with patch("benchmark_constants.load_valorant_s1", side_effect=AssertionError("resource loaded")):
+        with patch(
+            "benchmark_constants.load_valorant_s1",
+            side_effect=AssertionError("resource loaded"),
+        ):
             self.assertEqual(
                 benchmark_constants.DIFFICULTIES,
                 ("novice", "intermediate", "advanced"),

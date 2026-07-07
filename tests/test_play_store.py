@@ -15,7 +15,7 @@ FETCHED_AT = "2026-06-06T10:00:00.000Z"
 REFETCHED_AT = "2026-06-06T11:00:00.000Z"
 
 
-def synthetic_play(  # pylint: disable=too-many-arguments
+def synthetic_play(
     play_id: str = "play-1",
     *,
     task_id: str = "CsLevel.Lowgravity56.VT Unit.ROAHX3",
@@ -41,7 +41,9 @@ def row_dict(row: sqlite3.Row) -> dict:
     return {key: row[key] for key in row.keys()}
 
 
-def get_play_row(connection: sqlite3.Connection, account_id: str, play_id: str) -> sqlite3.Row:
+def get_play_row(
+    connection: sqlite3.Connection, account_id: str, play_id: str
+) -> sqlite3.Row:
     row = play_store.get_play(connection, account_id, play_id)
     assert row is not None
     return row
@@ -70,7 +72,9 @@ class PlayStoreSchemaTests(unittest.TestCase):
         user_version = connection.execute("PRAGMA user_version").fetchone()[0]
         indexes = {
             row["name"]
-            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'plays'")
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'plays'"
+            )
         }
 
         self.assertEqual(user_version, 1)
@@ -103,7 +107,10 @@ class PlayStoreSchemaTests(unittest.TestCase):
             connection = play_store.connect(db_path)
             user_version = connection.execute("PRAGMA user_version").fetchone()[0]
             table_names = {
-                row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+                row["name"]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
             }
             connection.close()
 
@@ -118,7 +125,9 @@ class PlayStoreSchemaTests(unittest.TestCase):
             connection.execute("PRAGMA user_version = 99")
             connection.close()
 
-            with self.assertRaisesRegex(play_store.PlayStoreError, "newer version of the tool"):
+            with self.assertRaisesRegex(
+                play_store.PlayStoreError, "newer version of the tool"
+            ):
                 play_store.connect(db_path)
 
             connection = sqlite3.connect(db_path)
@@ -186,11 +195,15 @@ class PlayStoreUpsertTests(unittest.TestCase):
             play = synthetic_play()
 
             try:
-                first_result = play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
+                first_result = play_store.upsert_plays(
+                    connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT
+                )
                 connection.commit()
                 first_bytes = db_path.read_bytes()
 
-                second_result = play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=REFETCHED_AT)
+                second_result = play_store.upsert_plays(
+                    connection, ACCOUNT_ID, [play], seen_at=REFETCHED_AT
+                )
                 connection.commit()
                 second_bytes = db_path.read_bytes()
                 row = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
@@ -203,7 +216,9 @@ class PlayStoreUpsertTests(unittest.TestCase):
         self.assertEqual(row["first_fetched_at"], FETCHED_AT)
         self.assertEqual(row["last_seen_at"], FETCHED_AT)
 
-    def test_full_rederive_gridshield_change_updates_mutable_projection_without_drift(self) -> None:
+    def test_full_rederive_gridshield_change_updates_mutable_projection_without_drift(
+        self,
+    ) -> None:
         connection = play_store.connect(":memory:")
         play = synthetic_play(gridshield_status="PENDING")
         play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
@@ -220,7 +235,11 @@ class PlayStoreUpsertTests(unittest.TestCase):
         )
         after = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
 
-        changed_columns = {column for column, before_value in before.items() if before_value != after[column]}
+        changed_columns = {
+            column
+            for column, before_value in before.items()
+            if before_value != after[column]
+        }
         self.assertEqual(result.updated, 1)
         self.assertEqual(result.drift_warnings, ())
         self.assertEqual(changed_columns, {"gridshield_status", "raw", "last_seen_at"})
@@ -251,7 +270,10 @@ class PlayStoreUpsertTests(unittest.TestCase):
         row = row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))
 
         self.assertEqual(result.updated, 1)
-        self.assertEqual({warning.field_name for warning in result.drift_warnings}, {"score", "performance_scores"})
+        self.assertEqual(
+            {warning.field_name for warning in result.drift_warnings},
+            {"score", "performance_scores"},
+        )
         self.assertIn("field drift", stderr.getvalue())
         self.assertIn("play-1", stderr.getvalue())
         self.assertEqual(row["score"], 1300.0)
@@ -259,7 +281,9 @@ class PlayStoreUpsertTests(unittest.TestCase):
 
     def test_full_rederive_field_drift_honors_explicit_warning_stream(self) -> None:
         connection = play_store.connect(":memory:")
-        play_store.upsert_plays(connection, ACCOUNT_ID, [synthetic_play(score=1200)], seen_at=FETCHED_AT)
+        play_store.upsert_plays(
+            connection, ACCOUNT_ID, [synthetic_play(score=1200)], seen_at=FETCHED_AT
+        )
 
         warning_stream = io.StringIO()
         with patch("sys.stderr", new=io.StringIO()) as default_stderr:
@@ -277,7 +301,9 @@ class PlayStoreUpsertTests(unittest.TestCase):
         self.assertIn("play-1", warning_stream.getvalue())
         self.assertEqual(default_stderr.getvalue(), "")
 
-    def test_full_rederive_canonical_performance_scores_avoids_false_drift(self) -> None:
+    def test_full_rederive_canonical_performance_scores_avoids_false_drift(
+        self,
+    ) -> None:
         connection = play_store.connect(":memory:")
         play_store.upsert_plays(
             connection,
@@ -286,7 +312,9 @@ class PlayStoreUpsertTests(unittest.TestCase):
             seen_at=FETCHED_AT,
         )
 
-        same_scores_play = synthetic_play(performance_scores='{\n  "hitsTotal": 45,\n  "shotsTotal": 50\n}')
+        same_scores_play = synthetic_play(
+            performance_scores='{\n  "hitsTotal": 45,\n  "shotsTotal": 50\n}'
+        )
         result = play_store.upsert_plays(
             connection,
             ACCOUNT_ID,
@@ -303,8 +331,12 @@ class PlayStoreUpsertTests(unittest.TestCase):
         connection = play_store.connect(":memory:")
         play = synthetic_play()
 
-        first_result = play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
-        second_result = play_store.upsert_plays(connection, OTHER_ACCOUNT_ID, [play], seen_at=REFETCHED_AT)
+        first_result = play_store.upsert_plays(
+            connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT
+        )
+        second_result = play_store.upsert_plays(
+            connection, OTHER_ACCOUNT_ID, [play], seen_at=REFETCHED_AT
+        )
 
         self.assertEqual(first_result.inserted, 1)
         self.assertEqual(second_result.inserted, 1)
@@ -312,11 +344,15 @@ class PlayStoreUpsertTests(unittest.TestCase):
         self.assertEqual(play_store.count_plays(connection, ACCOUNT_ID), 1)
         self.assertEqual(play_store.count_plays(connection, OTHER_ACCOUNT_ID), 1)
         self.assertEqual(
-            row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))["first_fetched_at"],
+            row_dict(get_play_row(connection, ACCOUNT_ID, "play-1"))[
+                "first_fetched_at"
+            ],
             FETCHED_AT,
         )
         self.assertEqual(
-            row_dict(get_play_row(connection, OTHER_ACCOUNT_ID, "play-1"))["first_fetched_at"],
+            row_dict(get_play_row(connection, OTHER_ACCOUNT_ID, "play-1"))[
+                "first_fetched_at"
+            ],
             REFETCHED_AT,
         )
 
@@ -350,25 +386,54 @@ class PlayStoreQueryTests(unittest.TestCase):
     def test_queries_return_account_task_and_recent_views(self) -> None:
         connection = play_store.connect(":memory:")
         plays = [
-            synthetic_play("play-old", task_id="task-a", ended_at="2026-06-06T01:00:00.000Z", score=10),
-            synthetic_play("play-new", task_id="task-a", ended_at="2026-06-06T03:00:00.000Z", score=30),
-            synthetic_play("play-other-task", task_id="task-b", ended_at="2026-06-06T02:00:00.000Z", score=20),
+            synthetic_play(
+                "play-old",
+                task_id="task-a",
+                ended_at="2026-06-06T01:00:00.000Z",
+                score=10,
+            ),
+            synthetic_play(
+                "play-new",
+                task_id="task-a",
+                ended_at="2026-06-06T03:00:00.000Z",
+                score=30,
+            ),
+            synthetic_play(
+                "play-other-task",
+                task_id="task-b",
+                ended_at="2026-06-06T02:00:00.000Z",
+                score=20,
+            ),
         ]
         play_store.upsert_plays(connection, ACCOUNT_ID, plays, seen_at=FETCHED_AT)
         play_store.upsert_plays(
             connection,
             OTHER_ACCOUNT_ID,
-            [synthetic_play("other-account-play", task_id="task-a", ended_at="2026-06-06T04:00:00.000Z", score=40)],
+            [
+                synthetic_play(
+                    "other-account-play",
+                    task_id="task-a",
+                    ended_at="2026-06-06T04:00:00.000Z",
+                    score=40,
+                )
+            ],
             seen_at=FETCHED_AT,
         )
 
         account_rows = play_store.list_plays_by_account(connection, ACCOUNT_ID)
         task_rows = play_store.list_plays_by_task(connection, ACCOUNT_ID, "task-a")
-        recent_rows = play_store.list_recent_plays(connection, account_id=ACCOUNT_ID, limit=2)
+        recent_rows = play_store.list_recent_plays(
+            connection, account_id=ACCOUNT_ID, limit=2
+        )
 
-        self.assertEqual([row["id"] for row in account_rows], ["play-new", "play-other-task", "play-old"])
+        self.assertEqual(
+            [row["id"] for row in account_rows],
+            ["play-new", "play-other-task", "play-old"],
+        )
         self.assertEqual([row["id"] for row in task_rows], ["play-new", "play-old"])
-        self.assertEqual([row["id"] for row in recent_rows], ["play-new", "play-other-task"])
+        self.assertEqual(
+            [row["id"] for row in recent_rows], ["play-new", "play-other-task"]
+        )
 
     def test_raw_and_performance_scores_are_canonical_json(self) -> None:
         connection = play_store.connect(":memory:")
@@ -385,7 +450,9 @@ class PlayStoreQueryTests(unittest.TestCase):
         play_store.upsert_plays(connection, ACCOUNT_ID, [play], seen_at=FETCHED_AT)
         row = row_dict(get_play_row(connection, ACCOUNT_ID, "play-canonical"))
 
-        self.assertEqual(row["raw"], json.dumps(play, sort_keys=True, separators=(",", ":")))
+        self.assertEqual(
+            row["raw"], json.dumps(play, sort_keys=True, separators=(",", ":"))
+        )
         self.assertEqual(row["performance_scores"], '{"aMetric":1,"zMetric":2}')
 
 

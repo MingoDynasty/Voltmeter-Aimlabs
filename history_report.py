@@ -38,7 +38,6 @@ class ReportPlay:
     performance_scores: Any
 
 
-# pylint: disable=too-many-instance-attributes
 @dataclass(frozen=True)
 class TaskSummary:
     task_id: str
@@ -72,8 +71,7 @@ class HistoryReport:
     other: OtherSummary
 
 
-# pylint: disable-next=too-many-arguments
-def build_report(
+def build_report(  # noqa: PLR0913
     play_rows: Iterable[PlayRow],
     catalog: ScenarioCatalog,
     *,
@@ -90,7 +88,9 @@ def build_report(
     excluded count is kept for the visible note.
     """
     if family not in REPORT_FAMILIES:
-        raise HistoryReportError(f"family must be one of {REPORT_FAMILIES}, got {family!r}.")
+        raise HistoryReportError(
+            f"family must be one of {REPORT_FAMILIES}, got {family!r}."
+        )
     if rolling_median_window < 1 or rolling_max_window < 1:
         raise HistoryReportError("rolling windows must be positive integers.")
 
@@ -125,7 +125,9 @@ def build_report(
             rolling_max_window=rolling_max_window,
         ),
         excluded_non_approved_count=excluded_non_approved_count,
-        other=OtherSummary(scenario_count=len(other_task_ids), play_count=other_play_count),
+        other=OtherSummary(
+            scenario_count=len(other_task_ids), play_count=other_play_count
+        ),
     )
 
 
@@ -194,7 +196,9 @@ def _summarize_tasks(
                 personal_best=max(scores) if scores else None,
                 mean_score=statistics.fmean(scores) if scores else None,
                 median_score=statistics.median(scores) if scores else None,
-                rolling_median=statistics.median(scores[:rolling_median_window]) if scores else None,
+                rolling_median=statistics.median(scores[:rolling_median_window])
+                if scores
+                else None,
                 rolling_max=max(scores[:rolling_max_window]) if scores else None,
                 first_ended_at_utc=plays[-1].ended_at_utc,
                 last_ended_at_utc=plays[0].ended_at_utc,
@@ -205,17 +209,23 @@ def _summarize_tasks(
 
 def _status_note(report: HistoryReport) -> Optional[str]:
     if report.include_all_statuses:
-        included_count = sum(1 for play in report.table_rows if play.gridshield_status != APPROVED_STATUS)
+        included_count = sum(
+            1 for play in report.table_rows if play.gridshield_status != APPROVED_STATUS
+        )
         if included_count:
             return f"Note: including {_pluralize(included_count, 'non-APPROVED run')} in the table and stats."
         return None
     if report.excluded_non_approved_count:
-        excluded_text = _pluralize(report.excluded_non_approved_count, "non-APPROVED run")
+        excluded_text = _pluralize(
+            report.excluded_non_approved_count, "non-APPROVED run"
+        )
         return f"Note: {excluded_text} excluded (pass --include-all-statuses to include them)."
     return None
 
 
-def _render_runs_table(table_rows: Sequence[ReportPlay], display_tz: Optional[tzinfo]) -> list[str]:
+def _render_runs_table(
+    table_rows: Sequence[ReportPlay], display_tz: Optional[tzinfo]
+) -> list[str]:
     """One column per performance metric: the union of keys across the rendered plays."""
     metric_keys = _metric_keys(table_rows)
     show_status = any(play.gridshield_status != APPROVED_STATUS for play in table_rows)
@@ -224,13 +234,20 @@ def _render_runs_table(table_rows: Sequence[ReportPlay], display_tz: Optional[tz
         headers.append("Status")
     rows = []
     for play in table_rows:
-        metrics = play.performance_scores if isinstance(play.performance_scores, Mapping) else {}
+        metrics = (
+            play.performance_scores
+            if isinstance(play.performance_scores, Mapping)
+            else {}
+        )
         row = [
             _format_timestamp(play.ended_at_utc, display_tz),
             play.scenario_name,
             _format_score(play.score),
         ]
-        row.extend(_format_stat_value(metrics[key]) if key in metrics else "-" for key in metric_keys)
+        row.extend(
+            _format_stat_value(metrics[key]) if key in metrics else "-"
+            for key in metric_keys
+        )
         if show_status:
             row.append(play.gridshield_status or "UNKNOWN")
         rows.append(row)
@@ -245,8 +262,12 @@ def _metric_keys(table_rows: Sequence[ReportPlay]) -> list[str]:
     return sorted(keys)
 
 
-def _render_task_summaries(report: HistoryReport, display_tz: Optional[tzinfo]) -> list[str]:
-    scope_label = "all statuses" if report.include_all_statuses else "APPROVED runs only"
+def _render_task_summaries(
+    report: HistoryReport, display_tz: Optional[tzinfo]
+) -> list[str]:
+    scope_label = (
+        "all statuses" if report.include_all_statuses else "APPROVED runs only"
+    )
     section_header = (
         f"Per-scenario stats ({scope_label}; rolling median over last {report.rolling_median_window}, "
         f"rolling max over last {report.rolling_max_window}):"

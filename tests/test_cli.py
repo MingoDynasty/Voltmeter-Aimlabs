@@ -20,12 +20,18 @@ KNOWN_TASK_ID = "CsLevel.Lowgravity56.VT Float.RSM6A6"
 SEEN_AT = "2026-06-06T00:00:00.000Z"
 
 # The report path must never touch sync/auth/network modules (design §10/§11).
-BLOCKED_MODULES = ("aimlabs_auth", "aimlabs_client", "aimlabs_history", "history_sync", "requests")
+BLOCKED_MODULES = (
+    "aimlabs_auth",
+    "aimlabs_client",
+    "aimlabs_history",
+    "history_sync",
+    "requests",
+)
 
 
 class CliReportTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self._temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self._temp_dir.cleanup)
         self.temp_path = Path(self._temp_dir.name)
         self.db_path = self.temp_path / "aimlabs.db"
@@ -53,9 +59,13 @@ class CliReportTests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertIn("[aimlabs].user_id", stderr)
 
-    def test_report_with_missing_store_prints_no_runs_found_without_creating_db(self) -> None:
+    def test_report_with_missing_store_prints_no_runs_found_without_creating_db(
+        self,
+    ) -> None:
         missing_db_path = self.temp_path / "missing" / "aimlabs.db"
-        config_path = _write_config(self.temp_path, missing_db_path, filename="missing_db.toml")
+        config_path = _write_config(
+            self.temp_path, missing_db_path, filename="missing_db.toml"
+        )
 
         exit_code, stdout, _ = _run_cli(["--config", str(config_path), "report"])
 
@@ -76,14 +86,25 @@ class CliReportTests(unittest.TestCase):
             self.db_path,
             [_raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 1234)],
         )
-        saved_modules = {name: sys.modules.pop(name) for name in BLOCKED_MODULES if name in sys.modules}
+        saved_modules = {
+            name: sys.modules.pop(name)
+            for name in BLOCKED_MODULES
+            if name in sys.modules
+        }
         try:
-            with mock.patch("socket.socket", side_effect=AssertionError("report path must not open sockets")):
-                exit_code, stdout, _ = _run_cli(["--config", str(self.config_path), "report"])
+            with mock.patch(
+                "socket.socket",
+                side_effect=AssertionError("report path must not open sockets"),
+            ):
+                exit_code, stdout, _ = _run_cli(
+                    ["--config", str(self.config_path), "report"]
+                )
             self.assertEqual(exit_code, 0)
             self.assertIn("Floatshot", stdout)
             for module_name in BLOCKED_MODULES:
-                self.assertNotIn(module_name, sys.modules, f"report path imported {module_name}")
+                self.assertNotIn(
+                    module_name, sys.modules, f"report path imported {module_name}"
+                )
         finally:
             sys.modules.update(saved_modules)
 
@@ -92,11 +113,19 @@ class CliReportTests(unittest.TestCase):
             self.db_path,
             [
                 _raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 100),
-                _raw_play("play-2", KNOWN_TASK_ID, "2026-06-05T11:00:00.000Z", 9999, status="PENDING"),
+                _raw_play(
+                    "play-2",
+                    KNOWN_TASK_ID,
+                    "2026-06-05T11:00:00.000Z",
+                    9999,
+                    status="PENDING",
+                ),
             ],
         )
 
-        default_exit_code, default_stdout, _ = _run_cli(["--config", str(self.config_path), "report"])
+        default_exit_code, default_stdout, _ = _run_cli(
+            ["--config", str(self.config_path), "report"]
+        )
         override_exit_code, override_stdout, _ = _run_cli(
             ["--config", str(self.config_path), "report", "--include-all-statuses"]
         )
@@ -117,7 +146,9 @@ class CliReportTests(unittest.TestCase):
             ],
         )
 
-        exit_code, _, stderr = _run_cli(["--config", str(self.config_path), "--verbose", "report"])
+        exit_code, _, stderr = _run_cli(
+            ["--config", str(self.config_path), "--verbose", "report"]
+        )
 
         self.assertEqual(exit_code, 0)
         self.assertIn("loaded 2 plays from", stderr)
@@ -132,7 +163,9 @@ class CliReportTests(unittest.TestCase):
         )
 
         # --config before, --verbose after the subcommand (the natural invocation).
-        exit_code, _, stderr = _run_cli(["--config", str(self.config_path), "report", "--verbose"])
+        exit_code, _, stderr = _run_cli(
+            ["--config", str(self.config_path), "report", "--verbose"]
+        )
 
         self.assertEqual(exit_code, 0)
         self.assertIn("loaded 2 plays from", stderr)
@@ -159,7 +192,7 @@ class CliReportTests(unittest.TestCase):
 
 class CliSyncTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self._temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self._temp_dir.cleanup)
         self.temp_path = Path(self._temp_dir.name)
         self.db_path = self.temp_path / "aimlabs.db"
@@ -174,7 +207,9 @@ class CliSyncTests(unittest.TestCase):
         os.environ.pop("AIMLAB_SESSION", None)
         self.config_path = self._write_sync_config()
 
-    def _write_sync_config(self, *, delay: float = 0.0, filename: str = "config.toml") -> Path:
+    def _write_sync_config(
+        self, *, delay: float = 0.0, filename: str = "config.toml"
+    ) -> Path:
         config_path = self.temp_path / filename
         db_value = str(self.db_path).replace("\\", "/")
         config_path.write_text(
@@ -189,9 +224,18 @@ class CliSyncTests(unittest.TestCase):
     def test_sync_missing_credential_fails_with_login_hint_and_no_window(self) -> None:
         saved_webview = sys.modules.pop("webview", None)
         try:
-            with mock.patch("socket.socket", side_effect=AssertionError("sync must not reach the network here")):
-                exit_code, _, stderr = _run_cli(["--config", str(self.config_path), "sync"])
-            self.assertNotIn("webview", sys.modules, "sync must never import the login window machinery")
+            with mock.patch(
+                "socket.socket",
+                side_effect=AssertionError("sync must not reach the network here"),
+            ):
+                exit_code, _, stderr = _run_cli(
+                    ["--config", str(self.config_path), "sync"]
+                )
+            self.assertNotIn(
+                "webview",
+                sys.modules,
+                "sync must never import the login window machinery",
+            )
         finally:
             if saved_webview is not None:
                 sys.modules["webview"] = saved_webview
@@ -201,17 +245,30 @@ class CliSyncTests(unittest.TestCase):
 
     def test_sync_happy_path_prints_summary_and_stores_plays(self) -> None:
         os.environ["AIMLAB_SESSION"] = "synthetic-cookie"
-        page = _history_page([_raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 1234)])
+        page = _history_page(
+            [_raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 1234)]
+        )
         with (
-            mock.patch("aimlabs_auth.fetch_session_json", return_value={"accessToken": "bearer-1"}) as session_mock,
-            mock.patch("aimlabs_history.fetch_history_page", return_value=page) as fetch_mock,
-            mock.patch("aimlabs_history.fetch_practice_contamination_count", return_value=0),
+            mock.patch(
+                "aimlabs_auth.fetch_session_json",
+                return_value={"accessToken": "bearer-1"},
+            ) as session_mock,
+            mock.patch(
+                "aimlabs_history.fetch_history_page", return_value=page
+            ) as fetch_mock,
+            mock.patch(
+                "aimlabs_history.fetch_practice_contamination_count", return_value=0
+            ),
         ):
-            exit_code, stdout, stderr = _run_cli(["--config", str(self.config_path), "sync"])
+            exit_code, stdout, stderr = _run_cli(
+                ["--config", str(self.config_path), "sync"]
+            )
 
         self.assertEqual(exit_code, 0)
         # initial backfill (1 page) + the post-backfill top sweep (1 page)
-        self.assertIn("sync: 2 pages, 1 inserted, 1 skipped; Aimlabs reports 1 plays.", stdout)
+        self.assertIn(
+            "sync: 2 pages, 1 inserted, 1 skipped; Aimlabs reports 1 plays.", stdout
+        )
         self.assertNotIn("practice", stderr)
         self.assertNotIn("webview", sys.modules)
         self.assertEqual(session_mock.call_count, 1)
@@ -226,12 +283,26 @@ class CliSyncTests(unittest.TestCase):
         session_path = self.temp_path / "session.cookie"
         session_path.write_text("file-cookie\n", encoding="utf-8")
         with (
-            mock.patch("aimlabs_auth.fetch_session_json", return_value={"accessToken": "bearer-1"}) as session_mock,
-            mock.patch("aimlabs_history.fetch_history_page", return_value=_history_page([])),
-            mock.patch("aimlabs_history.fetch_practice_contamination_count", return_value=0),
+            mock.patch(
+                "aimlabs_auth.fetch_session_json",
+                return_value={"accessToken": "bearer-1"},
+            ) as session_mock,
+            mock.patch(
+                "aimlabs_history.fetch_history_page", return_value=_history_page([])
+            ),
+            mock.patch(
+                "aimlabs_history.fetch_practice_contamination_count", return_value=0
+            ),
         ):
             exit_code, _, stderr = _run_cli(
-                ["--config", str(self.config_path), "--verbose", "sync", "--session-file", str(session_path)]
+                [
+                    "--config",
+                    str(self.config_path),
+                    "--verbose",
+                    "sync",
+                    "--session-file",
+                    str(session_path),
+                ]
             )
 
         self.assertEqual(exit_code, 0)
@@ -249,7 +320,9 @@ class CliSyncTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
 
     def test_sync_show_deleted_without_full_is_rejected(self) -> None:
-        exit_code, _, stderr = _run_cli(["--config", str(self.config_path), "sync", "--show-deleted"])
+        exit_code, _, stderr = _run_cli(
+            ["--config", str(self.config_path), "sync", "--show-deleted"]
+        )
 
         self.assertEqual(exit_code, 1)
         self.assertIn("--show-deleted requires --full", stderr)
@@ -263,9 +336,14 @@ class CliSyncTests(unittest.TestCase):
             ) as session_mock,
             mock.patch(
                 "aimlabs_history.fetch_history_page",
-                side_effect=[aimlabs_history.AimlabsUnauthorizedError("expired bearer"), _history_page([])],
+                side_effect=[
+                    aimlabs_history.AimlabsUnauthorizedError("expired bearer"),
+                    _history_page([]),
+                ],
             ) as fetch_mock,
-            mock.patch("aimlabs_history.fetch_practice_contamination_count", return_value=0) as contamination_mock,
+            mock.patch(
+                "aimlabs_history.fetch_practice_contamination_count", return_value=0
+            ) as contamination_mock,
         ):
             exit_code, _, _ = _run_cli(["--config", str(self.config_path), "sync"])
 
@@ -301,14 +379,28 @@ class CliSyncTests(unittest.TestCase):
 
     def test_sync_report_offline_half_adds_no_auth_or_network(self) -> None:
         os.environ["AIMLAB_SESSION"] = "synthetic-cookie"
-        page = _history_page([_raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 1234)])
+        page = _history_page(
+            [_raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 1234)]
+        )
         with (
-            mock.patch("aimlabs_auth.fetch_session_json", return_value={"accessToken": "bearer-1"}) as session_mock,
-            mock.patch("aimlabs_history.fetch_history_page", return_value=page) as fetch_mock,
-            mock.patch("aimlabs_history.fetch_practice_contamination_count", return_value=0) as contamination_mock,
-            mock.patch("socket.socket", side_effect=AssertionError("sync --report must not open sockets")),
+            mock.patch(
+                "aimlabs_auth.fetch_session_json",
+                return_value={"accessToken": "bearer-1"},
+            ) as session_mock,
+            mock.patch(
+                "aimlabs_history.fetch_history_page", return_value=page
+            ) as fetch_mock,
+            mock.patch(
+                "aimlabs_history.fetch_practice_contamination_count", return_value=0
+            ) as contamination_mock,
+            mock.patch(
+                "socket.socket",
+                side_effect=AssertionError("sync --report must not open sockets"),
+            ),
         ):
-            exit_code, stdout, _ = _run_cli(["--config", str(self.config_path), "sync", "--report"])
+            exit_code, stdout, _ = _run_cli(
+                ["--config", str(self.config_path), "sync", "--report"]
+            )
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Floatshot", stdout)
@@ -321,17 +413,30 @@ class CliSyncTests(unittest.TestCase):
     def test_sync_sleeps_between_pages_per_request_delay(self) -> None:
         os.environ["AIMLAB_SESSION"] = "synthetic-cookie"
         config_path = self._write_sync_config(delay=0.5, filename="delay.toml")
-        newest_play = _raw_play("play-2", KNOWN_TASK_ID, "2026-06-05T11:00:00.000Z", 200)
+        newest_play = _raw_play(
+            "play-2", KNOWN_TASK_ID, "2026-06-05T11:00:00.000Z", 200
+        )
         older_play = _raw_play("play-1", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 100)
         pages = [
-            _history_page([newest_play], total_count=2, has_next_page=True, end_cursor="cursor-1"),
+            _history_page(
+                [newest_play], total_count=2, has_next_page=True, end_cursor="cursor-1"
+            ),
             _history_page([older_play], total_count=2),
-            _history_page([newest_play], total_count=2),  # top sweep stops on the anchor
+            _history_page(
+                [newest_play], total_count=2
+            ),  # top sweep stops on the anchor
         ]
         with (
-            mock.patch("aimlabs_auth.fetch_session_json", return_value={"accessToken": "bearer-1"}),
-            mock.patch("aimlabs_history.fetch_history_page", side_effect=pages) as fetch_mock,
-            mock.patch("aimlabs_history.fetch_practice_contamination_count", return_value=0),
+            mock.patch(
+                "aimlabs_auth.fetch_session_json",
+                return_value={"accessToken": "bearer-1"},
+            ),
+            mock.patch(
+                "aimlabs_history.fetch_history_page", side_effect=pages
+            ) as fetch_mock,
+            mock.patch(
+                "aimlabs_history.fetch_practice_contamination_count", return_value=0
+            ),
             mock.patch("time.sleep") as sleep_mock,
         ):
             exit_code, _, _ = _run_cli(["--config", str(config_path), "sync"])
@@ -343,9 +448,16 @@ class CliSyncTests(unittest.TestCase):
     def test_sync_warns_on_practice_contamination(self) -> None:
         os.environ["AIMLAB_SESSION"] = "synthetic-cookie"
         with (
-            mock.patch("aimlabs_auth.fetch_session_json", return_value={"accessToken": "bearer-1"}),
-            mock.patch("aimlabs_history.fetch_history_page", return_value=_history_page([])),
-            mock.patch("aimlabs_history.fetch_practice_contamination_count", return_value=3),
+            mock.patch(
+                "aimlabs_auth.fetch_session_json",
+                return_value={"accessToken": "bearer-1"},
+            ),
+            mock.patch(
+                "aimlabs_history.fetch_history_page", return_value=_history_page([])
+            ),
+            mock.patch(
+                "aimlabs_history.fetch_practice_contamination_count", return_value=3
+            ),
         ):
             exit_code, _, stderr = _run_cli(["--config", str(self.config_path), "sync"])
 
@@ -355,14 +467,23 @@ class CliSyncTests(unittest.TestCase):
     def test_sync_contamination_check_failure_warns_and_continues(self) -> None:
         os.environ["AIMLAB_SESSION"] = "synthetic-cookie"
         with (
-            mock.patch("aimlabs_auth.fetch_session_json", return_value={"accessToken": "bearer-1"}),
-            mock.patch("aimlabs_history.fetch_history_page", return_value=_history_page([])),
+            mock.patch(
+                "aimlabs_auth.fetch_session_json",
+                return_value={"accessToken": "bearer-1"},
+            ),
+            mock.patch(
+                "aimlabs_history.fetch_history_page", return_value=_history_page([])
+            ),
             mock.patch(
                 "aimlabs_history.fetch_practice_contamination_count",
-                side_effect=aimlabs_history.AimlabsTransientHistoryError(503, "maintenance"),
+                side_effect=aimlabs_history.AimlabsTransientHistoryError(
+                    503, "maintenance"
+                ),
             ),
         ):
-            exit_code, stdout, stderr = _run_cli(["--config", str(self.config_path), "sync"])
+            exit_code, stdout, stderr = _run_cli(
+                ["--config", str(self.config_path), "sync"]
+            )
 
         self.assertEqual(exit_code, 0)
         self.assertIn("practice-contamination check failed", stderr)
@@ -370,28 +491,46 @@ class CliSyncTests(unittest.TestCase):
 
     def test_sync_full_reports_summary_and_show_deleted_names_plays(self) -> None:
         os.environ["AIMLAB_SESSION"] = "synthetic-cookie"
-        kept_play = _raw_play("play-kept", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 100)
+        kept_play = _raw_play(
+            "play-kept", KNOWN_TASK_ID, "2026-06-05T10:00:00.000Z", 100
+        )
         _seed_store(
             self.db_path,
-            [kept_play, _raw_play("play-gone", KNOWN_TASK_ID, "2026-06-04T10:00:00.000Z", 90)],
+            [
+                kept_play,
+                _raw_play("play-gone", KNOWN_TASK_ID, "2026-06-04T10:00:00.000Z", 90),
+            ],
         )
         with (
-            mock.patch("aimlabs_auth.fetch_session_json", return_value={"accessToken": "bearer-1"}),
-            mock.patch("aimlabs_history.fetch_history_page", return_value=_history_page([kept_play], total_count=1)),
-            mock.patch("aimlabs_history.fetch_practice_contamination_count", return_value=0),
+            mock.patch(
+                "aimlabs_auth.fetch_session_json",
+                return_value={"accessToken": "bearer-1"},
+            ),
+            mock.patch(
+                "aimlabs_history.fetch_history_page",
+                return_value=_history_page([kept_play], total_count=1),
+            ),
+            mock.patch(
+                "aimlabs_history.fetch_practice_contamination_count", return_value=0
+            ),
         ):
             exit_code, stdout, stderr = _run_cli(
                 ["--config", str(self.config_path), "sync", "--full", "--show-deleted"]
             )
 
         self.assertEqual(exit_code, 0)
-        self.assertIn("sync --full: 1 pages, 0 inserted, 1 updated; Aimlabs reports 1 plays.", stdout)
+        self.assertIn(
+            "sync --full: 1 pages, 0 inserted, 1 updated; Aimlabs reports 1 plays.",
+            stdout,
+        )
         self.assertIn("play-gone", stderr)
 
 
 class CliLoginTests(unittest.TestCase):
     def test_login_passes_timeout_and_maps_capture_success_to_exit_zero(self) -> None:
-        with mock.patch("aimlabs_auth.login_and_capture", return_value="captured-session") as capture_mock:
+        with mock.patch(
+            "aimlabs_auth.login_and_capture", return_value="captured-session"
+        ) as capture_mock:
             exit_code, _, _ = _run_cli(["login", "--timeout", "42"])
 
         self.assertEqual(exit_code, 0)
@@ -418,18 +557,22 @@ class CliRefreshCatalogTests(unittest.TestCase):
 
 class CliScoresTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self._temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self._temp_dir.cleanup)
         self.temp_path = Path(self._temp_dir.name)
         self.config_path = self.temp_path / "config.toml"
-        self.config_path.write_text(f'[aimlabs]\nuser_id = "{ACCOUNT_ID}"\n', encoding="utf-8")
+        self.config_path.write_text(
+            f'[aimlabs]\nuser_id = "{ACCOUNT_ID}"\n', encoding="utf-8"
+        )
         self._original_cwd = Path.cwd()
         os.chdir(self.temp_path)
         self.addCleanup(os.chdir, self._original_cwd)
 
     def test_scores_table_matches_standalone_golden_without_login(self) -> None:
         expected_lines = json.loads(
-            (Path(__file__).parent / "fixtures" / "scores_table_golden.json").read_text(encoding="utf-8")
+            (Path(__file__).parent / "fixtures" / "scores_table_golden.json").read_text(
+                encoding="utf-8"
+            )
         )
         expected_stdout = "\n".join(expected_lines) + "\n"
         seen_headers: list[Optional[dict]] = []
@@ -447,7 +590,9 @@ class CliScoresTests(unittest.TestCase):
 
         with (
             mock.patch.dict(os.environ, {}, clear=True),
-            mock.patch("aimlab_scores.fetch_all_scores", side_effect=fake_fetch_all_scores),
+            mock.patch(
+                "aimlab_scores.fetch_all_scores", side_effect=fake_fetch_all_scores
+            ),
             mock.patch("aimlab_scores.Stopwatch.elapsed", return_value=0.5),
         ):
             standalone_exit, standalone_stdout, standalone_stderr = _run_scores_main(
@@ -475,16 +620,26 @@ class CliScoresTests(unittest.TestCase):
         self.assertEqual(cli_stdout, expected_stdout)
         self.assertEqual(cli_stderr, standalone_stderr)
         self.assertEqual(seen_headers, [None] * 6)
-        self.assertNotIn("webview", sys.modules, "scores must never import the login window machinery")
+        self.assertNotIn(
+            "webview",
+            sys.modules,
+            "scores must never import the login window machinery",
+        )
 
-    def test_scores_json_matches_standalone_golden_with_global_options_after_command(self) -> None:
-        expected_stdout = (Path(__file__).parent / "fixtures" / "scores_json_golden.json").read_text(encoding="utf-8")
+    def test_scores_json_matches_standalone_golden_with_global_options_after_command(
+        self,
+    ) -> None:
+        expected_stdout = (
+            Path(__file__).parent / "fixtures" / "scores_json_golden.json"
+        ).read_text(encoding="utf-8")
 
         with (
             mock.patch.dict(os.environ, {}, clear=True),
             mock.patch(
                 "aimlab_scores.fetch_all_scores",
-                side_effect=lambda *, scenarios, **_kwargs: [_synthetic_score_row(scenario) for scenario in scenarios],
+                side_effect=lambda *, scenarios, **_kwargs: [
+                    _synthetic_score_row(scenario) for scenario in scenarios
+                ],
             ),
             mock.patch("aimlab_scores.Stopwatch.elapsed", return_value=0.5),
         ):
@@ -521,10 +676,14 @@ class CliScoresTests(unittest.TestCase):
     def test_scores_full_catalog_matches_golden_outputs_without_login(self) -> None:
         fixtures_path = Path(__file__).parent / "fixtures"
         expected_table_lines = json.loads(
-            (fixtures_path / "scores_full_catalog_table_golden.json").read_text(encoding="utf-8")
+            (fixtures_path / "scores_full_catalog_table_golden.json").read_text(
+                encoding="utf-8"
+            )
         )
         expected_table = "\n".join(expected_table_lines) + "\n"
-        expected_json = (fixtures_path / "scores_full_catalog_json_golden.json").read_text(encoding="utf-8")
+        expected_json = (
+            fixtures_path / "scores_full_catalog_json_golden.json"
+        ).read_text(encoding="utf-8")
         fetched_row_counts: list[int] = []
 
         def fake_fetch_all_scores(
@@ -541,20 +700,31 @@ class CliScoresTests(unittest.TestCase):
 
         with (
             mock.patch.dict(os.environ, {}, clear=True),
-            mock.patch("aimlab_scores.fetch_all_scores", side_effect=fake_fetch_all_scores),
+            mock.patch(
+                "aimlab_scores.fetch_all_scores", side_effect=fake_fetch_all_scores
+            ),
             mock.patch("aimlab_scores.Stopwatch.elapsed", return_value=0.5),
         ):
-            standalone_table_exit, standalone_table, standalone_table_stderr = _run_scores_main(
-                ["--config", str(self.config_path)]
+            standalone_table_exit, standalone_table, standalone_table_stderr = (
+                _run_scores_main(["--config", str(self.config_path)])
             )
-            cli_table_exit, cli_table, cli_table_stderr = _run_cli(["scores", "--config", str(self.config_path)])
-            standalone_json_exit, standalone_json, standalone_json_stderr = _run_scores_main(
-                ["--config", str(self.config_path), "--json"]
+            cli_table_exit, cli_table, cli_table_stderr = _run_cli(
+                ["scores", "--config", str(self.config_path)]
             )
-            cli_json_exit, cli_json, cli_json_stderr = _run_cli(["scores", "--config", str(self.config_path), "--json"])
+            standalone_json_exit, standalone_json, standalone_json_stderr = (
+                _run_scores_main(["--config", str(self.config_path), "--json"])
+            )
+            cli_json_exit, cli_json, cli_json_stderr = _run_cli(
+                ["scores", "--config", str(self.config_path), "--json"]
+            )
 
         self.assertEqual(
-            (standalone_table_exit, cli_table_exit, standalone_json_exit, cli_json_exit),
+            (
+                standalone_table_exit,
+                cli_table_exit,
+                standalone_json_exit,
+                cli_json_exit,
+            ),
             (0, 0, 0, 0),
         )
         self.assertEqual(standalone_table, expected_table)
@@ -622,22 +792,31 @@ class CliScoresTests(unittest.TestCase):
         )
 
     def test_scores_help_is_listed_and_header_flag_is_retired(self) -> None:
-        import aimlab_scores  # pylint: disable=import-outside-toplevel
+        import aimlab_scores  # noqa: PLC0415
 
         top_level_help = io.StringIO()
-        with redirect_stdout(top_level_help), self.assertRaises(SystemExit) as top_level_exit:
+        with (
+            redirect_stdout(top_level_help),
+            self.assertRaises(SystemExit) as top_level_exit,
+        ):
             cli.main(["--help"])
         self.assertEqual(top_level_exit.exception.code, 0)
         self.assertIn("scores", top_level_help.getvalue())
 
         scores_help = io.StringIO()
-        with redirect_stdout(scores_help), self.assertRaises(SystemExit) as scores_help_exit:
+        with (
+            redirect_stdout(scores_help),
+            self.assertRaises(SystemExit) as scores_help_exit,
+        ):
             cli.main(["scores", "--help"])
         self.assertEqual(scores_help_exit.exception.code, 0)
         self.assertNotIn("--header", scores_help.getvalue())
 
         standalone_help = io.StringIO()
-        with redirect_stdout(standalone_help), self.assertRaises(SystemExit) as standalone_help_exit:
+        with (
+            redirect_stdout(standalone_help),
+            self.assertRaises(SystemExit) as standalone_help_exit,
+        ):
             aimlab_scores.main(["--help"])
         self.assertEqual(standalone_help_exit.exception.code, 0)
         self.assertNotIn("--header", standalone_help.getvalue())
@@ -673,7 +852,7 @@ def _run_cli(argv: list[str]) -> tuple[int, str, str]:
 
 
 def _run_scores_main(argv: list[str]) -> tuple[int, str, str]:
-    import aimlab_scores  # pylint: disable=import-outside-toplevel
+    import aimlab_scores  # noqa: PLC0415
 
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
@@ -707,7 +886,9 @@ def _synthetic_score_row(scenario: dict) -> dict:
     }
 
 
-def _write_config(temp_path: Path, db_path: Path, *, filename: str = "config.toml") -> Path:
+def _write_config(
+    temp_path: Path, db_path: Path, *, filename: str = "config.toml"
+) -> Path:
     config_path = temp_path / filename
     db_value = str(db_path).replace("\\", "/")
     config_path.write_text(
@@ -725,7 +906,9 @@ def _seed_store(db_path: Path, raw_plays: list[dict]) -> None:
         connection.close()
 
 
-def _raw_play(play_id: str, task_id: str, ended_at: str, score: float, *, status: str = "APPROVED") -> dict:
+def _raw_play(
+    play_id: str, task_id: str, ended_at: str, score: float, *, status: str = "APPROVED"
+) -> dict:
     return {
         "id": play_id,
         "endedAt": ended_at,

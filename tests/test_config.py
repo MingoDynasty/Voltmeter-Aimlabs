@@ -122,7 +122,9 @@ class ConfigTests(unittest.TestCase):
     def test_report_timezone_not_resolvable_raises_config_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.toml"
-            config_path.write_text('[report]\ntimezone = "Not/AZone"\n', encoding="utf-8")
+            config_path.write_text(
+                '[report]\ntimezone = "Not/AZone"\n', encoding="utf-8"
+            )
 
             with self.assertRaisesRegex(ConfigError, r"\[report\].timezone"):
                 load_config(config_path)
@@ -130,15 +132,21 @@ class ConfigTests(unittest.TestCase):
     def test_report_rolling_window_non_positive_raises_config_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.toml"
-            config_path.write_text("[report]\nrolling_median_window = 0\n", encoding="utf-8")
+            config_path.write_text(
+                "[report]\nrolling_median_window = 0\n", encoding="utf-8"
+            )
 
-            with self.assertRaisesRegex(ConfigError, r"\[report\].rolling_median_window"):
+            with self.assertRaisesRegex(
+                ConfigError, r"\[report\].rolling_median_window"
+            ):
                 load_config(config_path)
 
     def test_report_rolling_window_non_integer_raises_config_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.toml"
-            config_path.write_text("[report]\nrolling_max_window = true\n", encoding="utf-8")
+            config_path.write_text(
+                "[report]\nrolling_max_window = true\n", encoding="utf-8"
+            )
 
             with self.assertRaisesRegex(ConfigError, r"\[report\].rolling_max_window"):
                 load_config(config_path)

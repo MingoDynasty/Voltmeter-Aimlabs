@@ -1,9 +1,8 @@
-# pylint: disable=duplicate-code
-
 import io
 import unittest
 from typing import Optional
 
+import play_store
 from aimlabs_auth import ReloginRequiredError
 from aimlabs_history import (
     AimlabsCursorRejectedError,
@@ -11,7 +10,6 @@ from aimlabs_history import (
     AimlabsUnauthorizedError,
     HistoryPage,
 )
-import play_store
 from history_sync import sync_full, sync_incremental
 
 ACCOUNT_ID = "anthic-account-a"
@@ -78,7 +76,7 @@ def require_state(connection) -> play_store.SyncState:
     return state
 
 
-class FakePageFetcher:  # pylint: disable=too-few-public-methods
+class FakePageFetcher:
     def __init__(
         self,
         pages: list[HistoryPage | Exception],
@@ -132,9 +130,13 @@ class HistorySyncTests(unittest.TestCase):
             [
                 history_page(
                     [
-                        synthetic_play("play-new-a", ended_at="2026-06-06T03:00:00.000Z"),
+                        synthetic_play(
+                            "play-new-a", ended_at="2026-06-06T03:00:00.000Z"
+                        ),
                         known_play,
-                        synthetic_play("play-new-b", ended_at="2026-06-06T02:00:00.000Z"),
+                        synthetic_play(
+                            "play-new-b", ended_at="2026-06-06T02:00:00.000Z"
+                        ),
                     ],
                     total_count=3,
                     has_next_page=True,
@@ -152,7 +154,9 @@ class HistorySyncTests(unittest.TestCase):
         self.assertEqual(play_store.count_plays(connection, ACCOUNT_ID), 3)
         self.assertEqual([call[0] for call in fetcher.calls], [None])
 
-    def test_high_water_captured_at_top_and_finalized_only_after_completion(self) -> None:
+    def test_high_water_captured_at_top_and_finalized_only_after_completion(
+        self,
+    ) -> None:
         connection = play_store.connect(":memory:")
         known_play = synthetic_play("play-known", ended_at="2026-06-06T01:00:00.000Z")
         play_store.upsert_plays(connection, ACCOUNT_ID, [known_play], seen_at=SEEN_AT)
@@ -161,7 +165,10 @@ class HistorySyncTests(unittest.TestCase):
         fetcher = FakePageFetcher(
             [
                 history_page(
-                    [top_play, synthetic_play("play-new", ended_at="2026-06-06T04:00:00.000Z")],
+                    [
+                        top_play,
+                        synthetic_play("play-new", ended_at="2026-06-06T04:00:00.000Z"),
+                    ],
                     total_count=5,
                     has_next_page=True,
                     end_cursor="cursor-1",
@@ -198,13 +205,20 @@ class HistorySyncTests(unittest.TestCase):
         self.assertEqual(state.api_total_count, 0)
         self.assertEqual(play_store.count_plays(connection, ACCOUNT_ID), 0)
 
-    def test_initial_backfill_records_anchor_walks_old_pages_then_top_sweeps(self) -> None:
+    def test_initial_backfill_records_anchor_walks_old_pages_then_top_sweeps(
+        self,
+    ) -> None:
         connection = play_store.connect(":memory:")
         anchor_play = synthetic_play("play-anchor", ended_at="2026-06-06T05:00:00.000Z")
         older_play = synthetic_play("play-older", ended_at="2026-06-06T04:00:00.000Z")
         fetcher = FakePageFetcher(
             [
-                history_page([anchor_play], total_count=2, has_next_page=True, end_cursor="cursor-1"),
+                history_page(
+                    [anchor_play],
+                    total_count=2,
+                    has_next_page=True,
+                    end_cursor="cursor-1",
+                ),
                 history_page([older_play], total_count=2),
                 history_page([anchor_play, older_play], total_count=2),
             ]
@@ -244,7 +258,9 @@ class HistorySyncTests(unittest.TestCase):
         self.assertEqual(state.backfill_phase, play_store.COMPLETE)
         self.assertEqual(state.newest_id, "play-anchor")
 
-    def test_crash_mid_incremental_restarts_from_top_without_orphan_cursor(self) -> None:
+    def test_crash_mid_incremental_restarts_from_top_without_orphan_cursor(
+        self,
+    ) -> None:
         connection = play_store.connect(":memory:")
         known_play = synthetic_play("play-known", ended_at="2026-06-06T01:00:00.000Z")
         save_complete_state(connection)
@@ -252,7 +268,11 @@ class HistorySyncTests(unittest.TestCase):
         crashing_fetcher = FakePageFetcher(
             [
                 history_page(
-                    [synthetic_play("play-new-before-crash", ended_at="2026-06-06T04:00:00.000Z")],
+                    [
+                        synthetic_play(
+                            "play-new-before-crash", ended_at="2026-06-06T04:00:00.000Z"
+                        )
+                    ],
                     total_count=2,
                     has_next_page=True,
                     end_cursor="cursor-1",
@@ -273,14 +293,18 @@ class HistorySyncTests(unittest.TestCase):
             [
                 history_page(
                     [
-                        synthetic_play("play-new-before-crash", ended_at="2026-06-06T04:00:00.000Z"),
+                        synthetic_play(
+                            "play-new-before-crash", ended_at="2026-06-06T04:00:00.000Z"
+                        ),
                         known_play,
                     ],
                     total_count=2,
                 ),
             ]
         )
-        retry_result = sync_incremental(connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT)
+        retry_result = sync_incremental(
+            connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT
+        )
         state_after_retry = require_state(connection)
 
         self.assertEqual(retry_fetcher.calls, [(None, 50)])
@@ -292,11 +316,23 @@ class HistorySyncTests(unittest.TestCase):
     def test_backfilling_resume_uses_checkpointed_cursor(self) -> None:
         connection = play_store.connect(":memory:")
         anchor_play = synthetic_play("play-anchor", ended_at="2026-06-06T05:00:00.000Z")
-        second_page_play = synthetic_play("play-page-2", ended_at="2026-06-06T04:00:00.000Z")
+        second_page_play = synthetic_play(
+            "play-page-2", ended_at="2026-06-06T04:00:00.000Z"
+        )
         crashing_fetcher = FakePageFetcher(
             [
-                history_page([anchor_play], total_count=3, has_next_page=True, end_cursor="cursor-1"),
-                history_page([second_page_play], total_count=3, has_next_page=True, end_cursor="cursor-2"),
+                history_page(
+                    [anchor_play],
+                    total_count=3,
+                    has_next_page=True,
+                    end_cursor="cursor-1",
+                ),
+                history_page(
+                    [second_page_play],
+                    total_count=3,
+                    has_next_page=True,
+                    end_cursor="cursor-2",
+                ),
             ],
             fail_on_call=3,
         )
@@ -309,14 +345,20 @@ class HistorySyncTests(unittest.TestCase):
         self.assertEqual(state_after_crash.resume_cursor, "cursor-2")
         self.assertIsNone(state_after_crash.newest_id)
 
-        last_page_play = synthetic_play("play-page-3", ended_at="2026-06-06T03:00:00.000Z")
+        last_page_play = synthetic_play(
+            "play-page-3", ended_at="2026-06-06T03:00:00.000Z"
+        )
         retry_fetcher = FakePageFetcher(
             [
                 history_page([last_page_play], total_count=3),
-                history_page([anchor_play, second_page_play, last_page_play], total_count=3),
+                history_page(
+                    [anchor_play, second_page_play, last_page_play], total_count=3
+                ),
             ]
         )
-        retry_result = sync_incremental(connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT)
+        retry_result = sync_incremental(
+            connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT
+        )
         state_after_retry = require_state(connection)
 
         self.assertEqual(retry_fetcher.calls, [("cursor-2", 50), (None, 50)])
@@ -325,7 +367,9 @@ class HistorySyncTests(unittest.TestCase):
         self.assertEqual(state_after_retry.backfill_phase, play_store.COMPLETE)
         self.assertEqual(state_after_retry.newest_id, "play-anchor")
 
-    def test_crash_after_old_walk_persists_top_sweep_before_fetching_sweep(self) -> None:
+    def test_crash_after_old_walk_persists_top_sweep_before_fetching_sweep(
+        self,
+    ) -> None:
         connection = play_store.connect(":memory:")
         anchor_play = synthetic_play("play-anchor", ended_at="2026-06-06T05:00:00.000Z")
         crashing_fetcher = FakePageFetcher(
@@ -342,7 +386,9 @@ class HistorySyncTests(unittest.TestCase):
         self.assertEqual(state_after_crash.backfill_anchor_id, "play-anchor")
 
         retry_fetcher = FakePageFetcher([history_page([anchor_play], total_count=1)])
-        retry_result = sync_incremental(connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT)
+        retry_result = sync_incremental(
+            connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT
+        )
         state_after_retry = require_state(connection)
 
         self.assertEqual(retry_fetcher.calls, [(None, 50)])
@@ -354,11 +400,18 @@ class HistorySyncTests(unittest.TestCase):
     def test_crash_during_top_sweep_reruns_idempotently(self) -> None:
         connection = play_store.connect(":memory:")
         anchor_play = synthetic_play("play-anchor", ended_at="2026-06-06T05:00:00.000Z")
-        sweep_new_play = synthetic_play("play-new-during-sweep", ended_at="2026-06-06T06:00:00.000Z")
+        sweep_new_play = synthetic_play(
+            "play-new-during-sweep", ended_at="2026-06-06T06:00:00.000Z"
+        )
         crashing_fetcher = FakePageFetcher(
             [
                 history_page([anchor_play], total_count=2),
-                history_page([sweep_new_play], total_count=2, has_next_page=True, end_cursor="sweep-cursor"),
+                history_page(
+                    [sweep_new_play],
+                    total_count=2,
+                    has_next_page=True,
+                    end_cursor="sweep-cursor",
+                ),
             ],
             fail_on_call=3,
         )
@@ -370,8 +423,12 @@ class HistorySyncTests(unittest.TestCase):
         self.assertEqual(state_after_crash.backfill_phase, play_store.TOP_SWEEP)
         self.assertEqual(play_store.count_plays(connection, ACCOUNT_ID), 2)
 
-        retry_fetcher = FakePageFetcher([history_page([sweep_new_play, anchor_play], total_count=2)])
-        retry_result = sync_incremental(connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT)
+        retry_fetcher = FakePageFetcher(
+            [history_page([sweep_new_play, anchor_play], total_count=2)]
+        )
+        retry_result = sync_incremental(
+            connection, ACCOUNT_ID, retry_fetcher, seen_at=SEEN_AT
+        )
         state_after_retry = require_state(connection)
 
         self.assertEqual(retry_result.inserted, 0)
@@ -383,7 +440,9 @@ class HistorySyncTests(unittest.TestCase):
         connection = play_store.connect(":memory:")
         anchor_play = synthetic_play("play-anchor", ended_at="2026-06-06T05:00:00.000Z")
         older_play = synthetic_play("play-older", ended_at="2026-06-06T04:00:00.000Z")
-        new_play = synthetic_play("play-arrived-mid-backfill", ended_at="2026-06-06T06:00:00.000Z")
+        new_play = synthetic_play(
+            "play-arrived-mid-backfill", ended_at="2026-06-06T06:00:00.000Z"
+        )
         fetcher = FakePageFetcher(
             [
                 history_page([anchor_play, older_play], total_count=2),
@@ -401,7 +460,9 @@ class HistorySyncTests(unittest.TestCase):
 
     def test_rejected_backfill_cursor_restarts_from_top(self) -> None:
         connection = play_store.connect(":memory:")
-        save_backfilling_state(connection, resume_cursor="dead-cursor", anchor_id="play-anchor")
+        save_backfilling_state(
+            connection, resume_cursor="dead-cursor", anchor_id="play-anchor"
+        )
         anchor_play = synthetic_play("play-anchor", ended_at="2026-06-06T05:00:00.000Z")
         older_play = synthetic_play("play-older", ended_at="2026-06-06T04:00:00.000Z")
         fetcher = FakePageFetcher(
@@ -445,7 +506,9 @@ class HistorySyncTests(unittest.TestCase):
 
     def test_refresh_access_token_error_is_terminal_and_preserves_phase(self) -> None:
         connection = play_store.connect(":memory:")
-        save_backfilling_state(connection, resume_cursor="cursor-1", anchor_id="play-anchor")
+        save_backfilling_state(
+            connection, resume_cursor="cursor-1", anchor_id="play-anchor"
+        )
         fetcher = FakePageFetcher([AimlabsUnauthorizedError("expired bearer")])
 
         def raise_relogin_required() -> None:
@@ -495,7 +558,13 @@ class HistorySyncTests(unittest.TestCase):
 
         for bad_page_size in (0, 201):
             with self.assertRaises(ValueError):
-                sync_incremental(connection, ACCOUNT_ID, fetcher, page_size=bad_page_size, seen_at=SEEN_AT)
+                sync_incremental(
+                    connection,
+                    ACCOUNT_ID,
+                    fetcher,
+                    page_size=bad_page_size,
+                    seen_at=SEEN_AT,
+                )
 
     def test_total_count_drift_warning_uses_finalized_api_count(self) -> None:
         connection = play_store.connect(":memory:")
@@ -514,7 +583,9 @@ class HistorySyncTests(unittest.TestCase):
         fetcher = FakePageFetcher([history_page([stored_plays[0]], total_count=2)])
 
         stderr = io.StringIO()
-        result = sync_incremental(connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=stderr)
+        result = sync_incremental(
+            connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=stderr
+        )
 
         self.assertEqual(len(result.drift_warnings), 1)
         self.assertIn("totalCount drift", stderr.getvalue())
@@ -523,11 +594,19 @@ class HistorySyncTests(unittest.TestCase):
 
 
 class FullSyncTests(unittest.TestCase):
-    def test_full_walk_re_derives_projection_and_warns_on_stable_field_drift(self) -> None:
+    def test_full_walk_re_derives_projection_and_warns_on_stable_field_drift(
+        self,
+    ) -> None:
         connection = play_store.connect(":memory:")
-        stored_flagged = synthetic_play("play-flagged", ended_at="2026-06-06T01:00:00.000Z")
-        stored_rescored = synthetic_play("play-rescored", ended_at="2026-06-06T02:00:00.000Z")
-        play_store.upsert_plays(connection, ACCOUNT_ID, [stored_flagged, stored_rescored], seen_at=SEEN_AT)
+        stored_flagged = synthetic_play(
+            "play-flagged", ended_at="2026-06-06T01:00:00.000Z"
+        )
+        stored_rescored = synthetic_play(
+            "play-rescored", ended_at="2026-06-06T02:00:00.000Z"
+        )
+        play_store.upsert_plays(
+            connection, ACCOUNT_ID, [stored_flagged, stored_rescored], seen_at=SEEN_AT
+        )
         save_complete_state(connection, newest_id="play-rescored", api_total_count=2)
 
         upstream_flagged = dict(stored_flagged, gridshieldStatus="FLAGGED")
@@ -535,13 +614,20 @@ class FullSyncTests(unittest.TestCase):
         upstream_new = synthetic_play("play-new", ended_at="2026-06-06T03:00:00.000Z")
         fetcher = FakePageFetcher(
             [
-                history_page([upstream_new, upstream_rescored], total_count=3, has_next_page=True, end_cursor="c1"),
+                history_page(
+                    [upstream_new, upstream_rescored],
+                    total_count=3,
+                    has_next_page=True,
+                    end_cursor="c1",
+                ),
                 history_page([upstream_flagged], total_count=3),
             ]
         )
 
         stderr = io.StringIO()
-        result = sync_full(connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=stderr)
+        result = sync_full(
+            connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=stderr
+        )
         state = require_state(connection)
 
         self.assertEqual(fetcher.calls, [(None, 50), ("c1", 50)])
@@ -571,7 +657,9 @@ class FullSyncTests(unittest.TestCase):
         connection = play_store.connect(":memory:")
         kept_play = synthetic_play("play-kept", ended_at="2026-06-06T02:00:00.000Z")
         gone_play = synthetic_play("play-gone", ended_at="2026-06-06T01:00:00.000Z")
-        play_store.upsert_plays(connection, ACCOUNT_ID, [kept_play, gone_play], seen_at=SEEN_AT)
+        play_store.upsert_plays(
+            connection, ACCOUNT_ID, [kept_play, gone_play], seen_at=SEEN_AT
+        )
         fetcher = FakePageFetcher([history_page([kept_play], total_count=1)])
 
         stderr = io.StringIO()
@@ -595,10 +683,18 @@ class FullSyncTests(unittest.TestCase):
         connection = play_store.connect(":memory:")
         kept_play = synthetic_play("play-kept", ended_at="2026-06-06T02:00:00.000Z")
         gone_play = synthetic_play("play-gone", ended_at="2026-06-06T01:00:00.000Z")
-        play_store.upsert_plays(connection, ACCOUNT_ID, [kept_play, gone_play], seen_at=SEEN_AT)
+        play_store.upsert_plays(
+            connection, ACCOUNT_ID, [kept_play, gone_play], seen_at=SEEN_AT
+        )
         fetcher = FakePageFetcher([history_page([kept_play], total_count=1)])
 
-        result = sync_full(connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=io.StringIO())
+        result = sync_full(
+            connection,
+            ACCOUNT_ID,
+            fetcher,
+            seen_at=SEEN_AT,
+            warning_stream=io.StringIO(),
+        )
 
         self.assertIsNone(result.deleted_warning)
 
@@ -611,16 +707,29 @@ class FullSyncTests(unittest.TestCase):
             seen_at=SEEN_AT,
         )
         save_complete_state(connection, newest_id="play-known")
-        first_page_play = synthetic_play("play-new", ended_at="2026-06-06T02:00:00.000Z")
+        first_page_play = synthetic_play(
+            "play-new", ended_at="2026-06-06T02:00:00.000Z"
+        )
         fetcher = FakePageFetcher(
             [
-                history_page([first_page_play], total_count=2, has_next_page=True, end_cursor="c1"),
+                history_page(
+                    [first_page_play],
+                    total_count=2,
+                    has_next_page=True,
+                    end_cursor="c1",
+                ),
                 RuntimeError("synthetic crash"),
             ]
         )
 
         with self.assertRaisesRegex(RuntimeError, "synthetic crash"):
-            sync_full(connection, ACCOUNT_ID, fetcher, seen_at=SEEN_AT, warning_stream=io.StringIO())
+            sync_full(
+                connection,
+                ACCOUNT_ID,
+                fetcher,
+                seen_at=SEEN_AT,
+                warning_stream=io.StringIO(),
+            )
         state_after_crash = require_state(connection)
 
         # No checkpoint was written: resume_cursor stays BACKFILLING-only (decision 13),

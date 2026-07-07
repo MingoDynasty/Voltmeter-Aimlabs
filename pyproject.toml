@@ -19,37 +19,65 @@ voltmeter = "cli:main"
 # `voltmeter login` opens an embedded browser via pywebview; everything else
 # works without it (the CLI prints an install hint when it is missing).
 login = ["pywebview>=5"]
+
+[dependency-groups]
 dev = [
-    "black>=26.5.1",
     "mypy>=2.1.0",
-    "pylint>=4.0.6",
     "pytest>=9.1.1",
     "ruff>=0.15.20",
+    "pre-commit>=4.6.0",
 ]
 
-[tool.black]
-line-length = 120
-target-version = ["py314"]
+[tool.uv]
+required-version = "==0.11.26"
 
 [tool.mypy]
 ignore_missing_imports = true
+files = [
+    "aimlab_scores.py",
+    "aimlabs_auth.py",
+    "aimlabs_client.py",
+    "aimlabs_history.py",
+    "benchmark_constants.py",
+    "cli.py",
+    "config.py",
+    "history_report.py",
+    "history_sync.py",
+    "play_store.py",
+    "scenario_catalog.py",
+    "stopwatch.py",
+    "voltaic_benchmarks.py",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.pylint.format]
-max-line-length = 120
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+force-exclude = true
 
-[tool.pylint.messages_control]
-disable = [
-    "missing-class-docstring",
-    "missing-function-docstring",
-    "missing-module-docstring",
+[tool.ruff.lint]
+extend-select = [
+    "I",    # import sorting
+    "E",    # pycodestyle errors, incl. E501
+    "W",    # pycodestyle warnings
+    "D1",   # missing docstrings (presence only)
+    "PL",   # pylint-derived rules
+    "ARG",  # unused arguments
+    "G",    # logging format
+    "BLE",  # blind except
+]
+ignore = [
+    "PLR2004",  # magic-value comparisons — spec-wide ignore
+    "D1",       # TRANSITIONAL — docstring campaign is the follow-up PR; remove it there
 ]
 
-[tool.ruff]
-line-length = 120
-target-version = "py314"
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120  # hard ceiling; formatter wraps at 88
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D1", "PLR09", "ARG"]
 
 [tool.setuptools]
 py-modules = [

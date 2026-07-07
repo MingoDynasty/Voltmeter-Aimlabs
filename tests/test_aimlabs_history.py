@@ -68,7 +68,9 @@ class AimlabsHistoryTests(unittest.TestCase):
     def test_post_json_propagates_requests_exceptions(self) -> None:
         with patch(
             "aimlabs_history.requests.post",
-            side_effect=aimlabs_history.requests.exceptions.Timeout("synthetic timeout"),
+            side_effect=aimlabs_history.requests.exceptions.Timeout(
+                "synthetic timeout"
+            ),
         ):
             with self.assertRaises(aimlabs_history.requests.exceptions.Timeout):
                 aimlabs_history._post_json(
@@ -117,7 +119,9 @@ class AimlabsHistoryTests(unittest.TestCase):
 
     def test_parse_history_page_classifies_cursor_rejection(self) -> None:
         with self.assertRaises(AimlabsCursorRejectedError):
-            parse_history_page(json.dumps({"errors": [{"message": "invalid cursor for after"}]}))
+            parse_history_page(
+                json.dumps({"errors": [{"message": "invalid cursor for after"}]})
+            )
 
     def test_page_size_bounds(self) -> None:
         self.assertEqual(validate_page_size(1), 1)
@@ -129,7 +133,9 @@ class AimlabsHistoryTests(unittest.TestCase):
     def test_fetch_history_page_sends_bearer_and_parses_response(self) -> None:
         requests = []
 
-        def fake_post(_url: str, _payload: dict, _headers: dict, _timeout: float) -> tuple[int, str]:
+        def fake_post(
+            _url: str, _payload: dict, _headers: dict, _timeout: float
+        ) -> tuple[int, str]:
             requests.append((_url, _payload, _headers, _timeout))
             return 200, history_body(plays=[], total_count=0)
 
@@ -148,7 +154,9 @@ class AimlabsHistoryTests(unittest.TestCase):
         self.assertEqual(requests[0][3], 12)
 
     def test_fetch_history_page_raises_for_unauthorized(self) -> None:
-        def fake_post(_url: str, _payload: dict, _headers: dict, _timeout: float) -> tuple[int, str]:
+        def fake_post(
+            _url: str, _payload: dict, _headers: dict, _timeout: float
+        ) -> tuple[int, str]:
             return 401, "{}"
 
         with self.assertRaises(AimlabsUnauthorizedError):
@@ -157,7 +165,9 @@ class AimlabsHistoryTests(unittest.TestCase):
     def test_fetch_history_page_classifies_transient_http_statuses(self) -> None:
         for status_code in (429, 500, 503):
 
-            def fake_post(_url: str, _payload: dict, _headers: dict, _timeout: float) -> tuple[int, str]:
+            def fake_post(
+                _url: str, _payload: dict, _headers: dict, _timeout: float
+            ) -> tuple[int, str]:
                 return status_code, "{}"
 
             with self.assertRaises(AimlabsTransientHistoryError):
@@ -166,7 +176,9 @@ class AimlabsHistoryTests(unittest.TestCase):
 
 def contamination_body(count: int) -> str:
     # The live endpoint wraps plays_agg in a single-element array.
-    return json.dumps({"data": {"aimlab": {"plays_agg": [{"aggregate": {"count": count}}]}}})
+    return json.dumps(
+        {"data": {"aimlab": {"plays_agg": [{"aggregate": {"count": count}}]}}}
+    )
 
 
 class PracticeContaminationTests(unittest.TestCase):
@@ -190,7 +202,9 @@ class PracticeContaminationTests(unittest.TestCase):
     def test_fetch_sends_bearer_and_parses_count(self) -> None:
         requests = []
 
-        def fake_post(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
+        def fake_post(
+            url: str, payload: dict, headers: dict, timeout: float
+        ) -> tuple[int, str]:
             requests.append((url, payload, headers, timeout))
             return 200, contamination_body(7)
 
@@ -214,20 +228,30 @@ class PracticeContaminationTests(unittest.TestCase):
         )
         for status_code, expected_error in status_expectations:
 
-            def fake_post(_url: str, _payload: dict, _headers: dict, _timeout: float) -> tuple[int, str]:
+            def fake_post(
+                _url: str, _payload: dict, _headers: dict, _timeout: float
+            ) -> tuple[int, str]:
                 return status_code, "{}"
 
             with self.assertRaises(expected_error):
-                fetch_practice_contamination_count(ACCOUNT_ID, "fresh-token", post_json=fake_post)
+                fetch_practice_contamination_count(
+                    ACCOUNT_ID, "fresh-token", post_json=fake_post
+                )
 
     def test_parse_rejects_errors_and_malformed_shapes(self) -> None:
         with self.assertRaisesRegex(AimlabsHistoryError, "graphql error"):
-            parse_practice_contamination_count(json.dumps({"errors": [{"message": "bad"}]}))
-        with self.assertRaisesRegex(AimlabsHistoryError, "unexpected aggregate response shape"):
+            parse_practice_contamination_count(
+                json.dumps({"errors": [{"message": "bad"}]})
+            )
+        with self.assertRaisesRegex(
+            AimlabsHistoryError, "unexpected aggregate response shape"
+        ):
             parse_practice_contamination_count(json.dumps({"data": {}}))
         with self.assertRaisesRegex(AimlabsHistoryError, "count must be an integer"):
             parse_practice_contamination_count(
-                json.dumps({"data": {"aimlab": {"plays_agg": {"aggregate": {"count": "7"}}}}})
+                json.dumps(
+                    {"data": {"aimlab": {"plays_agg": {"aggregate": {"count": "7"}}}}}
+                )
             )
         with self.assertRaisesRegex(AimlabsHistoryError, "non-JSON"):
             parse_practice_contamination_count("not json")
@@ -237,7 +261,9 @@ class PracticeContaminationTests(unittest.TestCase):
         self.assertEqual(parse_practice_contamination_count(contamination_body(3)), 3)
         # An empty array means no matching plays.
         self.assertEqual(
-            parse_practice_contamination_count(json.dumps({"data": {"aimlab": {"plays_agg": []}}})),
+            parse_practice_contamination_count(
+                json.dumps({"data": {"aimlab": {"plays_agg": []}}})
+            ),
             0,
         )
 

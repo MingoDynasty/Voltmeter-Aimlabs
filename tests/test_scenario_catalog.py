@@ -4,7 +4,11 @@ import unittest
 from pathlib import Path
 
 import scenario_catalog
-from scenario_catalog import ScenarioCatalogError, UNKNOWN_SCENARIO_NAME, refresh_catalog
+from scenario_catalog import (
+    UNKNOWN_SCENARIO_NAME,
+    ScenarioCatalogError,
+    refresh_catalog,
+)
 
 
 class ScenarioCatalogTests(unittest.TestCase):
@@ -16,9 +20,13 @@ class ScenarioCatalogTests(unittest.TestCase):
         second_catalog = scenario_catalog.load_catalog()
 
         self.assertIs(first_catalog, second_catalog)
-        self.assertTrue(first_catalog.records_for_task_id("CsLevel.Lowgravity56.VT Float.RSM6A6"))
+        self.assertTrue(
+            first_catalog.records_for_task_id("CsLevel.Lowgravity56.VT Float.RSM6A6")
+        )
 
-    def test_module_resolve_task_ids_uses_cached_catalog_and_retains_unknown(self) -> None:
+    def test_module_resolve_task_ids_uses_cached_catalog_and_retains_unknown(
+        self,
+    ) -> None:
         resolved_records = scenario_catalog.resolve_task_ids(
             [
                 "CsLevel.Lowgravity56.VT Float.RSM6A6",
@@ -26,14 +34,20 @@ class ScenarioCatalogTests(unittest.TestCase):
             ]
         )
 
-        self.assertTrue(resolved_records["CsLevel.Lowgravity56.VT Float.RSM6A6"][0].is_known)
+        self.assertTrue(
+            resolved_records["CsLevel.Lowgravity56.VT Float.RSM6A6"][0].is_known
+        )
         self.assertFalse(resolved_records["missing-task"][0].is_known)
-        self.assertEqual(resolved_records["missing-task"][0].name, UNKNOWN_SCENARIO_NAME)
+        self.assertEqual(
+            resolved_records["missing-task"][0].name, UNKNOWN_SCENARIO_NAME
+        )
 
     def test_bundled_catalog_carries_product_surface_fields(self) -> None:
         catalog = refresh_catalog()
 
-        valorant_record = catalog.records_for_task_id("CsLevel.Lowgravity56.VT Float.RSM6A6")[0]
+        valorant_record = catalog.records_for_task_id(
+            "CsLevel.Lowgravity56.VT Float.RSM6A6"
+        )[0]
         self.assertEqual(valorant_record.name, "Floatshot VALORANT Easy")
         self.assertEqual(valorant_record.category, "Flick-tech")
         self.assertEqual(valorant_record.sub, "Dynamic")
@@ -45,20 +59,26 @@ class ScenarioCatalogTests(unittest.TestCase):
         self.assertTrue(valorant_record.is_active)
         self.assertTrue(valorant_record.has_leaderboards)
 
-        aimlabs_s2_record = catalog.records_for_task_id("CsLevel.VT Empyrean.VT Angle.RB668Z")[0]
+        aimlabs_s2_record = catalog.records_for_task_id(
+            "CsLevel.VT Empyrean.VT Angle.RB668Z"
+        )[0]
         self.assertEqual(aimlabs_s2_record.name, "Angleshot Novice")
         self.assertEqual(aimlabs_s2_record.family, "aimlabs")
         self.assertEqual(aimlabs_s2_record.season, "2")
         self.assertEqual(aimlabs_s2_record.benchmark_alias, "aimlabs_s2")
         self.assertFalse(aimlabs_s2_record.has_leaderboards)
 
-        aimlabs_s3_record = catalog.records_for_task_id("CsLevel.VT Lowgravity56.VT Angle.SGAB0P")[0]
+        aimlabs_s3_record = catalog.records_for_task_id(
+            "CsLevel.VT Lowgravity56.VT Angle.SGAB0P"
+        )[0]
         self.assertEqual(aimlabs_s3_record.name, "Angleshot Novice S3")
         self.assertEqual(aimlabs_s3_record.family, "aimlabs")
         self.assertEqual(aimlabs_s3_record.season, "3")
         self.assertTrue(aimlabs_s3_record.has_leaderboards)
 
-    def test_refresh_catalog_unions_resource_files_and_resolves_by_exact_task_id(self) -> None:
+    def test_refresh_catalog_unions_resource_files_and_resolves_by_exact_task_id(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             resource_dir = Path(temp_dir)
             _write_resource(
@@ -80,15 +100,22 @@ class ScenarioCatalogTests(unittest.TestCase):
             )
 
             catalog = refresh_catalog(resource_dir)
-            resolved_records = catalog.resolve_task_ids(["task-valorant", "task-aimlabs"])
+            resolved_records = catalog.resolve_task_ids(
+                ["task-valorant", "task-aimlabs"]
+            )
 
         self.assertEqual(len(catalog.records), 2)
         self.assertEqual(set(resolved_records), {"task-valorant", "task-aimlabs"})
         self.assertEqual(resolved_records["task-valorant"][0].family, "valorant")
         self.assertEqual(resolved_records["task-aimlabs"][0].family, "aimlabs")
-        self.assertEqual(resolved_records["task-valorant"][0].name, "Shared Name VALORANT Easy")
+        self.assertEqual(
+            resolved_records["task-valorant"][0].name, "Shared Name VALORANT Easy"
+        )
         self.assertEqual(resolved_records["task-aimlabs"][0].name, "Shared Name Novice")
-        self.assertNotEqual(resolved_records["task-valorant"][0].task_id, resolved_records["task-aimlabs"][0].task_id)
+        self.assertNotEqual(
+            resolved_records["task-valorant"][0].task_id,
+            resolved_records["task-aimlabs"][0].task_id,
+        )
 
     def test_unknown_task_ids_are_retained_and_labelled(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -111,9 +138,13 @@ class ScenarioCatalogTests(unittest.TestCase):
         self.assertEqual(unknown_record.task_id, "missing-task")
         self.assertEqual(unknown_record.name, UNKNOWN_SCENARIO_NAME)
         self.assertEqual(unknown_record.family, "unknown")
-        self.assertEqual(catalog.unknown_task_ids(["known-task", "missing-task"]), ("missing-task",))
+        self.assertEqual(
+            catalog.unknown_task_ids(["known-task", "missing-task"]), ("missing-task",)
+        )
 
-    def test_duplicate_task_id_policy_prefers_newest_source_and_keeps_diagnostics(self) -> None:
+    def test_duplicate_task_id_policy_prefers_newest_source_and_keeps_diagnostics(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             resource_dir = Path(temp_dir)
             _write_resource(
@@ -144,7 +175,9 @@ class ScenarioCatalogTests(unittest.TestCase):
         self.assertEqual(len(shadowed_records), 1)
         self.assertEqual(shadowed_records[0].benchmark_alias, "valorant_s1")
 
-    def test_multitier_task_id_keeps_all_difficulty_records_from_same_source(self) -> None:
+    def test_multitier_task_id_keeps_all_difficulty_records_from_same_source(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             resource_dir = Path(temp_dir)
             _write_resource(
@@ -153,22 +186,31 @@ class ScenarioCatalogTests(unittest.TestCase):
                 alias="valorant_s1",
                 benchmark_name="Voltaic Valorant Benchmarks",
                 season="1",
-                scenarios=[_scenario("VT Multitier VALORANT", "multi-tier-task", tier_ids=(1, 2))],
+                scenarios=[
+                    _scenario(
+                        "VT Multitier VALORANT", "multi-tier-task", tier_ids=(1, 2)
+                    )
+                ],
             )
 
             catalog = refresh_catalog(resource_dir)
 
         records = catalog.records_for_task_id("multi-tier-task")
-        self.assertEqual([record.difficulty for record in records], ["novice", "intermediate"])
+        self.assertEqual(
+            [record.difficulty for record in records], ["novice", "intermediate"]
+        )
         self.assertEqual(catalog.duplicate_task_ids, ())
 
     def test_malformed_resource_shape_raises_catalog_error_with_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             resource_dir = Path(temp_dir)
-            (resource_dir / "aimlabs_s2.json").write_text(json.dumps({"alias": "aimlabs_s2"}), encoding="utf-8")
+            (resource_dir / "aimlabs_s2.json").write_text(
+                json.dumps({"alias": "aimlabs_s2"}), encoding="utf-8"
+            )
 
             with self.assertRaisesRegex(
-                ScenarioCatalogError, r"Malformed scenario resource .*aimlabs_s2\.json.*categories"
+                ScenarioCatalogError,
+                r"Malformed scenario resource .*aimlabs_s2\.json.*categories",
             ):
                 refresh_catalog(resource_dir)
 

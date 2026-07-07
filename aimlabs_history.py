@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-import json
 from typing import Any, Optional
 
 import requests
@@ -127,7 +127,7 @@ def build_history_payload(
     }
 
 
-def fetch_history_page(  # pylint: disable=too-many-arguments
+def fetch_history_page(  # noqa: PLR0913
     account_id: str,
     bearer: str,
     *,
@@ -137,21 +137,29 @@ def fetch_history_page(  # pylint: disable=too-many-arguments
     timeout: float = 20.0,
     post_json: Optional[PostJson] = None,
 ) -> HistoryPage:
-    payload = build_history_payload(account_id, page_size=page_size, after=after, mode=mode)
+    payload = build_history_payload(
+        account_id, page_size=page_size, after=after, mode=mode
+    )
     headers = dict(BASE_HEADERS)
     headers["Authorization"] = _authorization_header(bearer)
     sender = _post_json if post_json is None else post_json
     status_code, body_text = sender(ENDPOINT, payload, headers, timeout)
     if status_code == 401:
-        raise AimlabsUnauthorizedError("history request was unauthenticated; run `voltmeter login`.")
+        raise AimlabsUnauthorizedError(
+            "history request was unauthenticated; run `voltmeter login`."
+        )
     if status_code == 429 or 500 <= status_code <= 599:
         raise AimlabsTransientHistoryError(status_code, body_text)
     if status_code != 200:
-        raise AimlabsHistoryError(f"history request HTTP {status_code}: {body_text[:200]}")
+        raise AimlabsHistoryError(
+            f"history request HTTP {status_code}: {body_text[:200]}"
+        )
     return parse_history_page(body_text)
 
 
-def build_practice_contamination_payload(account_id: str, *, mode: int = DEFAULT_TASK_MODE) -> dict[str, Any]:
+def build_practice_contamination_payload(
+    account_id: str, *, mode: int = DEFAULT_TASK_MODE
+) -> dict[str, Any]:
     if not account_id:
         raise AimlabsHistoryError("account_id is required.")
     if isinstance(mode, bool) or not isinstance(mode, int):
@@ -169,7 +177,7 @@ def build_practice_contamination_payload(account_id: str, *, mode: int = DEFAULT
     }
 
 
-def fetch_practice_contamination_count(  # pylint: disable=too-many-arguments
+def fetch_practice_contamination_count(
     account_id: str,
     bearer: str,
     *,
@@ -184,11 +192,15 @@ def fetch_practice_contamination_count(  # pylint: disable=too-many-arguments
     sender = _post_json if post_json is None else post_json
     status_code, body_text = sender(ENDPOINT, payload, headers, timeout)
     if status_code == 401:
-        raise AimlabsUnauthorizedError("aggregate request was unauthenticated; run `voltmeter login`.")
+        raise AimlabsUnauthorizedError(
+            "aggregate request was unauthenticated; run `voltmeter login`."
+        )
     if status_code == 429 or 500 <= status_code <= 599:
         raise AimlabsTransientHistoryError(status_code, body_text)
     if status_code != 200:
-        raise AimlabsHistoryError(f"aggregate request HTTP {status_code}: {body_text[:200]}")
+        raise AimlabsHistoryError(
+            f"aggregate request HTTP {status_code}: {body_text[:200]}"
+        )
     return parse_practice_contamination_count(body_text)
 
 
@@ -196,13 +208,17 @@ def parse_practice_contamination_count(body_text: str) -> int:
     try:
         payload = json.loads(body_text)
     except json.JSONDecodeError as error:
-        raise AimlabsHistoryError(f"aggregate response was non-JSON: {body_text[:200]}") from error
+        raise AimlabsHistoryError(
+            f"aggregate response was non-JSON: {body_text[:200]}"
+        ) from error
 
     if not isinstance(payload, Mapping):
         raise AimlabsHistoryError("aggregate response must be a JSON object.")
     errors = payload.get("errors")
     if errors:
-        raise AimlabsHistoryError("graphql error: " + json.dumps(errors, sort_keys=True)[:300])
+        raise AimlabsHistoryError(
+            "graphql error: " + json.dumps(errors, sort_keys=True)[:300]
+        )
 
     try:
         plays_agg = payload["data"]["aimlab"]["plays_agg"]
@@ -232,7 +248,9 @@ def parse_history_page(body_text: str) -> HistoryPage:
     try:
         payload = json.loads(body_text)
     except json.JSONDecodeError as error:
-        raise AimlabsHistoryError(f"history response was non-JSON: {body_text[:200]}") from error
+        raise AimlabsHistoryError(
+            f"history response was non-JSON: {body_text[:200]}"
+        ) from error
 
     if not isinstance(payload, Mapping):
         raise AimlabsHistoryError("history response must be a JSON object.")
@@ -240,7 +258,9 @@ def parse_history_page(body_text: str) -> HistoryPage:
     if errors:
         error_text = json.dumps(errors, sort_keys=True)
         if _looks_like_cursor_rejection(error_text):
-            raise AimlabsCursorRejectedError("graphql cursor rejected: " + error_text[:300])
+            raise AimlabsCursorRejectedError(
+                "graphql cursor rejected: " + error_text[:300]
+            )
         raise AimlabsHistoryError("graphql error: " + error_text[:300])
 
     plays_block = _plays_block(payload)
@@ -253,7 +273,9 @@ def parse_history_page(body_text: str) -> HistoryPage:
     has_next_page = bool(page_info.get("hasNextPage"))
     end_cursor = _optional_text(page_info.get("endCursor"), "pageInfo.endCursor")
     if has_next_page and end_cursor is None:
-        raise AimlabsHistoryError("pageInfo.endCursor is required when hasNextPage is true.")
+        raise AimlabsHistoryError(
+            "pageInfo.endCursor is required when hasNextPage is true."
+        )
 
     edges_value = plays_block.get("edges") or []
     if not isinstance(edges_value, list):
@@ -278,7 +300,9 @@ def parse_history_page(body_text: str) -> HistoryPage:
     )
 
 
-def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> tuple[int, str]:
+def _post_json(
+    url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float
+) -> tuple[int, str]:
     body = json.dumps(payload).encode("utf-8")
     response = requests.post(url, data=body, headers=headers, timeout=timeout)
     return response.status_code, response.text
@@ -315,6 +339,7 @@ def _looks_like_cursor_rejection(error_text: str) -> bool:
     normalized_error = error_text.lower()
     mentions_cursor = ("cursor" in normalized_error) or ("after" in normalized_error)
     mentions_rejection = any(
-        rejection_word in normalized_error for rejection_word in ("invalid", "expired", "malformed", "rejected", "bad")
+        rejection_word in normalized_error
+        for rejection_word in ("invalid", "expired", "malformed", "rejected", "bad")
     )
     return mentions_cursor and mentions_rejection

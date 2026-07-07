@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator, Mapping
 from functools import lru_cache
-import re
 
-from voltaic_benchmarks import category_maps, difficulty_maps, load_valorant_s1, lookup_label, tier_difficulty
+from voltaic_benchmarks import (
+    category_maps,
+    difficulty_maps,
+    load_valorant_s1,
+    lookup_label,
+    tier_difficulty,
+)
 
 DEFAULT_DIFFICULTY = "all"
 DEFAULT_TASK_MODE = 42
@@ -49,7 +55,9 @@ def _scenario_record(
     task_id = resource_scenario.get("task_id")
     weapon_id = resource_scenario.get("weapon_id")
     if not task_id or not weapon_id:
-        raise ValueError(f"Scenario {resource_scenario.get('name', '<unnamed>')!r} is missing task/weapon ids.")
+        raise ValueError(
+            f"Scenario {resource_scenario.get('name', '<unnamed>')!r} is missing task/weapon ids."
+        )
 
     display_name = _display_name(resource_scenario["name"])
     return {
@@ -68,13 +76,17 @@ def _scenario_record(
 def get_benchmarks() -> dict[str, list[dict]]:
     """Build benchmark scenario records from the Voltaic resource file."""
     resource_data = load_valorant_s1()
-    difficulties_by_tier_id = difficulty_maps(resource_data, allowed_difficulties=DIFFICULTIES)
+    difficulties_by_tier_id = difficulty_maps(
+        resource_data, allowed_difficulties=DIFFICULTIES
+    )
     categories_by_id, subcategories_by_id = category_maps(resource_data)
     benchmarks: dict[str, list[dict]] = {difficulty: [] for difficulty in DIFFICULTIES}
 
     for resource_scenario in resource_data["scenarios"]:
         for tier in resource_scenario["tiers"]:
-            difficulty = tier_difficulty(difficulties_by_tier_id, tier, resource_scenario)
+            difficulty = tier_difficulty(
+                difficulties_by_tier_id, tier, resource_scenario
+            )
             benchmarks[difficulty].append(
                 _scenario_record(
                     resource_scenario,
@@ -97,6 +109,8 @@ def get_scenarios(selected_difficulty: str = DEFAULT_DIFFICULTY) -> list[dict]:
             all_scenarios += get_scenarios(difficulty)
         return all_scenarios
     if selected_difficulty not in DIFFICULTIES:
-        raise ValueError(f"unknown difficulty {selected_difficulty!r}; pick from {DIFFICULTIES} or 'all'")
+        raise ValueError(
+            f"unknown difficulty {selected_difficulty!r}; pick from {DIFFICULTIES} or 'all'"
+        )
 
     return [dict(scenario) for scenario in get_benchmarks()[selected_difficulty]]

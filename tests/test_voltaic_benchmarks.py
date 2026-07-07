@@ -65,7 +65,10 @@ class VoltaicBenchmarkTests(unittest.TestCase):
 
         summaries = calculate_subcategory_energy(rows)
 
-        summary_keys = {(summary["difficulty"], summary["category"], summary["subcategory"]) for summary in summaries}
+        summary_keys = {
+            (summary["difficulty"], summary["category"], summary["subcategory"])
+            for summary in summaries
+        }
         self.assertEqual(
             summary_keys,
             {
@@ -111,7 +114,9 @@ class VoltaicBenchmarkTests(unittest.TestCase):
         rows = [
             _row("advanced", "Micros", "Core", "Advanced Scenario", 900, "Ascendant"),
             _row("novice", "Micros", "Core", "Novice Scenario", 100, "Iron"),
-            _row("intermediate", "Micros", "Core", "Intermediate Scenario", 500, "Gold"),
+            _row(
+                "intermediate", "Micros", "Core", "Intermediate Scenario", 500, "Gold"
+            ),
         ]
 
         summaries = calculate_difficulty_overall_rank(rows)
@@ -123,14 +128,55 @@ class VoltaicBenchmarkTests(unittest.TestCase):
 
     def test_intermediate_overall_rank_matches_known_voltaic_energy(self) -> None:
         rows = [
-            _row("intermediate", "Flick-tech", "Dynamic", "Dynamic Scenario", 826, "Immortal"),
-            _row("intermediate", "Flick-tech", "Core", "Core Scenario", 825, "Immortal"),
-            _row("intermediate", "Flick-tech", "Reflex", "Reflex Scenario", 888, "Immortal"),
-            _row("intermediate", "Micros", "Evasive", "Evasive Scenario", 829, "Immortal"),
-            _row("intermediate", "Micros", "Core", "Core Micro Scenario", 802, "Immortal"),
-            _row("intermediate", "Micros", "Reflex", "Reflex Micro Scenario", 872, "Immortal"),
-            _row("intermediate", "Stability", "Strafe", "Strafe Scenario", 819, "Immortal"),
-            _row("intermediate", "Stability", "Precise", "Precise Scenario", 899, "Immortal"),
+            _row(
+                "intermediate",
+                "Flick-tech",
+                "Dynamic",
+                "Dynamic Scenario",
+                826,
+                "Immortal",
+            ),
+            _row(
+                "intermediate", "Flick-tech", "Core", "Core Scenario", 825, "Immortal"
+            ),
+            _row(
+                "intermediate",
+                "Flick-tech",
+                "Reflex",
+                "Reflex Scenario",
+                888,
+                "Immortal",
+            ),
+            _row(
+                "intermediate", "Micros", "Evasive", "Evasive Scenario", 829, "Immortal"
+            ),
+            _row(
+                "intermediate", "Micros", "Core", "Core Micro Scenario", 802, "Immortal"
+            ),
+            _row(
+                "intermediate",
+                "Micros",
+                "Reflex",
+                "Reflex Micro Scenario",
+                872,
+                "Immortal",
+            ),
+            _row(
+                "intermediate",
+                "Stability",
+                "Strafe",
+                "Strafe Scenario",
+                819,
+                "Immortal",
+            ),
+            _row(
+                "intermediate",
+                "Stability",
+                "Precise",
+                "Precise Scenario",
+                899,
+                "Immortal",
+            ),
         ]
 
         summaries = calculate_difficulty_overall_rank(rows)

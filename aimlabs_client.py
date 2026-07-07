@@ -41,7 +41,9 @@ BASE_HEADERS = {
 LEADERBOARD_SHAPE_ERRORS = (KeyError, TypeError)
 
 
-def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> tuple[int, str]:
+def _post_json(
+    url: str, payload: dict, headers: dict, timeout: float
+) -> tuple[int, str]:
     body = json.dumps(payload).encode("utf-8")
     response = requests.post(url, data=body, headers=headers, timeout=timeout)
     return response.status_code, response.text
@@ -65,7 +67,9 @@ def _build_payload(user_id: str, scenario: dict, source: str) -> dict:
     }
 
 
-def _parse_entry(body_text: str) -> tuple[Optional[dict], Optional[str]]:  # pylint: disable=too-many-return-statements
+def _parse_entry(  # noqa: PLR0911
+    body_text: str,
+) -> tuple[Optional[dict], Optional[str]]:
     try:
         payload = json.loads(body_text)
     except json.JSONDecodeError:
@@ -109,7 +113,7 @@ def _result_skeleton(scenario: dict) -> dict:
     }
 
 
-def fetch_one(  # pylint: disable=too-many-arguments,too-many-locals
+def fetch_one(  # noqa: PLR0913
     scenario: dict,
     user_id: str,
     *,
@@ -133,7 +137,7 @@ def fetch_one(  # pylint: disable=too-many-arguments,too-many-locals
     for attempt in range(retries + 1):
         try:
             status, text = _post_json(ENDPOINT, payload, headers, timeout)
-        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+        except Exception as error:  # noqa: BLE001
             last_error = f"request failed: {error}"
         else:
             if status == 200:

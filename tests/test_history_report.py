@@ -43,7 +43,9 @@ class HistoryReportTests(unittest.TestCase):
         self.assertEqual(report.task_summaries[0].personal_best, 200)
         self.assertIn("1 non-APPROVED run excluded", text)
         self.assertNotIn("9999", text)
-        self.assertNotIn("Status", text)  # all rendered rows are APPROVED, so no Status column
+        self.assertNotIn(
+            "Status", text
+        )  # all rendered rows are APPROVED, so no Status column
 
     def test_include_all_statuses_override_includes_flagged_runs(self) -> None:
         rows = [
@@ -70,10 +72,16 @@ class HistoryReportTests(unittest.TestCase):
         report = build_report(rows, self.catalog)
 
         self.assertEqual(len(report.task_summaries), 2)
-        summaries_by_task = {summary.task_id: summary for summary in report.task_summaries}
+        summaries_by_task = {
+            summary.task_id: summary for summary in report.task_summaries
+        }
         # The season/difficulty qualifier is retained so sibling scenarios stay distinguishable.
-        self.assertEqual(summaries_by_task[AIMLABS_S2_TASK].scenario_name, "Angle Novice")
-        self.assertEqual(summaries_by_task[AIMLABS_S3_TASK].scenario_name, "Angle Novice S3")
+        self.assertEqual(
+            summaries_by_task[AIMLABS_S2_TASK].scenario_name, "Angle Novice"
+        )
+        self.assertEqual(
+            summaries_by_task[AIMLABS_S3_TASK].scenario_name, "Angle Novice S3"
+        )
         self.assertEqual(summaries_by_task[AIMLABS_S2_TASK].personal_best, 100)
         self.assertEqual(summaries_by_task[AIMLABS_S3_TASK].personal_best, 300)
         self.assertNotEqual(
@@ -87,15 +95,21 @@ class HistoryReportTests(unittest.TestCase):
             for idx in range(1, 31)  # newest play (idx 30) has the LOWEST score
         ]
 
-        report = build_report(rows, self.catalog, rolling_median_window=10, rolling_max_window=25)
+        report = build_report(
+            rows, self.catalog, rolling_median_window=10, rolling_max_window=25
+        )
 
         summary = report.task_summaries[0]
         self.assertEqual(summary.play_count, 30)
         self.assertEqual(summary.personal_best, 30)
         self.assertEqual(summary.mean_score, 15.5)
         self.assertEqual(summary.median_score, 15.5)
-        self.assertEqual(summary.rolling_median, 5.5)  # median of the 10 most recent scores 1..10
-        self.assertEqual(summary.rolling_max, 25)  # max of the 25 most recent scores 1..25
+        self.assertEqual(
+            summary.rolling_median, 5.5
+        )  # median of the 10 most recent scores 1..10
+        self.assertEqual(
+            summary.rolling_max, 25
+        )  # max of the 25 most recent scores 1..25
         self.assertEqual(summary.first_ended_at_utc, _ended_at(1))
         self.assertEqual(summary.last_ended_at_utc, _ended_at(30))
 
@@ -106,7 +120,9 @@ class HistoryReportTests(unittest.TestCase):
             _play_row("play-3", VALORANT_TASK, idx=3, score=30),
         ]
 
-        report = build_report(rows, self.catalog, rolling_median_window=10, rolling_max_window=25)
+        report = build_report(
+            rows, self.catalog, rolling_median_window=10, rolling_max_window=25
+        )
 
         summary = report.task_summaries[0]
         self.assertEqual(summary.rolling_median, 20)
@@ -125,7 +141,8 @@ class HistoryReportTests(unittest.TestCase):
 
         self.assertEqual(len(report.table_rows), 3)
         self.assertEqual(
-            {play.task_id for play in report.table_rows}, {VALORANT_TASK, AIMLABS_S2_TASK, AIMLABS_S3_TASK}
+            {play.task_id for play in report.table_rows},
+            {VALORANT_TASK, AIMLABS_S2_TASK, AIMLABS_S3_TASK},
         )
         self.assertEqual(report.other.scenario_count, 1)
         self.assertEqual(report.other.play_count, 1)
@@ -148,7 +165,9 @@ class HistoryReportTests(unittest.TestCase):
         self.assertEqual(report.other.play_count, 3)
         self.assertIn("+2 scenarios, 3 plays, untracked", text)
 
-    def test_unknown_task_ids_are_retained_in_footer_even_when_table_is_empty(self) -> None:
+    def test_unknown_task_ids_are_retained_in_footer_even_when_table_is_empty(
+        self,
+    ) -> None:
         rows = [
             _play_row("play-1", UNKNOWN_TASK, idx=1, score=100),
             _play_row("play-2", UNKNOWN_TASK, idx=2, score=200),
@@ -163,8 +182,14 @@ class HistoryReportTests(unittest.TestCase):
         self.assertIn("no runs found", text)
         self.assertIn("+1 scenario, 2 plays, untracked", text)
 
-    def test_timezone_label_present_and_utc_timestamps_render_in_selected_zone(self) -> None:
-        rows = [_play_row("play-1", VALORANT_TASK, ended_at="2026-06-06T02:43:54.249Z", score=100)]
+    def test_timezone_label_present_and_utc_timestamps_render_in_selected_zone(
+        self,
+    ) -> None:
+        rows = [
+            _play_row(
+                "play-1", VALORANT_TASK, ended_at="2026-06-06T02:43:54.249Z", score=100
+            )
+        ]
 
         report = build_report(rows, self.catalog)
         text = render_report(report, timezone_setting="America/Los_Angeles")
@@ -201,15 +226,21 @@ class HistoryReportTests(unittest.TestCase):
         report = build_report(rows, self.catalog)
         text = render_report(report, timezone_setting="UTC")
 
-        header_line = next(line for line in text.splitlines() if line.startswith("Date"))
+        header_line = next(
+            line for line in text.splitlines() if line.startswith("Date")
+        )
         self.assertIn("accuracy", header_line)
         self.assertIn("hitsTotal", header_line)
         self.assertIn("timeOnTargetMs", header_line)
         clicking_line = next(line for line in text.splitlines() if "85.25" in line)
         self.assertIn("120", clicking_line)
-        self.assertTrue(clicking_line.endswith("-"))  # no timeOnTargetMs metric on the clicking play
+        self.assertTrue(
+            clicking_line.endswith("-")
+        )  # no timeOnTargetMs metric on the clicking play
         tracking_line = next(line for line in text.splitlines() if "5000" in line)
-        self.assertIn("| -", tracking_line)  # no accuracy/hitsTotal metrics on the tracking play
+        self.assertIn(
+            "| -", tracking_line
+        )  # no accuracy/hitsTotal metrics on the tracking play
 
     def test_table_rows_are_reverse_chronological(self) -> None:
         rows = [
@@ -219,7 +250,10 @@ class HistoryReportTests(unittest.TestCase):
 
         report = build_report(reversed(rows), self.catalog)
 
-        self.assertEqual([play.ended_at_utc for play in report.table_rows], [_ended_at(2), _ended_at(1)])
+        self.assertEqual(
+            [play.ended_at_utc for play in report.table_rows],
+            [_ended_at(2), _ended_at(1)],
+        )
 
     def test_invalid_family_raises_history_report_error(self) -> None:
         with self.assertRaisesRegex(HistoryReportError, "family"):
@@ -267,7 +301,7 @@ def _synthetic_catalog() -> ScenarioCatalog:
         return refresh_catalog(resource_dir)
 
 
-def _write_resource(  # pylint: disable=too-many-arguments
+def _write_resource(
     resource_dir: Path,
     filename: str,
     *,
@@ -319,7 +353,7 @@ def _ended_at(idx: int) -> str:
     return (BASE_TIME + timedelta(hours=idx)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _play_row(  # pylint: disable=too-many-arguments
+def _play_row(
     play_id: str,
     task_id: str,
     *,
@@ -332,7 +366,9 @@ def _play_row(  # pylint: disable=too-many-arguments
     if performance_scores is None:
         performance_scores_text = None
     else:
-        performance_scores_text = json.dumps(performance_scores, sort_keys=True, separators=(",", ":"))
+        performance_scores_text = json.dumps(
+            performance_scores, sort_keys=True, separators=(",", ":")
+        )
     return {
         "account_id": ACCOUNT_ID,
         "id": play_id,

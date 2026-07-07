@@ -12,16 +12,16 @@ key is fetched for each difficulty where it appears.
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import re
+import sys
+import time
 from collections.abc import Mapping
 from datetime import datetime, timezone, tzinfo
 from functools import lru_cache
-import json
-import os
 from pathlib import Path
-import re
-import sys
 from tempfile import NamedTemporaryFile
-import time
 from typing import Optional, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -83,7 +83,7 @@ def _format_timestamp(timestamp_text: Optional[str]) -> str:
     return local_timestamp.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def format_table(rows: list[dict]) -> str:  # pylint: disable=too-many-locals
+def format_table(rows: list[dict]) -> str:
     headers = [
         "Scenario",
         "Category/Subcategory",
@@ -100,10 +100,18 @@ def format_table(rows: list[dict]) -> str:  # pylint: disable=too-many-locals
     table = []
     for row in rows:
         if row["ok"]:
-            accuracy = f"{row['accuracy']:.1f}" if isinstance(row["accuracy"], (int, float)) else "-"
+            accuracy = (
+                f"{row['accuracy']:.1f}"
+                if isinstance(row["accuracy"], (int, float))
+                else "-"
+            )
             rank = str(row["rank"]) if row["rank"] is not None else "-"
             timestamp = _format_timestamp(row["ended_at"])
-            pb_score = f"{row['score']:.0f}" if isinstance(row["score"], (int, float)) else str(row["score"])
+            pb_score = (
+                f"{row['score']:.0f}"
+                if isinstance(row["score"], (int, float))
+                else str(row["score"])
+            )
             voltaic_rank = row.get("voltaic_rank") or "-"
             next_rank_progress = _format_next_rank_progress(row)
             energy = _format_energy(row.get("voltaic_energy"))
@@ -135,7 +143,9 @@ def format_table(rows: list[dict]) -> str:  # pylint: disable=too-many-locals
             widths[idx] = max(widths[idx], len(str(cell)))
 
     def fmt(table_row: list[str]) -> str:
-        return "  ".join(str(cell).ljust(widths[idx]) for idx, cell in enumerate(table_row))
+        return "  ".join(
+            str(cell).ljust(widths[idx]) for idx, cell in enumerate(table_row)
+        )
 
     lines = [fmt(headers), "  ".join("-" * width for width in widths)]
     lines += [fmt(table_row) for table_row in table]
@@ -186,7 +196,9 @@ def _format_grid(headers: list[str], table: list[list[str]]) -> str:
             widths[idx] = max(widths[idx], len(str(cell)))
 
     def fmt(table_row: list[str]) -> str:
-        return "  ".join(str(cell).ljust(widths[idx]) for idx, cell in enumerate(table_row))
+        return "  ".join(
+            str(cell).ljust(widths[idx]) for idx, cell in enumerate(table_row)
+        )
 
     lines = [fmt(headers), "  ".join("-" * width for width in widths)]
     lines += [fmt(table_row) for table_row in table]
@@ -249,7 +261,14 @@ def format_subcategory_energy_table(rows: list[dict]) -> str:
 def _records_for_json(rows: list[dict], include_raw: bool) -> list[dict]:
     if include_raw:
         return rows
-    return [{field_name: field_value for field_name, field_value in row.items() if field_name != "raw"} for row in rows]
+    return [
+        {
+            field_name: field_value
+            for field_name, field_value in row.items()
+            if field_name != "raw"
+        }
+        for row in rows
+    ]
 
 
 def _auth_headers_from_config(
@@ -276,7 +295,9 @@ def _auth_headers_from_config(
         )
     except aimlabs_auth.AimlabsAuthError:
         return {}
-    return {"Cookie": aimlabs_auth.session_cookie_header(resolved_session.session_cookie)}
+    return {
+        "Cookie": aimlabs_auth.session_cookie_header(resolved_session.session_cookie)
+    }
 
 
 def _warn_if_user_id_looks_unusual(user_id: str) -> None:
@@ -293,14 +314,18 @@ def _select_scenarios(difficulty: str, scenario_key: Optional[str]) -> list[dict
     if not scenario_key:
         return scenarios
 
-    selected_scenarios = [scenario for scenario in scenarios if scenario["key"] == scenario_key]
+    selected_scenarios = [
+        scenario for scenario in scenarios if scenario["key"] == scenario_key
+    ]
     if not selected_scenarios:
         raise ValueError(f"unknown scenario key: {scenario_key}")
     return selected_scenarios
 
 
 def _group_scenarios_by_difficulty(scenarios: list[dict]) -> dict[str, list[dict]]:
-    grouped_scenarios: dict[str, list[dict]] = {difficulty: [] for difficulty in DIFFICULTIES}
+    grouped_scenarios: dict[str, list[dict]] = {
+        difficulty: [] for difficulty in DIFFICULTIES
+    }
     for scenario in scenarios:
         difficulty = scenario["difficulty"]
         grouped_scenarios[difficulty].append(scenario)
@@ -311,7 +336,7 @@ def _group_scenarios_by_difficulty(scenarios: list[dict]) -> dict[str, list[dict
     }
 
 
-def _fetch_scores_with_timing(  # pylint: disable=too-many-arguments
+def _fetch_scores_with_timing(  # noqa: PLR0913
     scenarios: list[dict],
     *,
     user_id: str,
@@ -366,7 +391,7 @@ def _write_text_atomic(output_path_text: str, text: str) -> None:
             temp_path = Path(output_file.name)
             output_file.write(text)
         os.replace(temp_path, output_path)
-    except Exception:  # pylint: disable=broad-exception-caught
+    except Exception:
         if temp_path is not None and temp_path.exists():
             temp_path.unlink()
         raise
@@ -374,7 +399,9 @@ def _write_text_atomic(output_path_text: str, text: str) -> None:
 
 def _print_tables(rows: list[dict]) -> None:
     present_difficulties = [
-        difficulty for difficulty in DIFFICULTIES if any(row["difficulty"] == difficulty for row in rows)
+        difficulty
+        for difficulty in DIFFICULTIES
+        if any(row["difficulty"] == difficulty for row in rows)
     ]
     for idx, difficulty in enumerate(present_difficulties):
         difficulty_rows = [row for row in rows if row["difficulty"] == difficulty]
@@ -393,16 +420,26 @@ def _print_tables(rows: list[dict]) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Pull VT VALORANT x Aimlabs benchmark PBs.")
-    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="path to config.toml")
+    parser = argparse.ArgumentParser(
+        description="Pull VT VALORANT x Aimlabs benchmark PBs."
+    )
+    parser.add_argument(
+        "--config", default=str(DEFAULT_CONFIG_PATH), help="path to config.toml"
+    )
     parser.add_argument("--user-id", help="Aimlabs user id; overrides config.toml")
-    parser.add_argument("--difficulty", default=DEFAULT_DIFFICULTY, choices=[*DIFFICULTIES, "all"])
+    parser.add_argument(
+        "--difficulty", default=DEFAULT_DIFFICULTY, choices=[*DIFFICULTIES, "all"]
+    )
     parser.add_argument(
         "--scenario",
         help="only this scenario key; with --difficulty all, fetches every difficulty where the key appears",
     )
-    parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
-    parser.add_argument("--raw", action="store_true", help="include full entry data blobs in JSON")
+    parser.add_argument(
+        "--json", action="store_true", help="emit JSON instead of a table"
+    )
+    parser.add_argument(
+        "--raw", action="store_true", help="include full entry data blobs in JSON"
+    )
     parser.add_argument("--out", help="write JSON to this file")
     parser.add_argument("--source", default="cache")
     parser.add_argument("--timeout", type=float, default=20.0)
@@ -441,7 +478,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     extra_headers = _auth_headers_from_config()
-    deadline_at = time.monotonic() + args.run_deadline if args.run_deadline is not None else None
+    deadline_at = (
+        time.monotonic() + args.run_deadline if args.run_deadline is not None else None
+    )
 
     rows = _fetch_scores_with_timing(
         scenarios,

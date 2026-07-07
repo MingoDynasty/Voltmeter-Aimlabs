@@ -60,7 +60,7 @@ is the user's account).
 
 **Order:** `M1 → M2a → M2b → M3 (∥ after M1) → M4 → M6 → M7a → M7b`. Review+merge each before the next
 builds on it (serialize the critical path; M3 may run parallel to M2). CI gate =
-mypy/pytest/pylint/ruff; new modules → add to `[tool.setuptools] py-modules`; **fixtures
+ruff format/ruff check/mypy/pytest; new modules → add to `[tool.setuptools] py-modules`; **fixtures
 synthetic only** (never a real account dump).
 
 **Status — RECONCILE against merged PRs at the start of EACH chat** (`gh pr list --state merged`);
