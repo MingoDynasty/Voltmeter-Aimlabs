@@ -157,19 +157,6 @@ def _threshold_entries(records: list["ScenarioCatalogRecord"]) -> list[dict]:
     return sorted(entries, key=lambda entry: entry["energy"])
 
 
-def _resource_tier_for_difficulty(
-    resource_scenario: dict, difficulty: Optional[str]
-) -> Optional[dict]:
-    if difficulty is not None:
-        benchmark_tier = _tiers_by_difficulty().get(difficulty)
-        if benchmark_tier is not None:
-            tier_id = benchmark_tier["id"]
-            for resource_tier in resource_scenario["tiers"]:
-                if resource_tier["tier_id"] == tier_id:
-                    return resource_tier
-    return resource_scenario["tiers"][0] if resource_scenario.get("tiers") else None
-
-
 def _extended_thresholds(thresholds: list[float], current_tier_idx: int) -> list[float]:
     extended_thresholds = [0.0]
     if current_tier_idx != 0 and len(thresholds) >= 2:

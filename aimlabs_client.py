@@ -11,7 +11,6 @@ import requests
 from scenario_catalog import DEFAULT_TASK_MODE
 
 ENDPOINT = "https://api.aimlab.gg/graphql"
-DEFAULT_DIFFICULTY = "all"
 
 LEADERBOARD_ENTRY_QUERY = """
 query LeaderboardEntry($leaderboardInput: LeaderboardInput!) {
@@ -167,19 +166,13 @@ def fetch_one(  # noqa: PLR0913
 
 def fetch_all_scores(
     user_id: str,
-    scenarios: Optional[list[dict]] = None,
+    scenarios: list[dict],
     *,
-    difficulty: str = DEFAULT_DIFFICULTY,
     request_delay: float = 0.25,
     deadline_at: Optional[float] = None,
     **kwargs,
 ) -> list[dict]:
-    """Fetch a list of scenarios, defaulting to all difficulties."""
-    if scenarios is None:
-        from aimlab_scores import get_scenarios  # noqa: PLC0415
-
-        scenarios = get_scenarios(difficulty)
-
+    """Fetch scores for provided scenarios."""
     rows = []
     for scenario_idx, scenario in enumerate(scenarios):
         if deadline_at is not None and time.monotonic() >= deadline_at:
