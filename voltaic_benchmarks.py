@@ -6,7 +6,10 @@ import json
 from functools import lru_cache
 from math import floor
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from scenario_catalog import ScenarioCatalogRecord
 
 RESOURCE_PATH = (
     Path(__file__).resolve().parent / "resources" / "aimlabs" / "valorant_s1.json"
@@ -128,27 +131,18 @@ def _tier_energies() -> tuple[tuple[int, ...], ...]:
     )
 
 
-@lru_cache(maxsize=1)
-def _scenarios_by_key() -> dict[tuple[str, str], dict]:
-    scenarios_by_key = {}
-    for scenario in load_valorant_s1()["scenarios"]:
-        scenario_key = (scenario["task_id"], scenario["weapon_id"])
-        scenarios_by_key[scenario_key] = scenario
-    return scenarios_by_key
-
-
 def _title_rank(rank_name: Optional[str]) -> Optional[str]:
     if rank_name is None:
         return None
     return rank_name.replace("_", " ").title()
 
 
-def _threshold_entries(resource_scenario: dict) -> list[dict]:
+def _threshold_entries(records: list["ScenarioCatalogRecord"]) -> list[dict]:
     entries = []
     ranks_by_tier = _ranks_by_tier()
-    for tier in resource_scenario["tiers"]:
-        tier_ranks = ranks_by_tier.get(tier["tier_id"], [])
-        for threshold_idx, threshold in enumerate(tier["thresholds"]):
+    for record in records:
+        tier_ranks = ranks_by_tier.get(record.tier_id, [])
+        for threshold_idx, threshold in enumerate(record.thresholds):
             if threshold_idx >= len(tier_ranks):
                 continue
             rank = tier_ranks[threshold_idx]
@@ -157,7 +151,7 @@ def _threshold_entries(resource_scenario: dict) -> list[dict]:
                     "threshold": threshold,
                     "rank": _title_rank(rank["name"]),
                     "energy": rank["energy_threshold"],
-                    "tier_id": tier["tier_id"],
+                    "tier_id": record.tier_id,
                 }
             )
     return sorted(entries, key=lambda entry: entry["energy"])
@@ -241,16 +235,13 @@ def _tier_energy_cap(current_tier_idx: int) -> float:
     return float(tier_energies[current_tier_idx + 1][0] - 1)
 
 
-def _official_scenario_energies(
-    resource_scenario: dict, difficulty: Optional[str], score: float
-) -> dict:
-    resource_tier = _resource_tier_for_difficulty(resource_scenario, difficulty)
-    if resource_tier is None:
+def _official_scenario_energies(record: "ScenarioCatalogRecord", score: float) -> dict:
+    current_tier_idx = _tier_index_by_id().get(record.tier_id)
+    if current_tier_idx is None:
         return {"voltaic_energy": 0, "voltaic_uncapped_energy": 0}
 
-    current_tier_idx = _tier_index_by_id()[resource_tier["tier_id"]]
     uncapped_energy = _uncapped_scenario_energy(
-        score, resource_tier["thresholds"], current_tier_idx
+        score, list(record.thresholds), current_tier_idx
     )
     energy_cap = _tier_energy_cap(current_tier_idx)
     return {
@@ -287,7 +278,7 @@ def _energy_progress_percent(
 
 def _rank_summary_for_energy(difficulty: str, energy: float) -> dict:
     tier = _tiers_by_difficulty().get(difficulty)
-    result = {
+    result: dict[str, object] = {
         "rank": "Unranked",
         "rank_energy": 0,
         "next_rank": None,
@@ -319,6 +310,32 @@ def _rank_summary_for_energy(difficulty: str, energy: float) -> dict:
     return result
 
 
+def _catalog_records_for_scenario(
+    scenario: dict,
+) -> tuple[Optional["ScenarioCatalogRecord"], list["ScenarioCatalogRecord"]]:
+    task_id = scenario.get("task_id")
+    weapon_id = scenario.get("weapon_id")
+    if not isinstance(task_id, str) or not isinstance(weapon_id, str):
+        return None, []
+
+    from scenario_catalog import load_catalog  # noqa: PLC0415
+
+    records = [
+        record
+        for record in load_catalog().records_for_task_id(task_id)
+        if record.weapon_id == weapon_id
+    ]
+    if not records:
+        return None, []
+
+    scenario_difficulty = scenario.get("difficulty")
+    if isinstance(scenario_difficulty, str):
+        for record in records:
+            if record.difficulty == scenario_difficulty:
+                return record, records
+    return records[0], records
+
+
 def _harmonic_mean(values: list[float]) -> float:
     if not values or any(value <= 0 for value in values):
         return 0.0
@@ -327,14 +344,9 @@ def _harmonic_mean(values: list[float]) -> float:
 
 def evaluate_score(scenario: dict, score: Optional[float]) -> dict:
     """Return Voltaic rank/progress/energy metadata for a fetched score row."""
-    task_id = scenario.get("task_id")
-    weapon_id = scenario.get("weapon_id")
-    if isinstance(task_id, str) and isinstance(weapon_id, str):
-        resource_scenario = _scenarios_by_key().get((task_id, weapon_id))
-    else:
-        resource_scenario = None
-    result = {
-        "voltaic_scenario": resource_scenario["name"] if resource_scenario else None,
+    record, records = _catalog_records_for_scenario(scenario)
+    result: dict[str, object] = {
+        "voltaic_scenario": f"VT {record.name}" if record else None,
         "voltaic_rank": None,
         "voltaic_rank_energy": None,
         "voltaic_energy": None,
@@ -343,10 +355,10 @@ def evaluate_score(scenario: dict, score: Optional[float]) -> dict:
         "next_rank_target_score": None,
         "next_rank_progress_percent": None,
     }
-    if resource_scenario is None or not isinstance(score, (int, float)):
+    if record is None or not isinstance(score, (int, float)):
         return result
 
-    threshold_entries = _threshold_entries(resource_scenario)
+    threshold_entries = _threshold_entries(records)
     current_entry = None
     next_entry = None
     for threshold_entry in threshold_entries:
@@ -358,11 +370,7 @@ def evaluate_score(scenario: dict, score: Optional[float]) -> dict:
 
     result["voltaic_rank"] = current_entry["rank"] if current_entry else "Unranked"
     result["voltaic_rank_energy"] = current_entry["energy"] if current_entry else 0
-    result.update(
-        _official_scenario_energies(
-            resource_scenario, scenario.get("difficulty"), float(score)
-        )
-    )
+    result.update(_official_scenario_energies(record, float(score)))
     if next_entry is not None:
         result["next_rank"] = next_entry["rank"]
         result["next_rank_target_score"] = next_entry["threshold"]

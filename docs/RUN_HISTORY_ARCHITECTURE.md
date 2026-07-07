@@ -224,7 +224,7 @@ Built **into the package**, reusing existing modules. New modules:
 
 Keep `aimlabs_history.py` **stateless and separate** from `history_sync.py` (per review) so
 pagination/parse logic is trivially testable. **Reused as-is:** `aimlabs_client.py`,
-`voltaic_benchmarks.py` + `benchmark_constants.py`, `config.py` (extended, §11). New modules
+`voltaic_benchmarks.py`, `config.py` (extended, §11). New modules
 must be added to `[tool.setuptools] py-modules` in `pyproject.toml`.
 
 **Single-writer assumption:** one process at a time. We rely on SQLite file locking but do not

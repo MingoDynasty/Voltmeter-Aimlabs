@@ -18,6 +18,7 @@ from voltaic_benchmarks import (
 DEFAULT_RESOURCE_DIR = Path(__file__).resolve().parent / "resources" / "aimlabs"
 DEFAULT_TASK_MODE = 42
 DIFFICULTY_ORDER = {"novice": 0, "intermediate": 1, "advanced": 2}
+DIFFICULTIES = tuple(DIFFICULTY_ORDER)
 UNKNOWN_VALUE = "unknown"
 UNKNOWN_SCENARIO_NAME = "Unknown scenario"
 
@@ -30,17 +31,30 @@ class ScenarioCatalogError(RuntimeError):
 class ScenarioCatalogRecord:
     task_id: str
     weapon_id: str
+    task_mode: int
     name: str
     category: str
     sub: str
     difficulty: str
+    tier_id: int
+    thresholds: tuple[float, ...]
     season: str
     benchmark_alias: str
     benchmark_name: str
     family: str
     is_active: bool
     has_leaderboards: bool
+    source_scenario_idx: int = 0
+    source_tier_idx: int = 0
     is_known: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class _ScenarioRecordContext:
+    categories_by_id: dict[int, str]
+    subcategories_by_id: dict[int, str]
+    source_scenario_idx: int
+    source_tier_idx: int
 
 
 class ScenarioCatalog:
@@ -98,10 +112,13 @@ def unknown_scenario_record(task_id: str) -> ScenarioCatalogRecord:
     return ScenarioCatalogRecord(
         task_id=task_id,
         weapon_id=UNKNOWN_VALUE,
+        task_mode=DEFAULT_TASK_MODE,
         name=UNKNOWN_SCENARIO_NAME,
         category=UNKNOWN_VALUE,
         sub=UNKNOWN_VALUE,
         difficulty=UNKNOWN_VALUE,
+        tier_id=0,
+        thresholds=(),
         season=UNKNOWN_VALUE,
         benchmark_alias=UNKNOWN_VALUE,
         benchmark_name=UNKNOWN_SCENARIO_NAME,
@@ -166,8 +183,8 @@ def _records_from_resource(resource_data: dict) -> tuple[ScenarioCatalogRecord, 
     categories_by_id, subcategories_by_id = category_maps(resource_data)
     difficulties_by_tier_id = difficulty_maps(resource_data)
     records: list[ScenarioCatalogRecord] = []
-    for resource_scenario in resource_data["scenarios"]:
-        for tier in resource_scenario["tiers"]:
+    for scenario_idx, resource_scenario in enumerate(resource_data["scenarios"]):
+        for tier_idx, tier in enumerate(resource_scenario["tiers"]):
             difficulty = tier_difficulty(
                 difficulties_by_tier_id, tier, resource_scenario
             )
@@ -175,9 +192,14 @@ def _records_from_resource(resource_data: dict) -> tuple[ScenarioCatalogRecord, 
                 _scenario_record(
                     resource_data,
                     resource_scenario,
-                    difficulty=difficulty,
-                    categories_by_id=categories_by_id,
-                    subcategories_by_id=subcategories_by_id,
+                    tier,
+                    difficulty,
+                    _ScenarioRecordContext(
+                        categories_by_id=categories_by_id,
+                        subcategories_by_id=subcategories_by_id,
+                        source_scenario_idx=scenario_idx,
+                        source_tier_idx=tier_idx,
+                    ),
                 )
             )
     return tuple(records)
@@ -186,10 +208,9 @@ def _records_from_resource(resource_data: dict) -> tuple[ScenarioCatalogRecord, 
 def _scenario_record(
     resource_data: dict,
     resource_scenario: dict,
-    *,
+    tier: dict,
     difficulty: str,
-    categories_by_id: dict[int, str],
-    subcategories_by_id: dict[int, str],
+    context: _ScenarioRecordContext,
 ) -> ScenarioCatalogRecord:
     task_id = resource_scenario.get("task_id")
     weapon_id = resource_scenario.get("weapon_id")
@@ -201,16 +222,21 @@ def _scenario_record(
     return ScenarioCatalogRecord(
         task_id=task_id,
         weapon_id=weapon_id,
+        task_mode=resource_scenario.get("task_mode", DEFAULT_TASK_MODE),
         name=_display_name(resource_scenario["name"]),
-        category=lookup_label(categories_by_id, "category", resource_scenario),
-        sub=lookup_label(subcategories_by_id, "subcategory", resource_scenario),
+        category=lookup_label(context.categories_by_id, "category", resource_scenario),
+        sub=lookup_label(context.subcategories_by_id, "subcategory", resource_scenario),
         difficulty=difficulty,
+        tier_id=tier["tier_id"],
+        thresholds=tuple(tier["thresholds"]),
         season=str(resource_data["season"]),
         benchmark_alias=resource_data["alias"],
         benchmark_name=resource_data["name"],
         family=_derive_family(resource_data),
         is_active=bool(resource_data["is_active"]),
         has_leaderboards=bool(resource_data["has_leaderboards"]),
+        source_scenario_idx=context.source_scenario_idx,
+        source_tier_idx=context.source_tier_idx,
     )
 
 
@@ -285,7 +311,16 @@ def _source_sort_key(source_key: tuple[str, str]) -> tuple[int, str, str]:
 
 def _record_sort_key(
     record: ScenarioCatalogRecord,
-) -> tuple[int, str, str, str, int, str]:
+) -> tuple[int, str, str, int, int, str, int, str]:
     season_number, season, alias = _source_sort_key(_source_key(record))
     difficulty_idx = DIFFICULTY_ORDER.get(record.difficulty, len(DIFFICULTY_ORDER))
-    return season_number, season, alias, record.name, difficulty_idx, record.task_id
+    return (
+        season_number,
+        season,
+        alias,
+        record.source_scenario_idx,
+        record.source_tier_idx,
+        record.name,
+        difficulty_idx,
+        record.task_id,
+    )
