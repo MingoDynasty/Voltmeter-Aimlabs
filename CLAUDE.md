@@ -84,12 +84,18 @@ when a milestone merges (don't rely on it being current when you arrive):
   retired, README/docs/ci.yml swept, `docs/example_output.log` regenerated live, full-catalog
   parity goldens (`tests/fixtures/scores_full_catalog_{table,json}_golden.json`) captured as
   **M7b's regression baseline** (#45; review trail `ignore/pr-reviews/pr45-review.md`, LGTM
-  after two re-reviews). **M7b** ⬜ scenario-metadata unification — retire
-  `benchmark_constants.py` (rehome its non-metadata exports, e.g. `DEFAULT_DIFFICULTY`), tier
-  thresholds **directly on `ScenarioCatalogRecord`**, scores-layer label/slug derivation, s2/s3
-  gated on `has_leaderboards` — **next up**; Codex handoff = vault note "Voltmeter-Aimlabs —
-  Audit 2026-07-04 — handoff prompts", **Prompt 4** (pr45-review P4 notes: exit-code 2-vs-1
-  harmonization and adapter default absorption stay post-M7b/optional).
+  after two re-reviews). **M7b** ✅ scenario-metadata unification (#48) — `benchmark_constants.py`
+  retired (+ its test); `task_mode`/`tier_id`/`thresholds`/source-order **directly on
+  `ScenarioCatalogRecord`**; scores-layer label/slug derivation moved into `aimlab_scores`.
+  **s2/s3 NOT exposed** — gated on `has_leaderboards` **and** a
+  `SCORES_BENCHMARK_ALIASES = ("valorant_s1",)` allowlist (s3 self-reports `has_leaderboards:
+  true`, so the flag alone would leak 54 scenarios; live-endpoint confirmation stays a user
+  follow-up). Review trail `ignore/pr-reviews/pr48-review.md`, LGTM after one re-review; the M7a
+  parity goldens stayed untouched end-to-end. **Open follow-up (P4):** `voltaic_benchmarks`
+  rank/energy tables still load valorant_s1 only while all three resources reuse tier ids 2/3/4 —
+  generalize those tables before enabling s2/s3 (else s3 would silently score against s1
+  thresholds). Post-M7b optional carry-overs unchanged: exit-code 2-vs-1 harmonization, adapter
+  default absorption.
 - _M6 was split 2026-06-12 (user decision; supersedes the single-M6 row in design §14):
   **M6a** = wire the remaining CLI verbs + sync-side pieces, code only; **M6b** = retire
   `proof-of-concepts/` scripts, reconcile `README.md`/`config.example.toml` onto
@@ -101,11 +107,13 @@ when a milestone merges (don't rely on it being current when you arrive):
   warnings to the caller's `warning_stream` (PR #20); and the **legacy `session_cookie`/`AIMLABS_COOKIE`
   channels** were **removed outright** in M6b (no users pre-release), which also resolved the design
   §4/§11-vs-§12 wording inconsistency by deletion (decision 7 updated)._
-- _Last reconciled: 2026-07-06 (Claude Code); #41 (scheduling bless) and **M7a as #45** merged
-  this date, plus maintenance: Linux CI matrix #40, Dependabot batch #42–#44. M7b is the only
-  open milestone (M5/trend still deferred); Prompt 4 handoff written. NB: PR #46 (tooling swap)
-  went CONFLICTING when #45 merged — per plan it gets regenerated, not rebased; sequence it
-  around M7b deliberately (both churn pyproject/ci.yml)._
+- _Last reconciled: 2026-07-07 (Claude Code); **M7b as #48** merged this date (review trail
+  `ignore/pr-reviews/pr48-review.md`), and **#46 tooling swap merged** 2026-07-07 as
+  `python-tooling-v2` — the regenerated PR, no longer CONFLICTING; `ci.yml` is now the cross-repo
+  ruff-format/ruff-check/mypy/pytest spec with **no per-file target lists** (so new modules no
+  longer need adding to CI file lists, only to `[tool.setuptools] py-modules`). **All planned
+  milestones are now merged; only M5/trend remains deferred** (§10.3/§16). Prior reconcile
+  2026-07-06: #41 (scheduling bless) + M7a as #45; maintenance #40/#42–#44._
 - (`M1_BRIEF.md` was vestigial — briefs were dropped; design §14 is the spec — and was deleted
   2026-06-12; recoverable from git history. **Docs finalization — done in M6b:**
   `RUN_HISTORY_ARCHITECTURE.md` + `ARCHITECTURE.md` promoted to `docs/`; `REVIEW_CHECKLIST.md`
