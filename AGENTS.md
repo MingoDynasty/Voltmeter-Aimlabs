@@ -46,6 +46,13 @@ uv run pytest
 
 `ruff format` wraps at 88 characters, while Ruff's E501 rule enforces a 120-character hard ceiling. `ruff check .` is full-repo in CI. The proof-of-concept Python scripts were retired in M6b, so full-repo checks no longer flag untouched POC noise; the remaining `proof-of-concepts/` contents are gitignored local data and are not linted.
 
+## Dependency Updates
+
+- Dependency and toolchain updates are made by hand. No bot opens update PRs: the cross-repo tooling spec rules them out, so this repository has no `.github/dependabot.yml`.
+- Follow Corporate-Serf-Dashboard's [dependency refresh playbook](https://github.com/MingoDynasty/Corporate-Serf-Dashboard/blob/main/docs/dependency_refresh.md), which the spec names for every Python repository that follows it. Skip its steps for things this repository does not have, such as vendored browser libraries and a release job.
+- The pinned GitHub Actions move only through the tooling spec, never in this repository alone.
+- `.github/workflows/audit.yml` runs `uv audit` against `uv.lock` every Monday and on demand, never on a pull request. Fix a finding by hand, as its own PR (`uv lock --upgrade-package <name>`).
+
 ## Coding Standards
 
 Follow `CODING_STANDARDS.md`.
